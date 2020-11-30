@@ -1,0 +1,70 @@
+# search space for graphsage on amazon_computers amazon_photo coauthor_cs coauthor_physics
+feature:
+  - name: PYGNormalizeFeatures
+
+models:
+  gcn:
+    - parameterName: num_layers
+      type: DISCRETE
+      feasiblePoints: '2,3'
+    
+    - parameterName: hidden
+      type: NUMERICAL_LIST
+      numericalType: INTEGER
+      length: 2
+      minValue: [32,128]
+      maxValue: [32,128]
+      cutPara: ["num_layers"]
+      cutFunc: "lambda x:x[0] - 1"
+      scalingType: LOG
+    
+    - parameterName: dropout
+      type: DOUBLE
+      maxValue: 0.8
+      minValue: 0.2
+      scalingType: LINEAR
+
+    - parameterName: agg, 
+      type: CATEGORICAL,
+      feasiblePoints": 
+        - mean
+    
+    - parameterName: act
+      type: CATEGORICAL
+      feasiblePoints:
+        - leaky_relu
+        - relu
+        - elu
+        - tanh
+
+trainer:
+  - parameterName: max_epoch
+    type: INTEGER
+    maxValue: 300
+    minValue: 100
+    scalingType: LINEAR
+  
+  - parameterName: early_stopping_round
+    type: INTEGER
+    maxValue: 30
+    minValue: 10
+    scalingType: LINEAR
+
+  - parameterName: lr
+    type: DOUBLE
+    maxValue: 0.05
+    minValue: 0.01
+    scalingType: LOG
+  
+  - parameterName: weight_decay
+    type: DOUBLE
+    maxValue: 0.0005
+    minValue: 0.0001
+    scalingType: LOG
+
+hpo:
+  name: random
+  max_evals: 10
+
+ensemble:
+  name: ~

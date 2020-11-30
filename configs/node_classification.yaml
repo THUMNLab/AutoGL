@@ -1,0 +1,70 @@
+feature:
+  - name: PYGNormalizeFeatures
+  - name: pagerank
+
+models:
+  gat:
+    - parameterName: num_layers
+      type: DISCRETE
+      feasiblePoints: '2,3,4'
+
+    - parameterName: heads
+      type: DISCRETE
+      feasiblePoints: '4,8,16'
+    
+    - parameterName: hidden
+      type: NUMERICAL_LIST
+      numericalType: INTEGER
+      length: 3
+      minValue: [8, 8, 8]
+      maxValue: [64, 64, 64]
+      cutPara: ["num_layers"]
+      cutFunc: "lambda x:x[0] - 1"
+      scalingType: LOG
+    
+    - parameterName: dropout
+      type: DOUBLE
+      maxValue: 0.9
+      minValue: 0.1
+      scalingType: LINEAR
+    
+    - parameterName: act
+      type: CATEGORICAL
+      feasiblePoints:
+        - leaky_relu
+        - relu
+        - elu
+        - tanh
+
+trainer:
+  - parameterName: max_epoch
+    type: INTEGER
+    maxValue: 300
+    minValue: 10
+    scalingType: LINEAR
+  
+  - parameterName: early_stopping_round
+    type: INTEGER
+    maxValue: 30
+    minValue: 10
+    scalingType: LINEAR
+
+  - parameterName: lr
+    type: DOUBLE
+    maxValue: 0.1
+    minValue: 0.0001
+    scalingType: LOG
+  
+  - parameterName: weight_decay
+    type: DOUBLE
+    maxValue: 0.005
+    minValue: 0.00005
+    scalingType: LOG
+
+hpo:
+  name: anneal
+  max_evals: 10
+
+ensemble:
+  name: voting
+  size: 2
