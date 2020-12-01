@@ -87,7 +87,7 @@ pip install -e .
 
 ## Documentation
 
-Please refer to our documentation website to see the detailed documentation.
+Please refer to our <a href="https://autogl.readthedocs.io/en/latest/index.html">documentation</a> to see the detailed documentation.
 
 You can also make the documentation locally. First, please install sphinx and sphinx-rtd-theme:
 ```
