@@ -1,7 +1,7 @@
 .. _trainer:
 
 AutoGL Trainer
-==================
+==============
 
 AutoGL project use ``trainer`` to handle the auto-training of tasks. Currently, we support the following tasks:
 

@@ -1,7 +1,7 @@
 .. _dataset:
 
 AutoGL Dataset
-==================
+==============
 
 We import the module of datasets from `CogDL` and `PyTorch Geometric` and add support for datasets from `OGB`. One can refer to the usage of creating and building datasets via the tutorial of `CogDL`_, `PyTorch Geometric`_, and `OGB`_.
 

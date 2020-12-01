@@ -1,7 +1,7 @@
 .. _model:
 
 AutoGL Model
-================
+============
 
 AutoGL project uses ``model`` to define the common graph nerual networks and ``automodel`` to denote the relative class that includes some auto functions. Currently, we support the following models and automodels:
 

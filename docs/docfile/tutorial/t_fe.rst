@@ -1,7 +1,7 @@
 .. _fe:
 
-Feature Engineering
-===================
+AutoGL Feature Engineering
+==========================
 
 We provide a series of node and subgraph feature engineers for 
 you to compose within a feature engineering pipeline. An automatic
@@ -46,7 +46,7 @@ in configurations or as arguments of the autogl solver.
 +===========================+=================================================+
 | ``graphlet``              | concatenate local graphlet numbers as features. |
 +---------------------------+-------------------------------------------------+
-| ``mf``                    | concatenate Eigen features.       |
+| ``eigen``                 | concatenate Eigen features.                     |
 +---------------------------+-------------------------------------------------+
 | ``pagerank``              | concatenate Pagerank scores.                    |
 +---------------------------+-------------------------------------------------+

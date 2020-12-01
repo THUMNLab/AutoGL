@@ -6,7 +6,7 @@ This tutorial will help you quickly go through the concepts and usages of import
 .. _Cora: https://graphsandnetworks.com/the-cora-dataset/
 
 AutoGL Learning
--------------------
+---------------
 
 Based on the concept of autoML, auto graph learning aims at **automatically** solve tasks with data represented by graphs. Unlike conventional learning frameworks, auto graph learning, like autoML, does not need humans inside the experiment loop. You only need to provide the datasets and tasks to the AutoGL solver. This framework will automatically find suitable methods and hyperparameters for you.
 
