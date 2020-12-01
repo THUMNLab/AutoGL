@@ -63,9 +63,7 @@ Please make sure you meet the following requirements before installing AutoGL.
 
 #### Install from pip
 
-```
-pip install autogl
-```
+Comming soon!
 
 #### Install from source
 
