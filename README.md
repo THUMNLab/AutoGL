@@ -63,7 +63,11 @@ Please make sure you meet the following requirements before installing AutoGL.
 
 #### Install from pip
 
-Comming soon!
+Run the following command to install this package through `pip`.
+
+```
+pip install auto-graph-learning
+```
 
 #### Install from source
 

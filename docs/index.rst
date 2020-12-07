@@ -41,7 +41,11 @@ Installation
 Install from pip & conda
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-TODO: will be accessible after development.
+Run the following command to install this package through pip.
+
+.. code-block:: shell
+
+   pip install auto-graph-learning
 
 Install from source
 ^^^^^^^^^^^^^^^^^^^

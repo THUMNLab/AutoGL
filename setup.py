@@ -27,8 +27,8 @@ with open("README.md", 'r') as fh:
 ''' https://packaging.python.org/guides/distributing-packages-using-setuptools/ '''
 ''' https://setuptools.readthedocs.io/en/latest/ '''
 setup(
-    name='autogl',
-    version='0.1.0',
+    name='auto-graph-learning',
+    version='0.1.0-20201207185314',
     author='THUMNLab/aglteam',
     maintainer='THUMNLab/aglteam',
     author_email='xin_wang@tsinghua.edu.cn',
