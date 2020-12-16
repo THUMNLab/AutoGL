@@ -288,18 +288,17 @@ class AutoNodeClassifier(BaseClassifier):
         if self.feature_module is not None:
             dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
 
-        data = dataset[0]
-        assert data.x is not None, (
+        self.dataset = dataset
+        assert self.dataset[0].x is not None, (
             "Does not support fit on non node-feature dataset!"
             " Please add node features to dataset or specify feature engineers that generate"
             " node features."
         )
-        self.data = data
 
         # initialize graph networks
         self._init_graph_module(
             self.gml,
-            num_features=data.x.shape[1],
+            num_features=self.dataset[0].x.shape[1],
             num_classes=dataset.num_classes,
             feval=evaluator_list,
             device=self.runtime_device,
@@ -319,7 +318,7 @@ class AutoNodeClassifier(BaseClassifier):
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=data, time_limit=time_for_each_model
+                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
@@ -342,7 +341,7 @@ class AutoNodeClassifier(BaseClassifier):
         if self.ensemble_module is not None:
             performance = self.ensemble_module.fit(
                 result_valid,
-                data.y[data.val_mask].cpu().numpy(),
+                self.dataset[0].y[self.dataset[0].val_mask].cpu().numpy(),
                 names,
                 evaluator_list,
                 n_classes=dataset.num_classes,
@@ -489,14 +488,12 @@ class AutoNodeClassifier(BaseClassifier):
             the number of classes. The prediction on given dataset.
         """
         if dataset is None:
-            data = self.data
-            assert data is not None, (
+            dataset = self.dataset
+            assert dataset is not None, (
                 "Please execute fit() first before" " predicting on remembered dataset"
             )
         elif not inplaced and self.feature_module is not None:
-            data = self.feature_module.transform(dataset, inplace=inplace)[0]
-        else:
-            data = dataset[0]
+            dataset = self.feature_module.transform(dataset, inplace=inplace)
 
         if use_ensemble:
             LOGGER.info("Ensemble argument on, will try using ensemble model.")
@@ -514,7 +511,7 @@ class AutoNodeClassifier(BaseClassifier):
             names = []
             for model_name in self.trained_models:
                 predict_result.append(
-                    self._predict_proba_by_name(data, model_name, mask)
+                    self._predict_proba_by_name(dataset, model_name, mask)
                 )
                 names.append(model_name)
             return self.ensemble_module.ensemble(predict_result, names)
@@ -528,11 +525,11 @@ class AutoNodeClassifier(BaseClassifier):
         if use_best or (use_ensemble and self.ensemble_module is None):
             # just return the best model we have found
             name = self.leaderboard.get_best_model()
-            return self._predict_proba_by_name(data, name, mask)
+            return self._predict_proba_by_name(dataset, name, mask)
 
         if name is not None:
             # return model performance by name
-            return self._predict_proba_by_name(data, name, mask)
+            return self._predict_proba_by_name(dataset, name, mask)
 
         LOGGER.error(
             "No model name is given while ensemble and best arguments are off."
