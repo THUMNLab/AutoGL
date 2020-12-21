@@ -17,7 +17,7 @@ DATASET_DICT = {}
 
 def register_dataset(name):
     """
-    New dataset types can be added to autograph with the :func:`register_dataset`
+    New dataset types can be added to autogl with the :func:`register_dataset`
     function decorator.
 
     For example::
@@ -37,7 +37,7 @@ def register_dataset(name):
             pyg and not issubclass(cls, torch_geometric.data.Dataset)
         ):
             raise ValueError(
-                "Dataset ({}: {}) must extend autograph.data.Dataset".format(
+                "Dataset ({}: {}) must extend autogl.data.Dataset".format(
                     name, cls.__name__
                 )
             )
@@ -105,17 +105,6 @@ from .utils import (
     graph_random_splits,
     graph_get_split,
 )
-
-"""
-# automatically import any Python files in the datasets/ directory
-for file in os.listdir(os.path.dirname(__file__)):
-    if file.endswith(".py") and not file.startswith("_"):
-        dataset_name = file[: file.find(".py")]
-        if not pyg and dataset_name.startswith("pyg"):
-            continue
-        module = importlib.import_module("autograph.datasets." + dataset_name)
-"""
-
 
 def build_dataset(args, path="~/.cache-autogl/"):
     path = osp.join(path, "data", args.dataset)
