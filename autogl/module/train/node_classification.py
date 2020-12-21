@@ -191,7 +191,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.NodeClassificationTrainer``
+        self: ``autogl.train.NodeClassificationTrainer``
             A reference of current trainer.
 
         """
@@ -261,7 +261,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.NodeClassificationTrainer``
+        self: ``autogl.train.NodeClassificationTrainer``
             A reference of current trainer.
 
         """
@@ -456,7 +456,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.NodeClassificationTrainer``
+        self: ``autogl.train.NodeClassificationTrainer``
             A new instance of trainer.
 
         """
