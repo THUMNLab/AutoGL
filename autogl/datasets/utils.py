@@ -4,12 +4,12 @@ from torch_geometric.data import DataLoader
 from sklearn.model_selection import StratifiedKFold
 
 
-def get_label_number(data):
+def get_label_number(dataset):
     r"""Get the number of labels in this dataset as dict."""
     label_num = {}
-    labels = data.y.unique().cpu().detach().numpy().tolist()
+    labels = dataset.data.y.unique().cpu().detach().numpy().tolist()
     for label in labels:
-        label_num[label] = (data.y == label).sum().item()
+        label_num[label] = (dataset.data.y == label).sum().item()
     return label_num
 
 
@@ -19,7 +19,7 @@ def index_to_mask(index, size):
     return mask
 
 
-def random_splits_mask(data, train_ratio=0.2, val_ratio=0.4, seed=None):
+def random_splits_mask(dataset, train_ratio=0.2, val_ratio=0.4, seed=None):
     r"""If the data has masks for train/val/test, return the splits with specific ratio.
 
     Parameters
@@ -37,6 +37,7 @@ def random_splits_mask(data, train_ratio=0.2, val_ratio=0.4, seed=None):
     assert (
         train_ratio + val_ratio <= 1
     ), "the sum of train_ratio and val_ratio is larger than 1"
+    data = dataset[0]
     r_s = torch.get_rng_state()
     if torch.cuda.is_available():
         r_s_cuda = torch.cuda.get_rng_state()
@@ -61,11 +62,15 @@ def random_splits_mask(data, train_ratio=0.2, val_ratio=0.4, seed=None):
     if torch.cuda.is_available():
         torch.cuda.set_rng_state(r_s_cuda)
 
-    return data
+    dataset.data, dataset.slices = dataset.collate([d for d in dataset])
+    # while type(dataset.data.num_nodes) == list:
+    #    dataset.data.num_nodes = dataset.data.num_nodes[0]
+    # dataset.data.num_nodes = dataset.data.num_nodes[0]
+    return dataset
 
 
 def random_splits_mask_class(
-    data,
+    dataset,
     num_train_per_class=20,
     num_val_per_class=30,
     num_val=None,
@@ -97,6 +102,8 @@ def random_splits_mask_class(
     seed : int
         random seed for splitting dataset.
     """
+    data = dataset[0]
+
     r_s = torch.get_rng_state()
     if torch.cuda.is_available():
         r_s_cuda = torch.cuda.get_rng_state()
@@ -152,7 +159,12 @@ def random_splits_mask_class(
     torch.set_rng_state(r_s)
     if torch.cuda.is_available():
         torch.cuda.set_rng_state(r_s_cuda)
-    return data
+
+    dataset.data, dataset.slices = dataset.collate([d for d in dataset])
+    # while type(dataset.data.num_nodes) == list:
+    #     dataset.data.num_nodes = dataset.data.num_nodes[0]
+    # dataset.data.num_nodes = dataset.data.num_nodes[0]
+    return dataset
 
 
 def graph_cross_validation(dataset, n_splits=10, shuffle=True, random_seed=42):
