@@ -174,7 +174,7 @@ class BaseHPOptimizer:
                     elif val > old_para["maxValue"]:
                         val = old_para["maxValue"]
                 if old_para["type"] == "INTEGER":
-                    val = round(val)
+                    val = int(round(val))
                 externel_para[name] = val
                 trial_para[name] = (
                     val if old_para["scalingType"] != "LOG" else math.log(val)
