@@ -46,7 +46,7 @@ if __name__ == '__main__':
     if args.dataset in ['cora', 'citeseer', 'pubmed']:
         autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc])
     else:
-        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc], seed=seed, train_split=20*dataset.num_classes, val_split=30*dataset.num_classes)
+        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc], seed=seed, train_split=20*dataset.num_classes, val_split=30*dataset.num_classes, balanced=False)
     val = autoClassifier.get_model_by_performance(0)[0].get_valid_score()[0]
     print('val acc: ', val)
 
