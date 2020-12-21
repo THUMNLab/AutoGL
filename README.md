@@ -36,7 +36,7 @@ Currently, the following algorithms are supported in AutoGL:
         <td><b>Generators</b><br>graphlet <br> eigen <br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Subgraph</b><br> netlsd<br> NxAverageClustering<br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a></td>
         <td><b>Node Classification</b><br> GCN <br> GAT <br> GraphSAGE <br><br><b>Graph Classification</b><br> GIN <br> TopKPool </td>
         <td> Grid <br> Random <br> Anneal <br> Bayes <br> CAMES <br> MOCAMES <br> Quasi random <br> TPE <br> AutoNE </td>
-        <td> Voting </td>
+        <td> Voting <br> Stacking </td>
     </tr>
     </tbody>
 </table>
