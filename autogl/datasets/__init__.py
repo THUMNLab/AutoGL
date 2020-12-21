@@ -1,6 +1,7 @@
 import os.path as osp
 import importlib
 import os
+import torch
 from ..data.dataset import Dataset
 
 
@@ -122,10 +123,16 @@ def build_dataset(args, path="~/.cache-autogl/"):
     return DATASET_DICT[args.dataset](path)
 
 
-def build_dataset_from_name(dataset, path="~/.cache-autogl/"):
-    path = osp.join(path, "data", dataset)
+def build_dataset_from_name(dataset_name, path="~/.cache-autogl/"):
+    path = osp.join(path, "data", dataset_name)
     path = os.path.expanduser(path)
-    return DATASET_DICT[dataset](path)
+    dataset = DATASET_DICT[dataset_name](path)
+    if 'ogbn' in dataset_name:
+        #dataset.data, dataset.slices = dataset.collate([dataset.data])
+        #dataset.data.num_nodes = dataset.data.num_nodes[0]
+        if dataset.data.y.shape[-1] == 1:
+            dataset.data.y = torch.squeeze(dataset.data.y)
+    return dataset
 
 
 __all__ = [

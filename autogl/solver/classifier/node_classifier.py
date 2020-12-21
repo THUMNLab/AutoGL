@@ -262,19 +262,17 @@ class AutoNodeClassifier(BaseClassifier):
                 )
                 val_split = val_split if val_split > 1 else int(val_split * size)
                 utils.random_splits_mask_class(
-                    dataset.data,
+                    dataset,
                     num_train_per_class=train_split // dataset.num_classes,
                     num_val_per_class=val_split // dataset.num_classes,
                     seed=seed,
                 )
-                dataset.data, dataset.slices = dataset.collate([dataset.data])
             else:
                 train_split = train_split if train_split < 1 else train_split / size
                 val_split = val_split if val_split < 1 else val_split / size
                 utils.random_splits_mask(
-                    dataset.data, train_ratio=train_split, val_ratio=val_split
+                    dataset, train_ratio=train_split, val_ratio=val_split
                 )
-                dataset.data, dataset.slices = dataset.collate([dataset.data])
         else:
             assert hasattr(dataset.data, "train_mask") and hasattr(
                 dataset.data, "val_mask"
