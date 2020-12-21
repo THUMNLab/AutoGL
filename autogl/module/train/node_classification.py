@@ -218,7 +218,7 @@ class NodeClassificationTrainer(BaseTrainer):
                 feval = self.feval[0]
             else:
                 feval = self.feval
-            val_loss = self.evaluate(data, mask=data.val_mask, feval=feval)
+            val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
             if feval.is_higher_better() is True:
                 val_loss = -val_loss
             self.early_stopping(val_loss, self.model.model)
