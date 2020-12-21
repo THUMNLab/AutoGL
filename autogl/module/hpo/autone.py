@@ -45,9 +45,9 @@ class AutoNE(BaseHPOptimizer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.max_evals = kwargs.get("max_evals", 3)
-        self.subgraphs = kwargs.get("subgraphs", 2)
-        self.sub_evals = kwargs.get("sub_evals", 2)
+        self.max_evals = kwargs.get("max_evals", 100)
+        self.subgraphs = kwargs.get("subgraphs", 5)
+        self.sub_evals = kwargs.get("sub_evals", 5)
         self.sample_batch_size = kwargs.get("sample_batch_size", 150)
         self.sample_walk_length = kwargs.get("sample_walk_length", 2)
 
