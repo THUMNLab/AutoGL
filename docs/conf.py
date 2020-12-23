@@ -23,7 +23,7 @@ copyright = '2020, THUMNLab/aglteam'
 author = 'THUMNLab/aglteam'
 
 # The full version, including alpha/beta/rc tags
-release = 'v0.1.0'
+release = 'v0.1.1'
 
 
 # -- General configuration ---------------------------------------------------
