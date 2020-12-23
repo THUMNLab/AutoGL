@@ -1,6 +1,7 @@
 import os.path as osp
 import importlib
 import os
+import torch
 from ..data.dataset import Dataset
 
 
@@ -16,7 +17,7 @@ DATASET_DICT = {}
 
 def register_dataset(name):
     """
-    New dataset types can be added to autograph with the :func:`register_dataset`
+    New dataset types can be added to autogl with the :func:`register_dataset`
     function decorator.
 
     For example::
@@ -36,7 +37,7 @@ def register_dataset(name):
             pyg and not issubclass(cls, torch_geometric.data.Dataset)
         ):
             raise ValueError(
-                "Dataset ({}: {}) must extend autograph.data.Dataset".format(
+                "Dataset ({}: {}) must extend autogl.data.Dataset".format(
                     name, cls.__name__
                 )
             )
@@ -105,27 +106,22 @@ from .utils import (
     graph_get_split,
 )
 
-"""
-# automatically import any Python files in the datasets/ directory
-for file in os.listdir(os.path.dirname(__file__)):
-    if file.endswith(".py") and not file.startswith("_"):
-        dataset_name = file[: file.find(".py")]
-        if not pyg and dataset_name.startswith("pyg"):
-            continue
-        module = importlib.import_module("autograph.datasets." + dataset_name)
-"""
-
-
 def build_dataset(args, path="~/.cache-autogl/"):
     path = osp.join(path, "data", args.dataset)
     path = os.path.expanduser(path)
     return DATASET_DICT[args.dataset](path)
 
 
-def build_dataset_from_name(dataset, path="~/.cache-autogl/"):
-    path = osp.join(path, "data", dataset)
+def build_dataset_from_name(dataset_name, path="~/.cache-autogl/"):
+    path = osp.join(path, "data", dataset_name)
     path = os.path.expanduser(path)
-    return DATASET_DICT[dataset](path)
+    dataset = DATASET_DICT[dataset_name](path)
+    if 'ogbn' in dataset_name:
+        #dataset.data, dataset.slices = dataset.collate([dataset.data])
+        #dataset.data.num_nodes = dataset.data.num_nodes[0]
+        if dataset.data.y.shape[-1] == 1:
+            dataset.data.y = torch.squeeze(dataset.data.y)
+    return dataset
 
 
 __all__ = [

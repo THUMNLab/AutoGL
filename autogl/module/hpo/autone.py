@@ -17,6 +17,12 @@ from torch_geometric.data import GraphSAINTRandomWalkSampler
 from ..feature.subgraph.nx import NxSubgraph, NxLargeCliqueSize
 from ..feature.subgraph import nx, SgNetLSD
 
+from torch_geometric.data import InMemoryDataset 
+
+class _MyDataset(InMemoryDataset):
+    def __init__(self, datalist) -> None:
+        super().__init__()
+        self.data, self.slices = self.collate(datalist)
 
 @register_hpo("autone")
 class AutoNE(BaseHPOptimizer):
@@ -51,6 +57,8 @@ class AutoNE(BaseHPOptimizer):
 
         See .base.BaseHPOptimizer.optimize
         """
+        self.feval_name = trainer.get_feval(return_major=True).get_eval_name()
+        self.is_higher_better = trainer.get_feval(return_major=True).is_higher_better()
         space = trainer.hyper_parameter_space + trainer.model.hyper_parameter_space
         current_space = self._encode_para(space)
 
@@ -65,15 +73,18 @@ class AutoNE(BaseHPOptimizer):
             )
             results = []
             for data in loader:
-                results.append(data)
+                in_dataset= _MyDataset([data])
+                results.append(in_dataset)
             return results
 
         func = SgNetLSD()
 
         def get_wne(graph):
-            func.fit_transform(graph)
-            transform = nx.NxSubgraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
-            gf = transform.fit_transform(graph).gf
+            graph=func.fit_transform(graph)
+            # transform = nx.NxSubgraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
+            # print(type(graph))
+            #gf = transform.fit_transform(graph).data.gf
+            gf = graph.data.gf
             fin = list(gf[0]) + list(map(lambda x: float(x), gf[1:]))
             return fin
 
@@ -117,7 +128,7 @@ class AutoNE(BaseHPOptimizer):
         best_res = None
         best_trainer = None
         best_para = None
-        wne = get_wne(dataset.data)
+        wne = get_wne(dataset)
         for t in range(s):
             if time.time() - start_time > time_limit:
                 self.logger.info("Time out of limit, Epoch: {}".format(str(i)))
@@ -129,7 +140,7 @@ class AutoNE(BaseHPOptimizer):
             para = params.x2dict(X_temp)
             externel_para, trial_para = self._decode_para(para)
             current_trainer, res_temp = fn(dataset, externel_para)
-            self._print_info(externel_para, res_temp, trainer)
+            self._print_info(externel_para, res_temp)
             X_reg = params.dict2x(trial_para)
 
             X.append(np.hstack((X_reg, wne)))
@@ -150,7 +161,7 @@ class AutoNE(BaseHPOptimizer):
 
         decoded_json, _ = self._decode_para(best_para)
         self.logger.info("Best Parameter:")
-        self._print_info(decoded_json, best_res, trainer)
+        self._print_info(decoded_json, best_res)
 
         return best_trainer, decoded_json
 

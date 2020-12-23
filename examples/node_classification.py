@@ -16,7 +16,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('--dataset', default='cora', type=str)
-    parser.add_argument('--configs', type=str, default='../configs/node_classification.yaml')
+    parser.add_argument('--configs', type=str, default='../configs/nodeclf_gcn_benchmark_small.yml')
     # following arguments will override parameters in the config file
     parser.add_argument('--hpo', type=str, default='random')
     parser.add_argument('--max_eval', type=int, default=5)
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     if args.dataset in ['cora', 'citeseer', 'pubmed']:
         autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc])
     else:
-        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc], seed=seed, train_split=20*dataset.num_classes, val_split=30*dataset.num_classes)
+        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc], seed=seed, train_split=20*dataset.num_classes, val_split=30*dataset.num_classes, balanced=False)
     val = autoClassifier.get_model_by_performance(0)[0].get_valid_score()[0]
     print('val acc: ', val)
 

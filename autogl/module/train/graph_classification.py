@@ -214,7 +214,7 @@ class GraphClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.GraphClassificationTrainer``
+        self: ``autogl.train.GraphClassificationTrainer``
             A reference of current trainer.
 
         """
@@ -289,7 +289,7 @@ class GraphClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.GraphClassificationTrainer``
+        self: ``autogl.train.GraphClassificationTrainer``
             A reference of current trainer.
 
         """
@@ -507,7 +507,7 @@ class GraphClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.GraphClassificationTrainer``
+        self: ``autogl.train.GraphClassificationTrainer``
             A new instance of trainer.
 
         """
