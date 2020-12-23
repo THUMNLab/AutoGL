@@ -28,7 +28,7 @@ with open("README.md", 'r') as fh:
 ''' https://setuptools.readthedocs.io/en/latest/ '''
 setup(
     name='auto-graph-learning',
-    version='0.1.0-20201207185314',
+    version='0.1.1',
     author='THUMNLab/aglteam',
     maintainer='THUMNLab/aglteam',
     author_email='xin_wang@tsinghua.edu.cn',
