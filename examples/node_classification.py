@@ -16,7 +16,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('--dataset', default='cora', type=str)
-    parser.add_argument('--configs', type=str, default='../configs/nodeclf_gat_benchmark_small.yml')
+    parser.add_argument('--configs', type=str, default='../configs/nodeclf_gcn_benchmark_small.yml')
     # following arguments will override parameters in the config file
     parser.add_argument('--hpo', type=str, default='random')
     parser.add_argument('--max_eval', type=int, default=5)
