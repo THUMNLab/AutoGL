@@ -36,16 +36,6 @@ def register_evaluate(*name):
 
     return register_evaluate_cls
 
-
-"""
-# automatically import any Python files in this directory
-for file in os.listdir(os.path.dirname(__file__)):
-    if file.endswith(".py") and not file.startswith("_"):
-        file_name = file[: file.find(".py")]
-        module = importlib.import_module("autograph.module.train." + file_name)
-"""
-
-
 def get_feval(feval):
     if isinstance(feval, str):
         return EVALUATE_DICT[feval]

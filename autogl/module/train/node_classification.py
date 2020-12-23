@@ -191,7 +191,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.NodeClassificationTrainer``
+        self: ``autogl.train.NodeClassificationTrainer``
             A reference of current trainer.
 
         """
@@ -218,7 +218,7 @@ class NodeClassificationTrainer(BaseTrainer):
                 feval = self.feval[0]
             else:
                 feval = self.feval
-            val_loss = self.evaluate(data, mask=data.val_mask, feval=feval)
+            val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
             if feval.is_higher_better() is True:
                 val_loss = -val_loss
             self.early_stopping(val_loss, self.model.model)
@@ -261,16 +261,17 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.NodeClassificationTrainer``
+        self: ``autogl.train.NodeClassificationTrainer``
             A reference of current trainer.
 
         """
-        self.train_only(dataset)
+        data = dataset[0]
+        self.train_only(data)
         if keep_valid_result:
-            self.valid_result = self.predict_only(dataset)[dataset.val_mask].max(1)[1]
-            self.valid_result_prob = self.predict_only(dataset)[dataset.val_mask]
+            self.valid_result = self.predict_only(data)[data.val_mask].max(1)[1]
+            self.valid_result_prob = self.predict_only(data)[data.val_mask]
             self.valid_score = self.evaluate(
-                dataset, mask=dataset.val_mask, feval=self.feval
+                dataset, mask=data.val_mask, feval=self.feval
             )
 
     def predict(self, dataset, mask=None):
@@ -288,7 +289,6 @@ class NodeClassificationTrainer(BaseTrainer):
         -------
         The prediction result of ``predict_proba``.
         """
-        dataset = dataset.to(self.device)
         return self.predict_proba(dataset, mask=mask, in_log_format=True).max(1)[1]
 
     def predict_proba(self, dataset, mask=None, in_log_format=False):
@@ -309,17 +309,18 @@ class NodeClassificationTrainer(BaseTrainer):
         -------
         The prediction result.
         """
-        dataset = dataset.to(self.device)
+        data = dataset[0]
+        data = data.to(self.device)
         if mask is not None:
             if mask == "val":
-                mask = dataset.val_mask
+                mask = data.val_mask
             elif mask == "test":
-                mask = dataset.test_mask
+                mask = data.test_mask
             elif mask == "train":
-                mask = dataset.train_mask
+                mask = data.train_mask
         else:
-            mask = dataset.test_mask
-        ret = self.predict_only(dataset, mask)[mask]
+            mask = data.test_mask
+        ret = self.predict_only(data, mask)[mask]
         if in_log_format is True:
             return ret
         else:
@@ -398,23 +399,24 @@ class NodeClassificationTrainer(BaseTrainer):
         res: The evaluation result on the given dataset.
 
         """
-        dataset = dataset.to(self.device)
+        data = dataset[0]
+        data = data.to(self.device)
         test_mask = mask
         if feval is None:
             feval = self.feval
         else:
             feval = get_feval(feval)
         if test_mask is None:
-            test_mask = dataset.test_mask
+            test_mask = data.test_mask
         elif test_mask == "test":
-            test_mask = dataset.test_mask
+            test_mask = data.test_mask
         elif test_mask == "val":
-            test_mask = dataset.val_mask
+            test_mask = data.val_mask
         elif test_mask == "train":
-            test_mask = dataset.train_mask
+            test_mask = data.train_mask
         y_pred_prob = self.predict_proba(dataset, mask)
         y_pred = y_pred_prob.max(1)[1]
-        y_true = dataset.y[test_mask]
+        y_true = data.y[test_mask]
 
         if not isinstance(feval, list):
             feval = [feval]
@@ -454,7 +456,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autograph.train.NodeClassificationTrainer``
+        self: ``autogl.train.NodeClassificationTrainer``
             A new instance of trainer.
 
         """
