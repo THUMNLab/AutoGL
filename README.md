@@ -4,7 +4,7 @@ An autoML framework & toolkit for machine learning on graphs.
 
 *Actively under development by @THUMNLab*
 
-Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a> or contact us at <a href="mailto:autogl@126.com">autogl@126.com</a> if you have any comments or suggestions!
+Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a> or contact us at <a href="mailto:autogl@tsinghua.edu.cn">autogl@tsinghua.edu.cn</a> if you have any comments or suggestions!
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Documentation Status](https://readthedocs.org/projects/autogl/badge/?version=latest)](https://autogl.readthedocs.io/en/latest/?badge=latest)
