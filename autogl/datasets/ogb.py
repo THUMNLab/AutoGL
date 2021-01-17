@@ -5,6 +5,8 @@ from ogb.linkproppred import PygLinkPropPredDataset
 from . import register_dataset
 from .utils import index_to_mask
 from torch_geometric.data import Data
+
+
 # OGBN
 
 
@@ -14,16 +16,14 @@ class OGBNproductsDataset(PygNodePropPredDataset):
         dataset = "ogbn-products"
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         PygNodePropPredDataset(name=dataset, root=path)
-        super(OGBNproductsDataset, self).__init__(
-            dataset, path
-        )
+        super(OGBNproductsDataset, self).__init__(dataset, path)
         # Pre-compute GCN normalization.
-        #adj_t = self.data.adj_t.set_diag()
-        #deg = adj_t.sum(dim=1).to(torch.float)
-        #deg_inv_sqrt = deg.pow(-0.5)
-        #deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
-        #adj_t = deg_inv_sqrt.view(-1, 1) * adj_t * deg_inv_sqrt.view(1, -1)
-        #self.data.adj_t = adj_t
+        # adj_t = self.data.adj_t.set_diag()
+        # deg = adj_t.sum(dim=1).to(torch.float)
+        # deg_inv_sqrt = deg.pow(-0.5)
+        # deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+        # adj_t = deg_inv_sqrt.view(-1, 1) * adj_t * deg_inv_sqrt.view(1, -1)
+        # self.data.adj_t = adj_t
 
         setattr(OGBNproductsDataset, "metric", "Accuracy")
         setattr(OGBNproductsDataset, "loss", "nll_loss")
@@ -35,6 +35,12 @@ class OGBNproductsDataset(PygNodePropPredDataset):
             setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBNproductsDataset, self).get(idx)
+
 
 @register_dataset("ogbn-proteins")
 class OGBNproteinsDataset(PygNodePropPredDataset):
@@ -42,14 +48,12 @@ class OGBNproteinsDataset(PygNodePropPredDataset):
         dataset = "ogbn-proteins"
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         PygNodePropPredDataset(name=dataset, root=path)
-        super(OGBNproteinsDataset, self).__init__(
-            dataset, path
-        )
-        dataset_t = PygNodePropPredDataset(name=dataset, root = path, transform=T.ToSparseTensor())
+        super(OGBNproteinsDataset, self).__init__(dataset, path)
+        dataset_t = PygNodePropPredDataset(name=dataset, root=path, transform=T.ToSparseTensor())
 
         # Move edge features to node features.
         self.data.x = dataset_t[0].adj_t.mean(dim=1)
-        #dataset_t[0].adj_t.set_value_(None)
+        # dataset_t[0].adj_t.set_value_(None)
         del dataset_t
 
         setattr(OGBNproteinsDataset, "metric", "ROC-AUC")
@@ -62,6 +66,11 @@ class OGBNproteinsDataset(PygNodePropPredDataset):
             setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBNproteinsDataset, self).get(idx)
 
 
 @register_dataset("ogbn-arxiv")
@@ -70,12 +79,7 @@ class OGBNarxivDataset(PygNodePropPredDataset):
         dataset = "ogbn-arxiv"
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         PygNodePropPredDataset(name=dataset, root=path)
-        super(OGBNarxivDataset, self).__init__(
-            dataset, path
-        )
-
-        #self[0].adj_t = self[0].adj_t.to_symmetric()
-
+        super(OGBNarxivDataset, self).__init__(dataset, path)
         setattr(OGBNarxivDataset, "metric", "Accuracy")
         setattr(OGBNarxivDataset, "loss", "nll_loss")
         split_idx = self.get_idx_split()
@@ -87,6 +91,12 @@ class OGBNarxivDataset(PygNodePropPredDataset):
             setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBNarxivDataset, self).get(idx)
+
 
 @register_dataset("ogbn-papers100M")
 class OGBNpapers100MDataset(PygNodePropPredDataset):
@@ -94,9 +104,7 @@ class OGBNpapers100MDataset(PygNodePropPredDataset):
         dataset = "ogbn-papers100M"
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         PygNodePropPredDataset(name=dataset, root=path)
-        super(OGBNpapers100MDataset, self).__init__(
-            dataset, path
-        )
+        super(OGBNpapers100MDataset, self).__init__(dataset, path)
         setattr(OGBNpapers100MDataset, "metric", "Accuracy")
         setattr(OGBNpapers100MDataset, "loss", "nll_loss")
         split_idx = self.get_idx_split()
@@ -107,6 +115,12 @@ class OGBNpapers100MDataset(PygNodePropPredDataset):
             setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBNpapers100MDataset, self).get(idx)
+
 
 @register_dataset("ogbn-mag")
 class OGBNmagDataset(PygNodePropPredDataset):
@@ -114,11 +128,9 @@ class OGBNmagDataset(PygNodePropPredDataset):
         dataset = "ogbn-mag"
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         PygNodePropPredDataset(name=dataset, root=path)
-        super(OGBNmagDataset, self).__init__(
-            dataset, path
-        )
+        super(OGBNmagDataset, self).__init__(dataset, path)
 
-        # Preprocessing
+        # Preprocess
         rel_data = self[0]
         # We are only interested in paper <-> paper relations.
         self.data = Data(
@@ -126,8 +138,8 @@ class OGBNmagDataset(PygNodePropPredDataset):
             edge_index=rel_data.edge_index_dict[('paper', 'cites', 'paper')],
             y=rel_data.y_dict['paper'])
 
-        #self.data = T.ToSparseTensor()(data)
-        #self[0].adj_t = self[0].adj_t.to_symmetric()
+        # self.data = T.ToSparseTensor()(data)
+        # self[0].adj_t = self[0].adj_t.to_symmetric()
 
         setattr(OGBNmagDataset, "metric", "Accuracy")
         setattr(OGBNmagDataset, "loss", "nll_loss")
@@ -140,6 +152,11 @@ class OGBNmagDataset(PygNodePropPredDataset):
             setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBNmagDataset, self).get(idx)
 
 
 # OGBG
@@ -154,6 +171,11 @@ class OGBGmolhivDataset(PygGraphPropPredDataset):
         super(OGBGmolhivDataset, self).__init__(dataset, path)
         setattr(OGBGmolhivDataset, "metric", "ROC-AUC")
         setattr(OGBGmolhivDataset, "loss", "binary_cross_entropy_with_logits")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBGmolhivDataset, self).get(idx)
 
 
 @register_dataset("ogbg-molpcba")
@@ -165,6 +187,11 @@ class OGBGmolpcbaDataset(PygGraphPropPredDataset):
         super(OGBGmolpcbaDataset, self).__init__(dataset, path)
         setattr(OGBGmolpcbaDataset, "metric", "AP")
         setattr(OGBGmolpcbaDataset, "loss", "binary_cross_entropy_with_logits")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBGmolpcbaDataset, self).get(idx)
 
 
 @register_dataset("ogbg-ppa")
@@ -176,6 +203,11 @@ class OGBGppaDataset(PygGraphPropPredDataset):
         super(OGBGppaDataset, self).__init__(dataset, path)
         setattr(OGBGppaDataset, "metric", "Accuracy")
         setattr(OGBGppaDataset, "loss", "cross_entropy")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBGppaDataset, self).get(idx)
 
 
 @register_dataset("ogbg-code")
@@ -187,6 +219,11 @@ class OGBGcodeDataset(PygGraphPropPredDataset):
         super(OGBGcodeDataset, self).__init__(dataset, path)
         setattr(OGBGcodeDataset, "metric", "F1 score")
         setattr(OGBGcodeDataset, "loss", "cross_entropy")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBGcodeDataset, self).get(idx)
 
 
 # OGBL
@@ -201,6 +238,11 @@ class OGBLppaDataset(PygLinkPropPredDataset):
         super(OGBLppaDataset, self).__init__(dataset, path)
         setattr(OGBLppaDataset, "metric", "Hits@100")
         setattr(OGBLppaDataset, "loss", "pos_neg_loss")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBLppaDataset, self).get(idx)
 
 
 @register_dataset("ogbl-collab")
@@ -212,6 +254,11 @@ class OGBLcollabDataset(PygLinkPropPredDataset):
         super(OGBLcollabDataset, self).__init__(dataset, path)
         setattr(OGBLcollabDataset, "metric", "Hits@50")
         setattr(OGBLcollabDataset, "loss", "pos_neg_loss")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBLcollabDataset, self).get(idx)
 
 
 @register_dataset("ogbl-ddi")
@@ -223,6 +270,11 @@ class OGBLddiDataset(PygLinkPropPredDataset):
         super(OGBLddiDataset, self).__init__(dataset, path)
         setattr(OGBLddiDataset, "metric", "Hits@20")
         setattr(OGBLddiDataset, "loss", "pos_neg_loss")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBLddiDataset, self).get(idx)
 
 
 @register_dataset("ogbl-citation")
@@ -234,6 +286,11 @@ class OGBLcitationDataset(PygLinkPropPredDataset):
         super(OGBLcitationDataset, self).__init__(dataset, path)
         setattr(OGBLcitationDataset, "metric", "MRR")
         setattr(OGBLcitationDataset, "loss", "pos_neg_loss")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBLcitationDataset, self).get(idx)
 
 
 @register_dataset("ogbl-wikikg")
@@ -245,6 +302,11 @@ class OGBLwikikgDataset(PygLinkPropPredDataset):
         super(OGBLwikikgDataset, self).__init__(dataset, path)
         setattr(OGBLwikikgDataset, "metric", "MRR")
         setattr(OGBLwikikgDataset, "loss", "pos_neg_loss")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBLwikikgDataset, self).get(idx)
 
 
 @register_dataset("ogbl-biokg")
@@ -256,3 +318,8 @@ class OGBLbiokgDataset(PygLinkPropPredDataset):
         super(OGBLbiokgDataset, self).__init__(dataset, path)
         setattr(OGBLbiokgDataset, "metric", "MRR")
         setattr(OGBLbiokgDataset, "loss", "pos_neg_loss")
+    
+    def get(self, idx):
+        if hasattr(self, '__data_list__'):
+            delattr(self, '__data_list__')
+        return super(OGBLbiokgDataset, self).get(idx)
