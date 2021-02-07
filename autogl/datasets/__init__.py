@@ -1,5 +1,4 @@
 import os.path as osp
-import importlib
 import os
 import torch
 from ..data.dataset import Dataset
@@ -8,6 +7,7 @@ from ..data.dataset import Dataset
 try:
     import torch_geometric
 except ImportError:
+    torch_geometric = None
     pyg = False
 else:
     pyg = True
@@ -56,15 +56,15 @@ from .pyg import (
     PubMedDataset,
     RedditDataset,
     MUTAGDataset,
-    ImdbBinaryDataset,
-    ImdbMultiDataset,
+    IMDBBinaryDataset,
+    IMDBMultiDataset,
     CollabDataset,
-    ProtainsDataset,
-    RedditBinary,
-    RedditMulti5K,
-    RedditMulti12K,
+    ProteinsDataset,
+    REDDITBinary,
+    REDDITMulti5K,
+    REDDITMulti12K,
     PTCMRDataset,
-    NCT1Dataset,
+    NCI1Dataset,
     ENZYMES,
     QM9Dataset,
 )
@@ -95,7 +95,11 @@ from .matlab_matrix import (
     WikipediaDataset,
     PPIDataset,
 )
-from .modelnet import ModelNet10, ModelNet40, ModelNetData10, ModelNetData40
+from .modelnet import (
+    ModelNet10, ModelNet40,
+    ModelNet10Train, ModelNet10Test,
+    ModelNet40Train, ModelNet40Test
+)
 from .utils import (
     get_label_number,
     random_splits_mask,
