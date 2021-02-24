@@ -312,7 +312,7 @@ class AutoNodeClassifier(BaseClassifier):
             )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(self.data, True)
+                model.train(self.dataset, True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
