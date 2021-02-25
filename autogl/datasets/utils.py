@@ -61,8 +61,15 @@ def random_splits_mask(dataset, train_ratio=0.2, val_ratio=0.4, seed=None):
     torch.set_rng_state(r_s)
     if torch.cuda.is_available():
         torch.cuda.set_rng_state(r_s_cuda)
-
-    dataset.data, dataset.slices = dataset.collate([d for d in dataset])
+    datalist = []
+    for d in dataset:
+        setattr(d, "train_mask", data.train_mask)
+        setattr(d, "val_mask", data.val_mask)
+        setattr(d, "test_mask", data.test_mask)
+        datalist.append(d)
+    dataset.data, dataset.slices = dataset.collate(datalist)
+    if hasattr(dataset, '__data_list__'):
+        delattr(dataset, '__data_list__')
     # while type(dataset.data.num_nodes) == list:
     #    dataset.data.num_nodes = dataset.data.num_nodes[0]
     # dataset.data.num_nodes = dataset.data.num_nodes[0]
@@ -160,7 +167,15 @@ def random_splits_mask_class(
     if torch.cuda.is_available():
         torch.cuda.set_rng_state(r_s_cuda)
 
-    dataset.data, dataset.slices = dataset.collate([d for d in dataset])
+    datalist = []
+    for d in dataset:
+        setattr(d, "train_mask", data.train_mask)
+        setattr(d, "val_mask", data.val_mask)
+        setattr(d, "test_mask", data.test_mask)
+        datalist.append(d)
+    dataset.data, dataset.slices = dataset.collate(datalist)
+    if hasattr(dataset, '__data_list__'):
+        delattr(dataset, '__data_list__')
     # while type(dataset.data.num_nodes) == list:
     #     dataset.data.num_nodes = dataset.data.num_nodes[0]
     # dataset.data.num_nodes = dataset.data.num_nodes[0]
