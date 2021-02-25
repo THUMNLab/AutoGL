@@ -74,13 +74,13 @@ class PYGNormalizeFeatures(PYGGenerator):
 @register_pyg
 @pygfunc(OneHotDegree)
 class PYGOneHotDegree(PYGGenerator):
-    def __init__(self, max_degree=0):
+    def __init__(self, max_degree=1000):
         super(PYGOneHotDegree, self).__init__(max_degree=max_degree)
 
     def _transform(self, data):
         idx, x = data.edge_index[0], data.x
         deg = degree(idx, data.num_nodes, dtype=torch.long)
-        self._kwargs["max_degree"] = np.max(
+        self._kwargs["max_degree"] = np.min(
             [self._kwargs["max_degree"], torch.max(deg).numpy()]
         )
         dsc = self.extract(data)
