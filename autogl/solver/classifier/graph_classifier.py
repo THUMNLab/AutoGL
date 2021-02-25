@@ -724,13 +724,14 @@ class AutoGraphClassifier(BaseClassifier):
         path_or_dict = deepcopy(path_or_dict)
         solver = cls(None, [], None, None)
         fe_list = path_or_dict.pop("feature", [{"name": "deepgl"}])
-        fe_list_ele = []
-        for feature_engineer in fe_list:
-            name = feature_engineer.pop("name")
-            if name is not None:
-                fe_list_ele.append(FEATURE_DICT[name](**feature_engineer))
-        if fe_list_ele != []:
-            solver.set_feature_module(fe_list_ele)
+        if fe_list is not None:
+            fe_list_ele = []
+            for feature_engineer in fe_list:
+                name = feature_engineer.pop("name")
+                if name is not None:
+                    fe_list_ele.append(FEATURE_DICT[name](**feature_engineer))
+            if fe_list_ele != []:
+                solver.set_feature_module(fe_list_ele)
 
         models = path_or_dict.pop("models", {"gcn": None, "gat": None})
         model_list = list(models.keys())
@@ -761,11 +762,13 @@ class AutoGraphClassifier(BaseClassifier):
         solver.set_graph_models(model_list, trainer_space, model_hp_space)
 
         hpo_dict = path_or_dict.pop("hpo", {"name": "anneal"})
-        name = hpo_dict.pop("name")
-        solver.set_hpo_module(name, **hpo_dict)
+        if hpo_dict is not None:
+            name = hpo_dict.pop("name")
+            solver.set_hpo_module(name, **hpo_dict)
 
         ensemble_dict = path_or_dict.pop("ensemble", {"name": "voting"})
-        name = ensemble_dict.pop("name")
-        solver.set_ensemble_module(name, **ensemble_dict)
+        if ensemble_dict is not None:
+            name = ensemble_dict.pop("name")
+            solver.set_ensemble_module(name, **ensemble_dict)
 
         return solver

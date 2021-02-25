@@ -689,11 +689,13 @@ class AutoNodeClassifier(BaseClassifier):
         solver.set_graph_models(model_list, trainer_space, model_hp_space)
 
         hpo_dict = path_or_dict.pop("hpo", {"name": "anneal"})
-        name = hpo_dict.pop("name")
-        solver.set_hpo_module(name, **hpo_dict)
+        if hpo_dict is not None:
+            name = hpo_dict.pop("name")
+            solver.set_hpo_module(name, **hpo_dict)
 
         ensemble_dict = path_or_dict.pop("ensemble", {"name": "voting"})
-        name = ensemble_dict.pop("name")
-        solver.set_ensemble_module(name, **ensemble_dict)
+        if ensemble_dict is not None:
+            name = ensemble_dict.pop("name")
+            solver.set_ensemble_module(name, **ensemble_dict)
 
         return solver
