@@ -80,7 +80,8 @@ class GIN(torch.nn.Module):
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
-        graph_feature = data.gf
+        if self.num_graph_features > 0:
+            graph_feature = data.gf
 
         for i in range(self.num_layer - 2):
             x = self.convs[i](x, edge_index)
@@ -88,7 +89,8 @@ class GIN(torch.nn.Module):
             x = self.bns[i](x)
 
         x = global_add_pool(x, batch)
-        x = torch.cat([x, graph_feature], dim=-1)
+        if self.num_graph_features > 0:
+            x = torch.cat([x, graph_feature], dim=-1)
         x = self.fc1(x)
         x = activate_func(x, self.args["act"])
         x = F.dropout(x, p=self.args["dropout"], training=self.training)
