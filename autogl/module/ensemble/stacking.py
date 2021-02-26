@@ -100,7 +100,7 @@ class Stacking(BaseEnsembler):
                 torch.tensor(predictions).transpose(0, 1).flatten(start_dim=1).numpy()
             )
             meta_Y = np.array(label)
-
+            config = {}
             model = GradientBoostingClassifier(**config)
             model.fit(meta_X, meta_Y)
 
