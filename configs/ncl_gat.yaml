@@ -1,0 +1,52 @@
+feature:
+  - name: ~
+
+models:
+  gat:
+    - parameterName: num_layers
+      type: FIXED
+      value: 2
+
+    - parameterName: heads
+      type: FIXED
+      value: 8
+    
+    - parameterName: hidden
+      type: FIXED
+      value: [64]
+    
+    - parameterName: dropout
+      type: FIXED
+      value: 0.6
+    
+    - parameterName: act
+      type: FIXED
+      value: elu
+
+trainer:
+  - parameterName: max_epoch
+    type: FIXED
+    value: 200
+  
+  - parameterName: early_stopping_round
+    type: FIXED
+    value: 10
+
+  - parameterName: lr
+    type: FIXED
+    value: 0.005
+  
+  - parameterName: weight_decay
+    type: FIXED
+    value: 0.0005
+
+# Glorot initialization
+# for pumbed dataset , heads = 8 for last layer  and weight decay =0.001 ,lr=0.01
+# early stopping 100, max epoch 100000
+hpo:
+  name: random
+  max_evals: 1
+
+ensemble:
+  name: ~
+

@@ -1,0 +1,45 @@
+feature:
+  - name: ~ # ~ means None
+
+models:
+  gcn:
+    - parameterName: num_layers
+      type: FIXED
+      value: 3
+    
+    - parameterName: hidden
+      type: FIXED
+      value: [16, 16]
+    
+    - parameterName: dropout
+      type: FIXED
+      value: 0.5
+    
+    - parameterName: act
+      type: FIXED
+      value: relu
+
+trainer:
+  - parameterName: max_epoch
+    type: FIXED
+    value: 200
+  
+  - parameterName: early_stopping_round
+    type: FIXED
+    value: 10
+
+  - parameterName: lr
+    type: FIXED
+    value: 0.01
+  
+  - parameterName: weight_decay
+    type: FIXED
+    value: 0.0005
+# Glorot initialization 
+# weight decay only for the first layer
+hpo:
+  name: random
+  max_evals: 1
+
+ensemble:
+  name: ~
