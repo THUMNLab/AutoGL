@@ -21,10 +21,21 @@ class Topkpool(torch.nn.Module):
         super(Topkpool, self).__init__()
         self.args = args
 
-        missing_keys = list(set(["features_num", "num_class", "num_graph_features",
-                    "ratio", "dropout", "act"]) - set(self.args.keys()))
+        missing_keys = list(
+            set(
+                [
+                    "features_num",
+                    "num_class",
+                    "num_graph_features",
+                    "ratio",
+                    "dropout",
+                    "act",
+                ]
+            )
+            - set(self.args.keys())
+        )
         if len(missing_keys) > 0:
-            raise Exception("Missing keys: %s." % ','.join(missing_keys))
+            raise Exception("Missing keys: %s." % ",".join(missing_keys))
 
         self.num_features = self.args["features_num"]
         self.num_classes = self.args["num_class"]

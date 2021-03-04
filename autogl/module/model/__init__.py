@@ -17,6 +17,7 @@ def register_model(name):
 
     return register_model_cls
 
+
 from .base import BaseModel
 from .topkpool import AutoTopkpool
 from .graphsage import AutoSAGE

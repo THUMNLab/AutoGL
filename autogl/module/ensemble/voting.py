@@ -85,7 +85,7 @@ class Voting(BaseEnsembler):
         weights = weights / np.sum(weights)
 
         return np.average(predictions, axis=0, weights=weights)
-    
+
     def _specify_weights(self, predictions, label, feval):
         ensemble_prediction = []
         combinations = []

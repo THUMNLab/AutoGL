@@ -113,11 +113,23 @@ class GraphSAGE(torch.nn.Module):
         if not self.num_layer == len(self.args["hidden"]) + 1:
             LOGGER.warn("Warning: layer size does not match the length of hidden units")
 
-        missing_keys = list(set(["features_num", "num_class", "num_layers",
-                    "hidden", "dropout", "act", "agg"]) - set(self.args.keys()))
+        missing_keys = list(
+            set(
+                [
+                    "features_num",
+                    "num_class",
+                    "num_layers",
+                    "hidden",
+                    "dropout",
+                    "act",
+                    "agg",
+                ]
+            )
+            - set(self.args.keys())
+        )
         if len(missing_keys) > 0:
-            raise Exception("Missing keys: %s." % ','.join(missing_keys))
-        
+            raise Exception("Missing keys: %s." % ",".join(missing_keys))
+
         self.convs = torch.nn.ModuleList()
         self.convs.append(
             SAGEConv(self.args["features_num"], self.args["hidden"][0], aggr=agg)

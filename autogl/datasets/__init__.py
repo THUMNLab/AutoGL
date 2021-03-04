@@ -46,6 +46,7 @@ def register_dataset(name):
 
     return register_dataset_cls
 
+
 from .pyg import (
     AmazonComputersDataset,
     AmazonPhotoDataset,
@@ -96,9 +97,12 @@ from .matlab_matrix import (
     PPIDataset,
 )
 from .modelnet import (
-    ModelNet10, ModelNet40,
-    ModelNet10Train, ModelNet10Test,
-    ModelNet40Train, ModelNet40Test
+    ModelNet10,
+    ModelNet40,
+    ModelNet10Train,
+    ModelNet10Test,
+    ModelNet40Train,
+    ModelNet40Test,
 )
 from .utils import (
     get_label_number,
@@ -110,6 +114,7 @@ from .utils import (
     graph_get_split,
 )
 
+
 def build_dataset(args, path="~/.cache-autogl/"):
     path = osp.join(path, "data", args.dataset)
     path = os.path.expanduser(path)
@@ -120,9 +125,9 @@ def build_dataset_from_name(dataset_name, path="~/.cache-autogl/"):
     path = osp.join(path, "data", dataset_name)
     path = os.path.expanduser(path)
     dataset = DATASET_DICT[dataset_name](path)
-    if 'ogbn' in dataset_name:
-        #dataset.data, dataset.slices = dataset.collate([dataset.data])
-        #dataset.data.num_nodes = dataset.data.num_nodes[0]
+    if "ogbn" in dataset_name:
+        # dataset.data, dataset.slices = dataset.collate([dataset.data])
+        # dataset.data.num_nodes = dataset.data.num_nodes[0]
         if dataset.data.y.shape[-1] == 1:
             dataset.data.y = torch.squeeze(dataset.data.y)
     return dataset

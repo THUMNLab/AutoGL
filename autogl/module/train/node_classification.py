@@ -11,6 +11,7 @@ from ...utils import get_logger
 
 LOGGER = get_logger("node classification trainer")
 
+
 def get_feval(feval):
     if isinstance(feval, str):
         return EVALUATE_DICT[feval]
@@ -208,7 +209,9 @@ class NodeClassificationTrainer(BaseTrainer):
             if hasattr(F, self.loss_type):
                 loss = getattr(F, self.loss_type)(res[mask], data.y[mask])
             else:
-                raise TypeError("PyTorch does not support loss type {}".format(self.loss_type))
+                raise TypeError(
+                    "PyTorch does not support loss type {}".format(self.loss_type)
+                )
 
             loss.backward()
             optimizer.step()

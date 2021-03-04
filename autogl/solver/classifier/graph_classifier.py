@@ -266,7 +266,7 @@ class AutoGraphClassifier(BaseClassifier):
                 "Please manually pass train and val ratio."
             )
             LOGGER.info("Use the default train/val/test ratio in given dataset")
-            #if hasattr(dataset.train_split, "n_splits"):
+            # if hasattr(dataset.train_split, "n_splits"):
             #    cross_validation = True
 
         elif train_split is not None and val_split is not None:

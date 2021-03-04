@@ -10,7 +10,8 @@ from copy import deepcopy
 
 from ...utils import get_logger
 
-LOGGER = get_logger('graph classification solver')
+LOGGER = get_logger("graph classification solver")
+
 
 def get_feval(feval):
     if isinstance(feval, str):
@@ -233,7 +234,9 @@ class GraphClassificationTrainer(BaseTrainer):
                 if hasattr(F, self.loss_type):
                     loss = getattr(F, self.loss_type)(output, data.y)
                 else:
-                    raise TypeError("PyTorch does not support loss type {}".format(self.loss_type))
+                    raise TypeError(
+                        "PyTorch does not support loss type {}".format(self.loss_type)
+                    )
                 loss.backward()
                 loss_all += data.num_graphs * loss.item()
                 optimizer.step()

@@ -36,6 +36,7 @@ def register_evaluate(*name):
 
     return register_evaluate_cls
 
+
 def get_feval(feval):
     if isinstance(feval, str):
         return EVALUATE_DICT[feval]
