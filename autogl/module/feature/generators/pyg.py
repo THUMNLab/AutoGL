@@ -29,7 +29,8 @@ class PYGGenerator(BaseGenerator):
 
     def _transform(self, data):
         dsc = self.extract(data)
-        data.x = torch.cat([data.x, dsc], dim=1)
+        # data.x = torch.cat([data.x, dsc], dim=1)
+        data.x = dsc
         return data
 
 
