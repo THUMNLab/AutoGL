@@ -14,7 +14,7 @@ from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT
 from ...module.train import TRAINER_DICT, get_feval
-from ...module import BaseModel
+from ...module import BaseModel, GraphClassificationTrainer
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
@@ -141,6 +141,9 @@ class AutoGraphClassifier(BaseClassifier):
                         else kwargs["num_graph_features"]
                     )
                     self.graph_model_list.append(model)
+                elif isinstance(model, GraphClassificationTrainer):
+                    # receive a trainer list, put trainer to list
+                    self.graph_model_list.append(model)
                 else:
                     raise KeyError("cannot find graph network %s." % (model))
         else:
@@ -154,24 +157,26 @@ class AutoGraphClassifier(BaseClassifier):
         for i, model in enumerate(self.graph_model_list):
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    model.hyper_parameter_space = self._model_hp_spaces[i]
-            trainer = TRAINER_DICT["GraphClassification"](
-                model=model,
-                num_features=num_features,
-                num_classes=num_classes,
-                *args,
-                **kwargs,
-                init=False,
-            )
+                    if isinstance(model, GraphClassificationTrainer):
+                        model.model.hyper_parameter_space = self._model_hp_spaces[i]
+                    else:
+                        model.hyper_parameter_space = self._model_hp_spaces[i]
+            if isinstance(model, BaseModel):
+                model = TRAINER_DICT["GraphClassification"](
+                    model=model,
+                    num_features=num_features,
+                    num_classes=num_classes,
+                    *args,
+                    **kwargs,
+                    init=False,
+                )
             if self._trainer_hp_space is not None:
                 if isinstance(self._trainer_hp_space[0], list):
                     current_hp_for_trainer = self._trainer_hp_space[i]
                 else:
                     current_hp_for_trainer = self._trainer_hp_space
-                trainer.hyper_parameter_space = (
-                    current_hp_for_trainer + model.hyper_parameter_space
-                )
-            self.graph_model_list[i] = trainer
+                model.hyper_parameter_space = current_hp_for_trainer
+            self.graph_model_list[i] = model
 
         return self
 
