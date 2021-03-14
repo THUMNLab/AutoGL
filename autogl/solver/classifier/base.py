@@ -54,7 +54,7 @@ class BaseClassifier(BaseSolver):
                     # setup the hp of num_classes and num_features
                     model.set_num_classes(num_classes)
                     model.set_num_features(num_features)
-                    self.graph_model_list.append(model)
+                    self.graph_model_list.append(model.to(self.runtime_device))
                 elif isinstance(model, BaseTrainer):
                     # receive a trainer list, put trainer to list
                     self.graph_model_list.append(model)
@@ -80,7 +80,7 @@ class BaseClassifier(BaseSolver):
             if isinstance(model, BaseModel):
                 name = (
                     self._default_trainer
-                    if isinstance(self._default_trainer)
+                    if isinstance(self._default_trainer, str)
                     else self._default_trainer[i]
                 )
                 model = TRAINER_DICT[name](

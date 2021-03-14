@@ -110,7 +110,7 @@ class BaseSolver:
         elif isinstance(device, str) and (device == "cpu" or device.startswith("cuda")):
             self.runtime_device = torch.device(device)
         else:
-            LOGGER.error("Cannor parse device %s", str(device))
+            LOGGER.error("Cannot parse device %s", str(device))
             raise ValueError("Cannot parse device {}".format(device))
 
         # initialize modules
