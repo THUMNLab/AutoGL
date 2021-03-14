@@ -69,6 +69,7 @@ class NodeClassificationTrainer(BaseTrainer):
         init=True,
         feval=[Logloss],
         loss="nll_loss",
+        lr_scheduler_type='steplr',
         *args,
         **kwargs
     ):
@@ -153,7 +154,7 @@ class NodeClassificationTrainer(BaseTrainer):
                 "scalingType": "LOG",
             },
         ]
-        self.space += self.model.space
+        # self.space += self.model.space
         NodeClassificationTrainer.space = self.space
 
         self.hyperparams = {
@@ -214,7 +215,7 @@ class NodeClassificationTrainer(BaseTrainer):
         elif type(lr_scheduler_type) == str and lr_scheduler_type == 'reducelronplateau':
             scheduler = ReduceLROnPlateau(optimizer, 'min')
         else:
-            scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+            scheduler = None
 
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
@@ -229,7 +230,8 @@ class NodeClassificationTrainer(BaseTrainer):
 
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            if self.lr_scheduler_type:
+                scheduler.step()
 
             if type(self.feval) is list:
                 feval = self.feval[0]

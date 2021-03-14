@@ -170,7 +170,7 @@ class GraphClassificationTrainer(BaseTrainer):
                 "scalingType": "LOG",
             },
         ]
-        self.space += self.model.space
+        # self.space += self.model.space
         GraphClassificationTrainer.space = self.space
 
         self.hyperparams = {
@@ -237,7 +237,7 @@ class GraphClassificationTrainer(BaseTrainer):
         elif type(lr_scheduler_type) == str and lr_scheduler_type == 'reducelronplateau':
             scheduler = ReduceLROnPlateau(optimizer, 'min')
         else:
-            scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+            scheduler = None
 
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
@@ -256,8 +256,8 @@ class GraphClassificationTrainer(BaseTrainer):
                 loss.backward()
                 loss_all += data.num_graphs * loss.item()
                 optimizer.step()
-                scheduler.step()
-
+                if self.lr_scheduler_type:
+                    scheduler.step()
             # loss = loss_all / len(train_loader.dataset)
             # train_loss = self.evaluate(train_loader)
             eval_func = (
