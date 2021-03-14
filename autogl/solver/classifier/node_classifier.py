@@ -11,10 +11,9 @@ import numpy as np
 import yaml
 
 from .base import BaseClassifier
+from ..base import _parse_hp_space, _initialize_single_model
 from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT
-from ...module.train import TRAINER_DICT, get_feval
-from ...module import BaseModel, NodeClassificationTrainer
+from ...module.train import get_feval
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
@@ -73,11 +72,12 @@ class AutoNodeClassifier(BaseClassifier):
 
     def __init__(
         self,
-        feature_module="deepgl",
+        feature_module=None,
         graph_models=["gat", "gcn"],
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
+        default_trainer=None,
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -90,6 +90,7 @@ class AutoNodeClassifier(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
+            default_trainer=default_trainer or "NodeClassification",
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -98,88 +99,6 @@ class AutoNodeClassifier(BaseClassifier):
 
         # data to be kept when fit
         self.data = None
-
-    def _init_graph_module(
-        self,
-        graph_models,
-        num_classes,
-        num_features,
-        *args,
-        **kwargs,
-    ) -> "AutoNodeClassifier":
-        # load graph network module
-        self.graph_model_list = []
-        if isinstance(graph_models, list):
-            for model in graph_models:
-                if isinstance(model, str):
-                    if model in MODEL_DICT:
-                        self.graph_model_list.append(
-                            MODEL_DICT[model](
-                                num_classes=num_classes,
-                                num_features=num_features,
-                                *args,
-                                **kwargs,
-                                init=False,
-                            )
-                        )
-                    else:
-                        raise KeyError("cannot find model %s" % (model))
-                elif isinstance(model, type) and issubclass(model, BaseModel):
-                    self.graph_model_list.append(
-                        model(
-                            num_classes=num_classes,
-                            num_features=num_features,
-                            *args,
-                            **kwargs,
-                            init=False,
-                        )
-                    )
-                elif isinstance(model, BaseModel):
-                    # setup the hp of num_classes and num_features
-                    model.set_num_classes(num_classes)
-                    model.set_num_features(num_features)
-                    self.graph_model_list.append(model)
-                elif isinstance(model, NodeClassificationTrainer):
-                    # receive a trainer list, put trainer to list
-                    self.graph_model_list.append(model)
-                else:
-                    raise KeyError("cannot find graph network %s." % (model))
-        else:
-            raise ValueError(
-                "need graph network to be (list of) str or a BaseModel class/instance, get",
-                graph_models,
-                "instead.",
-            )
-        
-        # wrap all model_cls with specified trainer
-        for i, model in enumerate(self.graph_model_list):
-            # set model hp space
-            if self._model_hp_spaces is not None:
-                if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, NodeClassificationTrainer):
-                        model.model.hyper_parameter_space = self._model_hp_spaces[i]
-                    else:
-                        model.hyper_parameter_space = self._model_hp_spaces[i]
-            # initialize trainer if needed
-            if isinstance(model, BaseModel):
-                model = TRAINER_DICT["NodeClassification"](
-                    model=model,
-                    num_features=num_features,
-                    num_classes=num_classes,
-                    *args,
-                    **kwargs,
-                    init=False,
-                )
-            # set trainer hp space
-            if self._trainer_hp_space is not None:
-                if isinstance(self._trainer_hp_space[0], list):
-                    current_hp_for_trainer = self._trainer_hp_space[i]
-                else:
-                    current_hp_for_trainer = self._trainer_hp_space
-                model.hyper_parameter_space = current_hp_for_trainer
-            self.graph_model_list[i] = model
-
-        return self
 
     # pylint: disable=arguments-differ
     def fit(
@@ -658,7 +577,7 @@ class AutoNodeClassifier(BaseClassifier):
 
         path_or_dict = deepcopy(path_or_dict)
         solver = cls(None, [], None, None)
-        fe_list = path_or_dict.pop("feature", [{"name": "deepgl"}])
+        fe_list = path_or_dict.pop("feature", None)
         if fe_list is not None:
             fe_list_ele = []
             for feature_engineer in fe_list:
@@ -668,33 +587,33 @@ class AutoNodeClassifier(BaseClassifier):
             if fe_list_ele != []:
                 solver.set_feature_module(fe_list_ele)
 
-        models = path_or_dict.pop("models", {"gcn": None, "gat": None})
-        model_list = list(models.keys())
-        model_hp_space = [models[m] for m in model_list]
-        trainer_space = path_or_dict.pop("trainer", None)
+        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}])
+        model_hp_space = [
+            _parse_hp_space(model.pop("hp_space", None)) for model in models
+        ]
+        model_list = [
+            _initialize_single_model(model.pop("name"), model) for model in models
+        ]
 
-        if model_hp_space:
-            # parse lambda function
-            for space in model_hp_space:
-                if space is not None:
-                    for keys in space:
-                        if "cutFunc" in keys and isinstance(keys["cutFunc"], str):
-                            keys["cutFunc"] = eval(keys["cutFunc"])
+        trainer = path_or_dict.pop("trainer", None)
+        default_trainer = "NodeClassification"
+        trainer_space = None
+        if isinstance(trainer, dict):
+            # global default
+            default_trainer = trainer.pop("name", "NodeClassification")
+            trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
+        elif isinstance(trainer, list):
+            # sequential trainer definition
+            default_trainer = [
+                train.pop("name", "NodeClassification") for train in trainer
+            ]
+            trainer_space = [
+                _parse_hp_space(train.pop("hp_space", None)) for train in trainer
+            ]
 
-        if trainer_space:
-            for space in trainer_space:
-                if (
-                    isinstance(space, dict)
-                    and "cutFunc" in space
-                    and isinstance(space["cutFunc"], str)
-                ):
-                    space["cutFunc"] = eval(space["cutFunc"])
-                elif space is not None:
-                    for keys in space:
-                        if "cutFunc" in keys and isinstance(keys["cutFunc"], str):
-                            keys["cutFunc"] = eval(keys["cutFunc"])
-
-        solver.set_graph_models(model_list, trainer_space, model_hp_space)
+        solver.set_graph_models(
+            model_list, default_trainer, trainer_space, model_hp_space
+        )
 
         hpo_dict = path_or_dict.pop("hpo", {"name": "anneal"})
         if hpo_dict is not None:
