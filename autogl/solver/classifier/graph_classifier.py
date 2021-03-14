@@ -781,7 +781,9 @@ class AutoGraphClassifier(BaseClassifier):
             default_kwargs["init"] = False
             for i in range(len(model_list)):
                 model = model_list[i]
-                trainer_wrapper = TRAINER_DICT[default_trainer](model=model, **trainer)
+                trainer_wrapper = TRAINER_DICT[default_trainer](
+                    model=model, **default_kwargs
+                )
                 model_list[i] = trainer_wrapper
         elif isinstance(trainer, list):
             # sequential trainer definition
