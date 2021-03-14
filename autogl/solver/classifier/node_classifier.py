@@ -103,13 +103,7 @@ class AutoNodeClassifier(BaseClassifier):
         self.data = None
 
     def _init_graph_module(
-        self,
-        graph_models,
-        num_classes,
-        num_features,
-        feval,
-        device,
-        loss
+        self, graph_models, num_classes, num_features, feval, device, loss
     ) -> "AutoNodeClassifier":
         # load graph network module
         self.graph_model_list = []
@@ -122,7 +116,7 @@ class AutoNodeClassifier(BaseClassifier):
                                 num_classes=num_classes,
                                 num_features=num_features,
                                 device=device,
-                                init=False
+                                init=False,
                             )
                         )
                     else:
@@ -133,7 +127,7 @@ class AutoNodeClassifier(BaseClassifier):
                             num_classes=num_classes,
                             num_features=num_features,
                             device=device,
-                            init=False
+                            init=False,
                         )
                     )
                 elif isinstance(model, BaseModel):
@@ -143,7 +137,9 @@ class AutoNodeClassifier(BaseClassifier):
                     self.graph_model_list.append(model.to(device))
                 elif isinstance(model, NodeClassificationTrainer):
                     # receive a trainer list, put trainer to list
-                    assert model.get_model() is not None, "Passed trainer should contain a model"
+                    assert (
+                        model.get_model() is not None
+                    ), "Passed trainer should contain a model"
                     model.set_feval(feval)
                     model.loss_type = loss
                     model.to(device)
@@ -184,7 +180,7 @@ class AutoNodeClassifier(BaseClassifier):
                     loss=loss,
                     feval=feval,
                     device=device,
-                    init=False
+                    init=False,
                 )
             # set trainer hp space
             if self._trainer_hp_space is not None:
@@ -699,14 +695,32 @@ class AutoNodeClassifier(BaseClassifier):
             # global default
             default_trainer = trainer.pop("name", "NodeClassification")
             trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
+            default_kwargs = {"num_features": None, "num_classes": None}
+            default_kwargs.update(trainer)
+            default_kwargs["init"] = False
+            for i in range(len(model_list)):
+                model = model_list[i]
+                trainer_wrap = TRAINER_DICT[default_trainer](
+                    model=model, **default_kwargs
+                )
+                model_list[i] = trainer_wrap
         elif isinstance(trainer, list):
             # sequential trainer definition
-            default_trainer = [
-                train.pop("name", "NodeClassification") for train in trainer
-            ]
-            trainer_space = [
-                _parse_hp_space(train.pop("hp_space", None)) for train in trainer
-            ]
+            assert len(trainer) == len(
+                model_list
+            ), "The number of trainer and model does not match"
+            trainer_space = []
+            for i in range(len(model_list)):
+                train, model = trainer[i], model_list[i]
+                default_trainer = train.pop("name", "NodeClassification")
+                trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
+                default_kwargs = {"num_features": None, "num_classes": None}
+                default_kwargs.update(train)
+                default_kwargs["init"] = False
+                trainer_wrap = TRAINER_DICT[default_trainer](
+                    model=model, **default_kwargs
+                )
+                model_list[i] = trainer_wrap
 
         solver.set_graph_models(
             model_list, default_trainer, trainer_space, model_hp_space

@@ -107,7 +107,7 @@ class AutoGraphClassifier(BaseClassifier):
         feval,
         device,
         loss,
-        num_graph_features
+        num_graph_features,
     ) -> "AutoGraphClassifier":
         # load graph network module
         self.graph_model_list = []
@@ -121,7 +121,7 @@ class AutoGraphClassifier(BaseClassifier):
                                 num_features=num_features,
                                 num_graph_features=num_graph_features,
                                 device=device,
-                                init=False
+                                init=False,
                             )
                         )
                     else:
@@ -133,7 +133,7 @@ class AutoGraphClassifier(BaseClassifier):
                             num_features=num_features,
                             num_graph_features=num_graph_features,
                             device=device,
-                            init=False
+                            init=False,
                         )
                     )
                 elif isinstance(model, BaseModel):
@@ -144,7 +144,9 @@ class AutoGraphClassifier(BaseClassifier):
                     self.graph_model_list.append(model.to(device))
                 elif isinstance(model, GraphClassificationTrainer):
                     # receive a trainer list, put trainer to list
-                    assert model.get_model() is not None, "Passed trainer should contain a model"
+                    assert (
+                        model.get_model() is not None
+                    ), "Passed trainer should contain a model"
                     model.set_feval(feval)
                     model.loss_type = loss
                     model.to(device)
@@ -188,7 +190,7 @@ class AutoGraphClassifier(BaseClassifier):
                     feval=feval,
                     device=device,
                     num_graph_features=num_graph_features,
-                    init=False
+                    init=False,
                 )
             # set trainer hp space
             if self._trainer_hp_space is not None:
@@ -774,14 +776,30 @@ class AutoGraphClassifier(BaseClassifier):
             # global default
             default_trainer = trainer.pop("name", "GraphClassification")
             trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
+            default_kwargs = {"num_features": None, "num_classes": None}
+            default_kwargs.update(trainer)
+            default_kwargs["init"] = False
+            for i in range(len(model_list)):
+                model = model_list[i]
+                trainer_wrapper = TRAINER_DICT[default_trainer](model=model, **trainer)
+                model_list[i] = trainer_wrapper
         elif isinstance(trainer, list):
             # sequential trainer definition
-            default_trainer = [
-                train.pop("name", "GraphClassification") for train in trainer
-            ]
-            trainer_space = [
-                _parse_hp_space(train.pop("hp_space", None)) for train in trainer
-            ]
+            assert len(trainer) == len(
+                model_list
+            ), "The number of trainer and model does not match"
+            trainer_space = []
+            for i in range(len(model_list)):
+                train, model = trainer[i], model_list[i]
+                default_trainer = train.pop("name", "GraphClassification")
+                trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
+                default_kwargs = {"num_features": None, "num_classes": None}
+                default_kwargs.update(train)
+                default_kwargs["init"] = False
+                trainer_wrap = TRAINER_DICT[default_trainer](
+                    model=model, **default_kwargs
+                )
+                model_list[i] = trainer_wrap
 
         solver.set_graph_models(
             model_list, default_trainer, trainer_space, model_hp_space

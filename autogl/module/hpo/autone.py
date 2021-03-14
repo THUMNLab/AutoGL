@@ -61,7 +61,9 @@ class AutoNE(BaseHPOptimizer):
         """
         self.feval_name = trainer.get_feval(return_major=True).get_eval_name()
         self.is_higher_better = trainer.get_feval(return_major=True).is_higher_better()
-        space = trainer.hyper_parameter_space + trainer.get_model().hyper_parameter_space
+        space = (
+            trainer.hyper_parameter_space + trainer.get_model().hyper_parameter_space
+        )
         current_space = self._encode_para(space)
 
         def sample_subgraph(whole_data):
