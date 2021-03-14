@@ -1,66 +1,56 @@
-feature:
-  - name: NxLargeCliqueSize
-  - name: NxLargeCliqueSize
-
-models:
-  topkpool:
-
-    - parameterName: ratio
-      type: DOUBLE
-      maxValue: 0.9
-      minValue: 0.1
-      scalingType: LINEAR
-    
-    - parameterName: dropout
-      type: DOUBLE
-      maxValue: 0.9
-      minValue: 0.1
-      scalingType: LINEAR
-    
-    - parameterName: act
-      type: CATEGORICAL
-      feasiblePoints:
-        - leaky_relu
-        - relu
-        - elu
-        - tanh
-
-trainer:
-  - parameterName: max_epoch
-    type: INTEGER
-    maxValue: 300
-    minValue: 10
-    scalingType: LINEAR
-  
-  - parameterName: early_stopping_round
-    type: INTEGER
-    maxValue: 30
-    minValue: 10
-    scalingType: LINEAR
-
-  - parameterName: lr
-    type: DOUBLE
-    maxValue: 0.1
-    minValue: 0.0001
-    scalingType: LOG
-  
-  - parameterName: weight_decay
-    type: DOUBLE
-    maxValue: 0.005
-    minValue: 0.00005
-    scalingType: LOG
-
-  - parameterName: batch_size
-    type: INTEGER
-    maxValue: 128
-    minValue: 48
-    scalingType: LINEAR
-
-
-hpo:
-  name: anneal
-  max_evals: 10
-
 ensemble:
   name: voting
   size: 2
+feature:
+- name: NxLargeCliqueSize
+- name: NxLargeCliqueSize
+hpo:
+  max_evals: 10
+  name: anneal
+models:
+- hp_space:
+  - maxValue: 0.9
+    minValue: 0.1
+    parameterName: ratio
+    scalingType: LINEAR
+    type: DOUBLE
+  - maxValue: 0.9
+    minValue: 0.1
+    parameterName: dropout
+    scalingType: LINEAR
+    type: DOUBLE
+  - feasiblePoints:
+    - leaky_relu
+    - relu
+    - elu
+    - tanh
+    parameterName: act
+    type: CATEGORICAL
+  name: topkpool
+trainer:
+  hp_space:
+  - maxValue: 300
+    minValue: 10
+    parameterName: max_epoch
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 30
+    minValue: 10
+    parameterName: early_stopping_round
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 0.1
+    minValue: 0.0001
+    parameterName: lr
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 0.005
+    minValue: 5.0e-05
+    parameterName: weight_decay
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 128
+    minValue: 48
+    parameterName: batch_size
+    scalingType: LINEAR
+    type: INTEGER

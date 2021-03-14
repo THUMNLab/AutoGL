@@ -43,6 +43,11 @@ class BaseModel(torch.nn.Module):
     def forward(self):
         pass
 
+    def to(self, device):
+        if isinstance(device, (str, torch.device)):
+            self.device = device
+        return super().to(device)
+
     def from_hyper_parameter(self, hp):
         ret_self = self.__class__(
             num_features=self.num_features,

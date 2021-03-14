@@ -1,64 +1,61 @@
-feature:
-  - name: ~ # ~ means None
-
-models:
-  gcn:
-    - parameterName: num_layers
-      type: DISCRETE
-      feasiblePoints: '2,3'
-    
-    - parameterName: hidden
-      type: NUMERICAL_LIST
-      numericalType: INTEGER
-      length: 2
-      minValue: [32, 32]
-      maxValue: [128, 128]
-      cutPara: ["num_layers"]
-      cutFunc: "lambda x:x[0] - 1"
-      scalingType: LOG
-    
-    - parameterName: dropout
-      type: DOUBLE
-      maxValue: 0.8
-      minValue: 0.2
-      scalingType: LINEAR
-    
-    - parameterName: act
-      type: CATEGORICAL
-      feasiblePoints:
-        - leaky_relu
-        - relu
-        - elu
-        - tanh
-
-trainer:
-  - parameterName: max_epoch
-    type: INTEGER
-    maxValue: 300
-    minValue: 100
-    scalingType: LINEAR
-  
-  - parameterName: early_stopping_round
-    type: INTEGER
-    maxValue: 30
-    minValue: 10
-    scalingType: LINEAR
-
-  - parameterName: lr
-    type: DOUBLE
-    maxValue: 0.01
-    minValue: 0.001
-    scalingType: LOG
-  
-  - parameterName: weight_decay
-    type: DOUBLE
-    maxValue: 0.01
-    minValue: 0.001
-    scalingType: LOG
-
-hpo:
-  name: random
-  max_evals: 10
-
 ensemble:
-  name: ~
+  name: null
+feature:
+- name: null
+hpo:
+  max_evals: 10
+  name: random
+models:
+- hp_space:
+  - feasiblePoints: 2,3
+    parameterName: num_layers
+    type: DISCRETE
+  - cutFunc: lambda x:x[0] - 1
+    cutPara:
+    - num_layers
+    length: 2
+    maxValue:
+    - 128
+    - 128
+    minValue:
+    - 32
+    - 32
+    numericalType: INTEGER
+    parameterName: hidden
+    scalingType: LOG
+    type: NUMERICAL_LIST
+  - maxValue: 0.8
+    minValue: 0.2
+    parameterName: dropout
+    scalingType: LINEAR
+    type: DOUBLE
+  - feasiblePoints:
+    - leaky_relu
+    - relu
+    - elu
+    - tanh
+    parameterName: act
+    type: CATEGORICAL
+  name: gcn
+trainer:
+  hp_space:
+  - maxValue: 300
+    minValue: 100
+    parameterName: max_epoch
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 30
+    minValue: 10
+    parameterName: early_stopping_round
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 0.01
+    minValue: 0.001
+    parameterName: lr
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 0.01
+    minValue: 0.001
+    parameterName: weight_decay
+    scalingType: LOG
+    type: DOUBLE

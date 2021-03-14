@@ -12,9 +12,9 @@ import yaml
 
 from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT
-from ...module.train import TRAINER_DICT, get_feval
-from ...module import BaseModel
+from ...module.model import BaseModel, MODEL_DICT
+from ...module.train import TRAINER_DICT, get_feval, GraphClassificationTrainer
+from ..base import _initialize_single_model, _parse_hp_space
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
@@ -77,6 +77,7 @@ class AutoGraphClassifier(BaseClassifier):
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
+        default_trainer=None,
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -89,6 +90,7 @@ class AutoGraphClassifier(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
+            default_trainer=default_trainer or "GraphClassification",
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -100,10 +102,12 @@ class AutoGraphClassifier(BaseClassifier):
     def _init_graph_module(
         self,
         graph_models,
-        num_features,
         num_classes,
-        *args,
-        **kwargs,
+        num_features,
+        feval,
+        device,
+        loss,
+        num_graph_features,
     ) -> "AutoGraphClassifier":
         # load graph network module
         self.graph_model_list = []
@@ -113,10 +117,10 @@ class AutoGraphClassifier(BaseClassifier):
                     if model in MODEL_DICT:
                         self.graph_model_list.append(
                             MODEL_DICT[model](
-                                num_features=num_features,
                                 num_classes=num_classes,
-                                *args,
-                                **kwargs,
+                                num_features=num_features,
+                                num_graph_features=num_graph_features,
+                                device=device,
                                 init=False,
                             )
                         )
@@ -125,53 +129,77 @@ class AutoGraphClassifier(BaseClassifier):
                 elif isinstance(model, type) and issubclass(model, BaseModel):
                     self.graph_model_list.append(
                         model(
-                            num_features=num_features,
                             num_classes=num_classes,
-                            *args,
-                            **kwargs,
+                            num_features=num_features,
+                            num_graph_features=num_graph_features,
+                            device=device,
                             init=False,
                         )
                     )
                 elif isinstance(model, BaseModel):
-                    model.set_num_features(num_features)
+                    # setup the hp of num_classes and num_features
                     model.set_num_classes(num_classes)
-                    model.set_num_graph_features(
-                        0
-                        if "num_graph_features" not in kwargs
-                        else kwargs["num_graph_features"]
-                    )
+                    model.set_num_features(num_features)
+                    model.set_num_graph_features(num_graph_features)
+                    self.graph_model_list.append(model.to(device))
+                elif isinstance(model, GraphClassificationTrainer):
+                    # receive a trainer list, put trainer to list
+                    assert (
+                        model.get_model() is not None
+                    ), "Passed trainer should contain a model"
+                    model.set_feval(feval)
+                    model.loss_type = loss
+                    model.to(device)
+                    model.model.set_num_classes(num_classes)
+                    model.model.set_num_features(num_features)
+                    model.model.set_num_graph_features(num_graph_features)
+                    model.num_classes = num_classes
+                    model.num_features = num_features
+                    model.num_graph_features = num_graph_features
                     self.graph_model_list.append(model)
                 else:
                     raise KeyError("cannot find graph network %s." % (model))
         else:
             raise ValueError(
-                "need graph network to be str or a BaseModel class/instance, get",
+                "need graph network to be (list of) str or a BaseModel class/instance, get",
                 graph_models,
                 "instead.",
             )
 
         # wrap all model_cls with specified trainer
         for i, model in enumerate(self.graph_model_list):
+            # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    model.hyper_parameter_space = self._model_hp_spaces[i]
-            trainer = TRAINER_DICT["GraphClassification"](
-                model=model,
-                num_features=num_features,
-                num_classes=num_classes,
-                *args,
-                **kwargs,
-                init=False,
-            )
+                    if isinstance(model, GraphClassificationTrainer):
+                        model.model.hyper_parameter_space = self._model_hp_spaces[i]
+                    else:
+                        model.hyper_parameter_space = self._model_hp_spaces[i]
+            # initialize trainer if needed
+            if isinstance(model, BaseModel):
+                name = (
+                    self._default_trainer
+                    if isinstance(self._default_trainer, str)
+                    else self._default_trainer[i]
+                )
+                model = TRAINER_DICT[name](
+                    model=model,
+                    num_features=num_features,
+                    num_classes=num_classes,
+                    loss=loss,
+                    feval=feval,
+                    device=device,
+                    num_graph_features=num_graph_features,
+                    init=False,
+                )
+            # set trainer hp space
             if self._trainer_hp_space is not None:
                 if isinstance(self._trainer_hp_space[0], list):
                     current_hp_for_trainer = self._trainer_hp_space[i]
                 else:
                     current_hp_for_trainer = self._trainer_hp_space
-                trainer.hyper_parameter_space = (
-                    current_hp_for_trainer + model.hyper_parameter_space
-                )
-            self.graph_model_list[i] = trainer
+                model.hyper_parameter_space = current_hp_for_trainer
+            self.graph_model_list[i] = model
 
         return self
 
@@ -723,7 +751,7 @@ class AutoGraphClassifier(BaseClassifier):
         # load the dictionary
         path_or_dict = deepcopy(path_or_dict)
         solver = cls(None, [], None, None)
-        fe_list = path_or_dict.pop("feature", [{"name": "deepgl"}])
+        fe_list = path_or_dict.pop("feature", None)
         if fe_list is not None:
             fe_list_ele = []
             for feature_engineer in fe_list:
@@ -733,33 +761,51 @@ class AutoGraphClassifier(BaseClassifier):
             if fe_list_ele != []:
                 solver.set_feature_module(fe_list_ele)
 
-        models = path_or_dict.pop("models", {"gcn": None, "gat": None})
-        model_list = list(models.keys())
-        model_hp_space = [models[m] for m in model_list]
-        trainer_space = path_or_dict.pop("trainer", None)
+        models = path_or_dict.pop("models", [{"name": "gin"}, {"name": "topkpool"}])
+        model_hp_space = [
+            _parse_hp_space(model.pop("hp_space", None)) for model in models
+        ]
+        model_list = [
+            _initialize_single_model(model.pop("name"), model) for model in models
+        ]
 
-        # parse lambda function
-        if model_hp_space:
-            for space in model_hp_space:
-                if space is not None:
-                    for keys in space:
-                        if "cutFunc" in keys and isinstance(keys["cutFunc"], str):
-                            keys["cutFunc"] = eval(keys["cutFunc"])
+        trainer = path_or_dict.pop("trainer", None)
+        default_trainer = "GraphClassification"
+        trainer_space = None
+        if isinstance(trainer, dict):
+            # global default
+            default_trainer = trainer.pop("name", "GraphClassification")
+            trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
+            default_kwargs = {"num_features": None, "num_classes": None}
+            default_kwargs.update(trainer)
+            default_kwargs["init"] = False
+            for i in range(len(model_list)):
+                model = model_list[i]
+                trainer_wrapper = TRAINER_DICT[default_trainer](
+                    model=model, **default_kwargs
+                )
+                model_list[i] = trainer_wrapper
+        elif isinstance(trainer, list):
+            # sequential trainer definition
+            assert len(trainer) == len(
+                model_list
+            ), "The number of trainer and model does not match"
+            trainer_space = []
+            for i in range(len(model_list)):
+                train, model = trainer[i], model_list[i]
+                default_trainer = train.pop("name", "GraphClassification")
+                trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
+                default_kwargs = {"num_features": None, "num_classes": None}
+                default_kwargs.update(train)
+                default_kwargs["init"] = False
+                trainer_wrap = TRAINER_DICT[default_trainer](
+                    model=model, **default_kwargs
+                )
+                model_list[i] = trainer_wrap
 
-        if trainer_space:
-            for space in trainer_space:
-                if (
-                    isinstance(space, dict)
-                    and "cutFunc" in space
-                    and isinstance(space["cutFunc"], str)
-                ):
-                    space["cutFunc"] = eval(space["cutFunc"])
-                elif space is not None:
-                    for keys in space:
-                        if "cutFunc" in keys and isinstance(keys["cutFunc"], str):
-                            keys["cutFunc"] = eval(keys["cutFunc"])
-
-        solver.set_graph_models(model_list, trainer_space, model_hp_space)
+        solver.set_graph_models(
+            model_list, default_trainer, trainer_space, model_hp_space
+        )
 
         hpo_dict = path_or_dict.pop("hpo", {"name": "anneal"})
         if hpo_dict is not None:
