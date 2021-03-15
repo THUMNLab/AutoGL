@@ -1,6 +1,6 @@
 from . import register_trainer, BaseTrainer, Evaluation, EVALUATE_DICT, EarlyStopping
 import torch
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
 from .evaluate import Logloss, Acc, Auc
@@ -69,6 +69,7 @@ class NodeClassificationTrainer(BaseTrainer):
         init=True,
         feval=[Logloss],
         loss="nll_loss",
+        lr_scheduler_type='steplr',
         *args,
         **kwargs
     ):
@@ -92,6 +93,8 @@ class NodeClassificationTrainer(BaseTrainer):
             self.optimizer = torch.optim.SGD
         else:
             self.optimizer = torch.optim.Adam
+
+        self.lr_scheduler_type = lr_scheduler_type
 
         self.num_features = num_features
         self.num_classes = num_classes
@@ -151,7 +154,7 @@ class NodeClassificationTrainer(BaseTrainer):
                 "scalingType": "LOG",
             },
         ]
-        self.space += self.model.space
+        # self.space += self.model.space
         NodeClassificationTrainer.space = self.space
 
         self.hyperparams = {
@@ -201,7 +204,19 @@ class NodeClassificationTrainer(BaseTrainer):
         optimizer = self.optimizer(
             self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-        scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        lr_scheduler_type = self.lr_scheduler_type
+        if type(lr_scheduler_type) == str and lr_scheduler_type == 'steplr':
+            scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == 'multisteplr':
+            scheduler = MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == 'exponentiallr':
+            scheduler = ExponentialLR(optimizer, gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == 'reducelronplateau':
+            scheduler = ReduceLROnPlateau(optimizer, 'min')
+        else:
+            scheduler = None
+
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
             optimizer.zero_grad()
@@ -215,7 +230,8 @@ class NodeClassificationTrainer(BaseTrainer):
 
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            if self.lr_scheduler_type:
+                scheduler.step()
 
             if type(self.feval) is list:
                 feval = self.feval[0]
