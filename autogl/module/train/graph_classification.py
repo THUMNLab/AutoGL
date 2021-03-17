@@ -268,18 +268,20 @@ class GraphClassificationTrainer(BaseTrainer):
                     scheduler.step()
             # loss = loss_all / len(train_loader.dataset)
             # train_loss = self.evaluate(train_loader)
-            eval_func = (
-                self.feval if not isinstance(self.feval, list) else self.feval[0]
-            )
-            val_loss = self._evaluate(valid_loader, eval_func) if valid_loader else 0.0
+            if valid_loader is not None:
+                eval_func = (
+                    self.feval if not isinstance(self.feval, list) else self.feval[0]
+                )
+                val_loss = self._evaluate(valid_loader, eval_func)
 
-            if eval_func.is_higher_better():
-                val_loss = -val_loss
-            self.early_stopping(val_loss, self.model.model)
-            if self.early_stopping.early_stop:
-                LOGGER.debug("Early stopping at", epoch)
-                break
-        self.early_stopping.load_checkpoint(self.model.model)
+                if eval_func.is_higher_better():
+                    val_loss = -val_loss
+                self.early_stopping(val_loss, self.model.model)
+                if self.early_stopping.early_stop:
+                    LOGGER.debug("Early stopping at", epoch)
+                    break
+        if valid_loader is not None:
+            self.early_stopping.load_checkpoint(self.model.model)
 
     def predict_only(self, loader):
         """

@@ -241,18 +241,20 @@ class NodeClassificationTrainer(BaseTrainer):
             if self.lr_scheduler_type:
                 scheduler.step()
 
-            if type(self.feval) is list:
-                feval = self.feval[0]
-            else:
-                feval = self.feval
-            val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
-            if feval.is_higher_better() is True:
-                val_loss = -val_loss
-            self.early_stopping(val_loss, self.model.model)
-            if self.early_stopping.early_stop:
-                LOGGER.debug("Early stopping at %d", epoch)
-                break
-        self.early_stopping.load_checkpoint(self.model.model)
+            if hasattr(data, 'val_mask') and data.val_mask is not None:
+                if type(self.feval) is list:
+                    feval = self.feval[0]
+                else:
+                    feval = self.feval
+                val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
+                if feval.is_higher_better() is True:
+                    val_loss = -val_loss
+                self.early_stopping(val_loss, self.model.model)
+                if self.early_stopping.early_stop:
+                    LOGGER.debug("Early stopping at %d", epoch)
+                    break
+        if hasattr(data, 'val_mask') and data.val_mask is not None:
+            self.early_stopping.load_checkpoint(self.model.model)
 
     def predict_only(self, data, test_mask=None):
         """
