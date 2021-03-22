@@ -13,7 +13,7 @@ import yaml
 from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
 from ...module.model import BaseModel, MODEL_DICT
-from ...module.train import TRAINER_DICT, get_feval, GraphClassificationTrainer
+from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
@@ -90,7 +90,7 @@ class AutoGraphClassifier(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "GraphClassification",
+            default_trainer=default_trainer or "GraphClassificationFull",
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -142,20 +142,22 @@ class AutoGraphClassifier(BaseClassifier):
                     model.set_num_features(num_features)
                     model.set_num_graph_features(num_graph_features)
                     self.graph_model_list.append(model.to(device))
-                elif isinstance(model, GraphClassificationTrainer):
+                elif isinstance(model, BaseGraphClassificationTrainer):
                     # receive a trainer list, put trainer to list
                     assert (
                         model.get_model() is not None
                     ), "Passed trainer should contain a model"
-                    model.set_feval(feval)
-                    model.loss_type = loss
-                    model.to(device)
                     model.model.set_num_classes(num_classes)
                     model.model.set_num_features(num_features)
                     model.model.set_num_graph_features(num_graph_features)
-                    model.num_classes = num_classes
-                    model.num_features = num_features
-                    model.num_graph_features = num_graph_features
+                    model.update_parameters(
+                        num_classes=num_classes,
+                        num_features=num_features,
+                        num_graph_features=num_graph_features,
+                        loss=loss,
+                        feval=feval,
+                        device=device,
+                    )
                     self.graph_model_list.append(model)
                 else:
                     raise KeyError("cannot find graph network %s." % (model))
@@ -171,7 +173,7 @@ class AutoGraphClassifier(BaseClassifier):
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, GraphClassificationTrainer):
+                    if isinstance(model, BaseGraphClassificationTrainer):
                         model.model.hyper_parameter_space = self._model_hp_spaces[i]
                     else:
                         model.hyper_parameter_space = self._model_hp_spaces[i]
@@ -770,11 +772,11 @@ class AutoGraphClassifier(BaseClassifier):
         ]
 
         trainer = path_or_dict.pop("trainer", None)
-        default_trainer = "GraphClassification"
+        default_trainer = "GraphClassificationFull"
         trainer_space = None
         if isinstance(trainer, dict):
             # global default
-            default_trainer = trainer.pop("name", "GraphClassification")
+            default_trainer = trainer.pop("name", "GraphClassificationFull")
             trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
             default_kwargs = {"num_features": None, "num_classes": None}
             default_kwargs.update(trainer)
@@ -793,7 +795,7 @@ class AutoGraphClassifier(BaseClassifier):
             trainer_space = []
             for i in range(len(model_list)):
                 train, model = trainer[i], model_list[i]
-                default_trainer = train.pop("name", "GraphClassification")
+                default_trainer = train.pop("name", "GraphClassificationFull")
                 trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
                 default_kwargs = {"num_features": None, "num_classes": None}
                 default_kwargs.update(train)

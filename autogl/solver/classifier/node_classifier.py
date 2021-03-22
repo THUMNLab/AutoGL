@@ -14,7 +14,7 @@ from .base import BaseClassifier
 from ..base import _parse_hp_space, _initialize_single_model
 from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT, BaseModel
-from ...module.train import TRAINER_DICT, NodeClassificationTrainer
+from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
 from ...module.train import get_feval
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
@@ -92,7 +92,7 @@ class AutoNodeClassifier(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "NodeClassification",
+            default_trainer=default_trainer or "NodeClassificationFull",
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -135,18 +135,20 @@ class AutoNodeClassifier(BaseClassifier):
                     model.set_num_classes(num_classes)
                     model.set_num_features(num_features)
                     self.graph_model_list.append(model.to(device))
-                elif isinstance(model, NodeClassificationTrainer):
+                elif isinstance(model, BaseNodeClassificationTrainer):
                     # receive a trainer list, put trainer to list
                     assert (
                         model.get_model() is not None
                     ), "Passed trainer should contain a model"
-                    model.set_feval(feval)
-                    model.loss_type = loss
-                    model.to(device)
                     model.model.set_num_classes(num_classes)
                     model.model.set_num_features(num_features)
-                    model.num_classes = num_classes
-                    model.num_features = num_features
+                    model.update_parameters(
+                        num_classes=num_classes,
+                        num_features=num_features,
+                        loss=loss,
+                        feval=feval,
+                        device=device,
+                    )
                     self.graph_model_list.append(model)
                 else:
                     raise KeyError("cannot find graph network %s." % (model))
@@ -162,7 +164,7 @@ class AutoNodeClassifier(BaseClassifier):
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, NodeClassificationTrainer):
+                    if isinstance(model, BaseNodeClassificationTrainer):
                         model.model.hyper_parameter_space = self._model_hp_spaces[i]
                     else:
                         model.hyper_parameter_space = self._model_hp_spaces[i]
@@ -689,11 +691,11 @@ class AutoNodeClassifier(BaseClassifier):
         ]
 
         trainer = path_or_dict.pop("trainer", None)
-        default_trainer = "NodeClassification"
+        default_trainer = "NodeClassificationFull"
         trainer_space = None
         if isinstance(trainer, dict):
             # global default
-            default_trainer = trainer.pop("name", "NodeClassification")
+            default_trainer = trainer.pop("name", "NodeClassificationFull")
             trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
             default_kwargs = {"num_features": None, "num_classes": None}
             default_kwargs.update(trainer)
@@ -712,7 +714,7 @@ class AutoNodeClassifier(BaseClassifier):
             trainer_space = []
             for i in range(len(model_list)):
                 train, model = trainer[i], model_list[i]
-                default_trainer = train.pop("name", "NodeClassification")
+                default_trainer = train.pop("name", "NodeClassificationFull")
                 trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
                 default_kwargs = {"num_features": None, "num_classes": None}
                 default_kwargs.update(train)

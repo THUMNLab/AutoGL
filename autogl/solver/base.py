@@ -11,7 +11,6 @@ import torch
 from ..module.feature import FEATURE_DICT
 from ..module.hpo import HPO_DICT
 from ..module.model import MODEL_DICT
-from ..module.train import NodeClassificationTrainer
 from ..module import BaseFeatureAtom, BaseHPOptimizer, BaseTrainer
 from .utils import Leaderboard
 from ..utils import get_logger
@@ -336,7 +335,7 @@ class BaseSolver:
         assert name in self.trained_models, "cannot find model by name" + name
         return self.trained_models[name]
 
-    def get_model_by_performance(self, index) -> Tuple[NodeClassificationTrainer, str]:
+    def get_model_by_performance(self, index) -> Tuple[BaseTrainer, str]:
         r"""
         Find and get the model instance by performance.
 
@@ -347,7 +346,7 @@ class BaseSolver:
 
         Returns
         -------
-        trainer: autogl.module.train.NodeClassificationTrainer
+        trainer: autogl.module.train.BaseTrainer
             A trainer instance containing the trained models and training status.
         name: str
             The name of current trainer.

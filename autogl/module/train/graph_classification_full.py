@@ -1,4 +1,5 @@
-from . import register_trainer, BaseTrainer, Evaluation, EVALUATE_DICT, EarlyStopping
+from . import register_trainer, EVALUATE_DICT
+from .base import BaseGraphClassificationTrainer, EarlyStopping, Evaluation
 import torch
 from torch.optim.lr_scheduler import (
     StepLR,
@@ -8,13 +9,14 @@ from torch.optim.lr_scheduler import (
 )
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
-from .evaluate import Logloss, Acc, Auc
+from .evaluate import Logloss
 from typing import Union
+from ...datasets import utils
 from copy import deepcopy
 
 from ...utils import get_logger
 
-LOGGER = get_logger("node classification trainer")
+LOGGER = get_logger("graph classification solver")
 
 
 def get_feval(feval):
@@ -27,12 +29,12 @@ def get_feval(feval):
     raise ValueError("feval argument of type", type(feval), "is not supported!")
 
 
-@register_trainer("NodeClassification")
-class NodeClassificationTrainer(BaseTrainer):
+@register_trainer("GraphClassificationFull")
+class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
     """
-    The node classification trainer.
+    The graph classification trainer.
 
-    Used to automatically train the node classification problem.
+    Used to automatically train the graph classification problem.
 
     Parameters
     ----------
@@ -43,7 +45,7 @@ class NodeClassificationTrainer(BaseTrainer):
         The (name of) optimizer used to train and predict.
 
     lr: ``float``
-        The learning rate of node classification task.
+        The learning rate of graph classification task.
 
     max_epoch: ``int``
         The max number of epochs in training.
@@ -65,12 +67,14 @@ class NodeClassificationTrainer(BaseTrainer):
         model: Union[BaseModel, str],
         num_features,
         num_classes,
+        num_graph_features=0,
         optimizer=None,
         lr=None,
         max_epoch=None,
-        early_stopping_round=None,
+        batch_size=None,
+        early_stopping_round=7,
         weight_decay=1e-4,
-        device=None,
+        device="auto",
         init=True,
         feval=[Logloss],
         loss="nll_loss",
@@ -78,19 +82,16 @@ class NodeClassificationTrainer(BaseTrainer):
         *args,
         **kwargs
     ):
-        super(NodeClassificationTrainer, self).__init__(model)
-
-        self.loss_type = loss
-
-        if device is None:
-            device = "cpu"
-
-        # init model
-        if isinstance(model, str):
-            assert model in MODEL_DICT, "Cannot parse model name " + model
-            self.model = MODEL_DICT[model](num_features, num_classes, device, init=init)
-        elif isinstance(model, BaseModel):
-            self.model = model
+        super().__init__(
+            model,
+            num_features,
+            num_classes,
+            num_graph_features=num_graph_features,
+            device=device,
+            init=init,
+            feval=feval,
+            loss=loss,
+        )
 
         self.opt_received = optimizer
         if type(optimizer) == str and optimizer.lower() == "adam":
@@ -102,13 +103,13 @@ class NodeClassificationTrainer(BaseTrainer):
 
         self.lr_scheduler_type = lr_scheduler_type
 
-        self.num_features = num_features
-        self.num_classes = num_classes
         self.lr = lr if lr is not None else 1e-4
         self.max_epoch = max_epoch if max_epoch is not None else 100
+        self.batch_size = batch_size if batch_size is not None else 64
         self.early_stopping_round = (
             early_stopping_round if early_stopping_round is not None else 100
         )
+        # GraphClassificationTrainer.space = self.model.hyper_parameter_space
         self.device = device
         self.args = args
         self.kwargs = kwargs
@@ -126,17 +127,22 @@ class NodeClassificationTrainer(BaseTrainer):
         self.valid_score = None
 
         self.initialized = False
-        self.num_features = num_features
-        self.num_classes = num_classes
         self.device = device
 
         self.space = [
             {
                 "parameterName": "max_epoch",
                 "type": "INTEGER",
-                "maxValue": 500,
+                "maxValue": 300,
                 "minValue": 10,
                 "scalingType": "LINEAR",
+            },
+            {
+                "parameterName": "batch_size",
+                "type": "INTEGER",
+                "maxValue": 128,
+                "minValue": 32,
+                "scalingType": "LOG",
             },
             {
                 "parameterName": "early_stopping_round",
@@ -148,68 +154,71 @@ class NodeClassificationTrainer(BaseTrainer):
             {
                 "parameterName": "lr",
                 "type": "DOUBLE",
-                "maxValue": 1e-1,
+                "maxValue": 1e-3,
                 "minValue": 1e-4,
                 "scalingType": "LOG",
             },
             {
                 "parameterName": "weight_decay",
                 "type": "DOUBLE",
-                "maxValue": 1e-2,
-                "minValue": 1e-4,
+                "maxValue": 5e-3,
+                "minValue": 5e-4,
                 "scalingType": "LOG",
             },
         ]
-        # self.space += self.model.space
-        NodeClassificationTrainer.space = self.space
 
         self.hyperparams = {
             "max_epoch": self.max_epoch,
+            "batch_size": self.batch_size,
             "early_stopping_round": self.early_stopping_round,
             "lr": self.lr,
             "weight_decay": self.weight_decay,
         }
-        self.hyperparams = {**self.hyperparams, **self.model.get_hyper_parameter()}
 
         if init is True:
             self.initialize()
 
     def initialize(self):
-        #  Initialize the auto model in trainer.
+        # """Initialize the auto model in trainer."""
         if self.initialized is True:
             return
         self.initialized = True
         self.model.initialize()
 
     def get_model(self):
-        # Get auto model used in trainer.
+        # """Get auto model used in trainer."""
         return self.model
 
     @classmethod
     def get_task_name(cls):
-        # Get task name, i.e., `NodeClassification`.
-        return "NodeClassification"
+        # """Get task name, i.e., `GraphClassification`."""
+        return "GraphClassification"
 
-    def train_only(self, data, train_mask=None):
+    def to(self, device):
+        assert isinstance(device, torch.device)
+        self.device = device
+        if self.model is not None:
+            self.model.to(self.device)
+
+    def train_only(self, train_loader, valid_loader=None):
         """
         The function of training on the given dataset and mask.
 
         Parameters
         ----------
-        data: The node classification dataset used to be trained. It should consist of masks, including train_mask, and etc.
+        data: The graph classification dataset used to be trained. It should consist of masks, including train_mask, and etc.
         train_mask: The mask used in training stage.
 
         Returns
         -------
-        self: ``autogl.train.NodeClassificationTrainer``
+        self: ``autogl.train.GraphClassificationTrainer``
             A reference of current trainer.
 
         """
-        data = data.to(self.device)
-        mask = data.train_mask if train_mask is None else train_mask
         optimizer = self.optimizer(
             self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
+
         # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
         lr_scheduler_type = self.lr_scheduler_type
         if type(lr_scheduler_type) == str and lr_scheduler_type == "steplr":
@@ -227,42 +236,47 @@ class NodeClassificationTrainer(BaseTrainer):
 
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
-            optimizer.zero_grad()
-            res = self.model.model.forward(data)
-            if hasattr(F, self.loss_type):
-                loss = getattr(F, self.loss_type)(res[mask], data.y[mask])
-            else:
-                raise TypeError(
-                    "PyTorch does not support loss type {}".format(self.loss_type)
-                )
-
-            loss.backward()
-            optimizer.step()
-            if self.lr_scheduler_type:
-                scheduler.step()
-
-            if hasattr(data, 'val_mask') and data.val_mask is not None:
-                if type(self.feval) is list:
-                    feval = self.feval[0]
+            loss_all = 0
+            for data in train_loader:
+                data = data.to(self.device)
+                optimizer.zero_grad()
+                output = self.model.model(data)
+                # loss = F.nll_loss(output, data.y)
+                if hasattr(F, self.loss):
+                    loss = getattr(F, self.loss)(output, data.y)
                 else:
-                    feval = self.feval
-                val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
-                if feval.is_higher_better() is True:
+                    raise TypeError(
+                        "PyTorch does not support loss type {}".format(self.loss)
+                    )
+                loss.backward()
+                loss_all += data.num_graphs * loss.item()
+                optimizer.step()
+                if self.lr_scheduler_type:
+                    scheduler.step()
+            # loss = loss_all / len(train_loader.dataset)
+            # train_loss = self.evaluate(train_loader)
+            if valid_loader is not None:
+                eval_func = (
+                    self.feval if not isinstance(self.feval, list) else self.feval[0]
+                )
+                val_loss = self._evaluate(valid_loader, eval_func)
+
+                if eval_func.is_higher_better():
                     val_loss = -val_loss
                 self.early_stopping(val_loss, self.model.model)
                 if self.early_stopping.early_stop:
-                    LOGGER.debug("Early stopping at %d", epoch)
+                    LOGGER.debug("Early stopping at", epoch)
                     break
-        if hasattr(data, 'val_mask') and data.val_mask is not None:
+        if valid_loader is not None:
             self.early_stopping.load_checkpoint(self.model.model)
 
-    def predict_only(self, data, test_mask=None):
+    def predict_only(self, loader):
         """
         The function of predicting on the given dataset and mask.
 
         Parameters
         ----------
-        data: The node classification dataset used to be predicted.
+        data: The graph classification dataset used to be predicted.
         train_mask: The mask used in training stage.
 
         Returns
@@ -270,12 +284,13 @@ class NodeClassificationTrainer(BaseTrainer):
         res: The result of predicting on the given dataset.
 
         """
-        # mask = data.test_mask if test_mask is None else test_mask
-        data = data.to(self.device)
         self.model.model.eval()
-        with torch.no_grad():
-            res = self.model.model.forward(data)
-        return res
+        pred = []
+        for data in loader:
+            data = data.to(self.device)
+            pred.append(self.model.model(data))
+        ret = torch.cat(pred, 0)
+        return ret
 
     def train(self, dataset, keep_valid_result=True):
         """
@@ -283,33 +298,37 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Parameters
         ----------
-        dataset: The node classification dataset used to be trained.
+        dataset: The graph classification dataset used to be trained.
 
         keep_valid_result: ``bool``
             If True(False), save the validation result after training.
 
         Returns
         -------
-        self: ``autogl.train.NodeClassificationTrainer``
+        self: ``autogl.train.GraphClassificationTrainer``
             A reference of current trainer.
 
         """
-        data = dataset[0]
-        self.train_only(data)
-        if keep_valid_result:
-            self.valid_result = self.predict_only(data)[data.val_mask].max(1)[1]
-            self.valid_result_prob = self.predict_only(data)[data.val_mask]
-            self.valid_score = self.evaluate(
-                dataset, mask=data.val_mask, feval=self.feval
-            )
+        train_loader = utils.graph_get_split(
+            dataset, "train", batch_size=self.batch_size
+        )  # DataLoader(dataset['train'], batch_size=self.batch_size)
+        valid_loader = utils.graph_get_split(
+            dataset, "val", batch_size=self.batch_size
+        )  # DataLoader(dataset['val'], batch_size=self.batch_size)
+        self.train_only(train_loader, valid_loader)
+        if keep_valid_result and valid_loader:
+            pred = self.predict_only(valid_loader)
+            self.valid_result = pred.max(1)[1]
+            self.valid_result_prob = pred
+            self.valid_score = self.evaluate(dataset, mask="val", feval=self.feval)
 
-    def predict(self, dataset, mask=None):
+    def predict(self, dataset, mask="test"):
         """
         The function of predicting on the given dataset.
 
         Parameters
         ----------
-        dataset: The node classification dataset used to be predicted.
+        dataset: The graph classification dataset used to be predicted.
 
         mask: ``train``, ``val``, or ``test``.
             The dataset mask.
@@ -318,15 +337,16 @@ class NodeClassificationTrainer(BaseTrainer):
         -------
         The prediction result of ``predict_proba``.
         """
-        return self.predict_proba(dataset, mask=mask, in_log_format=True).max(1)[1]
+        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        return self._predict_proba(loader, in_log_format=True).max(1)[1]
 
-    def predict_proba(self, dataset, mask=None, in_log_format=False):
+    def predict_proba(self, dataset, mask="test", in_log_format=False):
         """
         The function of predicting the probability on the given dataset.
 
         Parameters
         ----------
-        dataset: The node classification dataset used to be predicted.
+        dataset: The graph classification dataset used to be predicted.
 
         mask: ``train``, ``val``, or ``test``.
             The dataset mask.
@@ -338,18 +358,11 @@ class NodeClassificationTrainer(BaseTrainer):
         -------
         The prediction result.
         """
-        data = dataset[0]
-        data = data.to(self.device)
-        if mask is not None:
-            if mask == "val":
-                mask = data.val_mask
-            elif mask == "test":
-                mask = data.test_mask
-            elif mask == "train":
-                mask = data.train_mask
-        else:
-            mask = data.test_mask
-        ret = self.predict_only(data, mask)[mask]
+        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        return self._predict_proba(loader, in_log_format)
+
+    def _predict_proba(self, loader, in_log_format=False):
+        ret = self.predict_only(loader)
         if in_log_format is True:
             return ret
         else:
@@ -409,13 +422,13 @@ class NodeClassificationTrainer(BaseTrainer):
         )
         return name
 
-    def evaluate(self, dataset, mask=None, feval=None):
+    def evaluate(self, dataset, mask="val", feval=None):
         """
         The function of training on the given dataset and keeping valid result.
 
         Parameters
         ----------
-        dataset: The node classification dataset used to be evaluated.
+        dataset: The graph classification dataset used to be evaluated.
 
         mask: ``train``, ``val``, or ``test``.
             The dataset mask.
@@ -428,24 +441,21 @@ class NodeClassificationTrainer(BaseTrainer):
         res: The evaluation result on the given dataset.
 
         """
-        data = dataset[0]
-        data = data.to(self.device)
-        test_mask = mask
+        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        return self._evaluate(loader, feval)
+
+    def _evaluate(self, loader, feval=None):
         if feval is None:
             feval = self.feval
         else:
             feval = get_feval(feval)
-        if test_mask is None:
-            test_mask = data.test_mask
-        elif test_mask == "test":
-            test_mask = data.test_mask
-        elif test_mask == "val":
-            test_mask = data.val_mask
-        elif test_mask == "train":
-            test_mask = data.train_mask
-        y_pred_prob = self.predict_proba(dataset, mask)
+        y_pred_prob = self._predict_proba(loader=loader)
         y_pred = y_pred_prob.max(1)[1]
-        y_true = data.y[test_mask]
+
+        y_true_tmp = []
+        for data in loader:
+            y_true_tmp.append(data.y)
+        y_true = torch.cat(y_true_tmp, 0)
 
         if not isinstance(feval, list):
             feval = [feval]
@@ -455,21 +465,49 @@ class NodeClassificationTrainer(BaseTrainer):
 
         res = []
         for f in feval:
+            flag = False
             try:
                 res.append(f.evaluate(y_pred_prob, y_true))
+                flag = False
             except:
-                res.append(f.evaluate(y_pred_prob.cpu().numpy(), y_true.cpu().numpy()))
+                flag = True
+            if flag:
+                try:
+                    res.append(
+                        f.evaluate(y_pred_prob.cpu().numpy(), y_true.cpu().numpy())
+                    )
+                    flag = False
+                except:
+                    flag = True
+            if flag:
+                try:
+                    res.append(
+                        f.evaluate(
+                            y_pred_prob.detach().numpy(), y_true.detach().numpy()
+                        )
+                    )
+                    flag = False
+                except:
+                    flag = True
+            if flag:
+                try:
+                    res.append(
+                        f.evaluate(
+                            y_pred_prob.cpu().detach().numpy(),
+                            y_true.cpu().detach().numpy(),
+                        )
+                    )
+                    flag = False
+                except:
+                    flag = True
+            if flag:
+                assert False
+
         if return_signle:
             return res[0]
         return res
 
-    def to(self, new_device):
-        assert isinstance(new_device, torch.device)
-        self.device = new_device
-        if self.model is not None:
-            self.model.to(self.device)
-
-    def duplicate_from_hyper_parameter(self, hp: dict, model=None, restricted=True):
+    def duplicate_from_hyper_parameter(self, hp, model=None, restricted=True):
         """
         The function of duplicating a new instance from the given hyperparameter.
 
@@ -485,7 +523,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autogl.train.NodeClassificationTrainer``
+        self: ``autogl.train.GraphClassificationTrainer``
             A new instance of trainer.
 
         """
@@ -509,14 +547,16 @@ class NodeClassificationTrainer(BaseTrainer):
             model=model,
             num_features=self.num_features,
             num_classes=self.num_classes,
+            num_graph_features=self.num_graph_features,
             optimizer=self.opt_received,
             lr=hp["lr"],
             max_epoch=hp["max_epoch"],
+            batch_size=hp["batch_size"],
             early_stopping_round=hp["early_stopping_round"],
-            device=self.device,
             weight_decay=hp["weight_decay"],
+            device=self.device,
             feval=self.feval,
-            loss=self.loss_type,
+            loss=self.loss,
             lr_scheduler_type=self.lr_scheduler_type,
             init=True,
             *self.args,
@@ -526,19 +566,18 @@ class NodeClassificationTrainer(BaseTrainer):
         return ret
 
     def set_feval(self, feval):
-        # """Set the evaluation metrics."""
+        # """Get the space of hyperparameter."""
         self.feval = get_feval(feval)
 
     @property
     def hyper_parameter_space(self):
-        # """Get the space of hyperparameter."""
+        # """Set the space of hyperparameter."""
         return self.space
 
     @hyper_parameter_space.setter
     def hyper_parameter_space(self, space):
         # """Set the space of hyperparameter."""
         self.space = space
-        NodeClassificationTrainer.space = space
 
     def get_hyper_parameter(self):
         # """Get the hyperparameter in this trainer."""
