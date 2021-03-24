@@ -28,6 +28,7 @@ from .mocmaes_advisorchoco import MocmaesAdvisorChoco
 from .quasi_advisorchoco import QuasiAdvisorChoco
 from .rand_advisor import RandAdvisor
 from .tpe_advisorhpo import TpeAdvisorHPO
+from .test import TestHPO
 
 
 def build_hpo_from_name(name: str) -> BaseHPOptimizer:
@@ -62,5 +63,6 @@ __all__ = [
     "QuasiAdvisorChoco",
     "RandAdvisor",
     "TpeAdvisorHPO",
+    "TestHPO",
     "build_hpo_from_name",
 ]

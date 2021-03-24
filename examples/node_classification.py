@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='cora', type=str)
     parser.add_argument('--configs', type=str, default='../configs/nodeclf_gcn_benchmark_small.yml')
     # following arguments will override parameters in the config file
-    parser.add_argument('--hpo', type=str, default='random')
+    parser.add_argument('--hpo', type=str, default='test')
     parser.add_argument('--max_eval', type=int, default=5)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--device', default=0, type=int)
