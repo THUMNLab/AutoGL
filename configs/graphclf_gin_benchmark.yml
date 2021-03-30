@@ -1,32 +1,46 @@
-ensemble:
-  name: voting
-  size: 2
-feature:
-- name: NxLargeCliqueSize
-- name: NxLargeCliqueSize
 hpo:
   max_evals: 10
-  name: anneal
+  name: tpe
 models:
 - hp_space:
-  - maxValue: 0.9
-    minValue: 0.1
-    parameterName: ratio
-    scalingType: LINEAR
+  - parameterName: num_layers
+    type: DISCRETE
+    feasiblePoints: '3,4,5'
+
+  - parameterName: hidden
+    type: NUMERICAL_LIST
+    numericalType: INTEGER
+    length: 5
+    minValue: [8, 8, 8, 8, 8]
+    maxValue: [64, 64, 64, 64, 64]
+    scalingType: LOG
+    cutPara: ["num_layers"]
+    cutFunc: "lambda x: x[0] - 1"
+
+  - parameterName: dropout
     type: DOUBLE
-  - maxValue: 0.9
+    maxValue: 0.9
     minValue: 0.1
-    parameterName: dropout
     scalingType: LINEAR
-    type: DOUBLE
-  - feasiblePoints:
-    - leaky_relu
-    - relu
-    - elu
-    - tanh
-    parameterName: act
+
+  - parameterName: act
     type: CATEGORICAL
-  name: topkpool
+    feasiblePoints:
+      - leaky_relu
+      - relu
+      - elu
+      - tanh
+
+  - parameterName: eps
+    type: CATEGORICAL
+    feasiblePoints:
+      - True
+      - False
+
+  - parameterName: mlp_layers
+    type: DISCRETE
+    feasiblePoints: '2,3,4'
+  name: gin
 trainer:
   hp_space:
   - maxValue: 300

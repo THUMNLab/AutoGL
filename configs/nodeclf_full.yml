@@ -3,36 +3,31 @@ ensemble:
   size: 2
 feature:
 - name: PYGNormalizeFeatures
-- name: pagerank
 hpo:
-  max_evals: 10
-  name: anneal
+  max_evals: 50
+  name: tpe
 models:
 - hp_space:
-  - feasiblePoints: 2,3,4
+  - feasiblePoints: '2'
     parameterName: num_layers
     type: DISCRETE
-  - feasiblePoints: 4,8,16
+  - feasiblePoints: 6,8,10,12
     parameterName: heads
     type: DISCRETE
   - cutFunc: lambda x:x[0] - 1
     cutPara:
     - num_layers
-    length: 3
+    length: 1
     maxValue:
-    - 64
-    - 64
-    - 64
+    - 16
     minValue:
-    - 8
-    - 8
-    - 8
+    - 4
     numericalType: INTEGER
     parameterName: hidden
     scalingType: LOG
     type: NUMERICAL_LIST
-  - maxValue: 0.9
-    minValue: 0.1
+  - maxValue: 0.8
+    minValue: 0.2
     parameterName: dropout
     scalingType: LINEAR
     type: DOUBLE
@@ -44,10 +39,39 @@ models:
     parameterName: act
     type: CATEGORICAL
   name: gat
+- hp_space:
+  - feasiblePoints: '2'
+    parameterName: num_layers
+    type: DISCRETE
+  - cutFunc: lambda x:x[0] - 1
+    cutPara:
+    - num_layers
+    length: 1
+    maxValue:
+    - 64
+    minValue:
+    - 16
+    numericalType: INTEGER
+    parameterName: hidden
+    scalingType: LOG
+    type: NUMERICAL_LIST
+  - maxValue: 0.8
+    minValue: 0.2
+    parameterName: dropout
+    scalingType: LINEAR
+    type: DOUBLE
+  - feasiblePoints:
+    - leaky_relu
+    - relu
+    - elu
+    - tanh
+    parameterName: act
+    type: CATEGORICAL
+  name: gcn
 trainer:
   hp_space:
   - maxValue: 300
-    minValue: 10
+    minValue: 100
     parameterName: max_epoch
     scalingType: LINEAR
     type: INTEGER
@@ -56,13 +80,14 @@ trainer:
     parameterName: early_stopping_round
     scalingType: LINEAR
     type: INTEGER
-  - maxValue: 0.1
-    minValue: 0.0001
+  - maxValue: 0.05
+    minValue: 0.01
     parameterName: lr
     scalingType: LOG
     type: DOUBLE
-  - maxValue: 0.005
-    minValue: 5.0e-05
+  - maxValue: 0.001
+    minValue: 0.0001
     parameterName: weight_decay
     scalingType: LOG
     type: DOUBLE
+
