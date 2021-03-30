@@ -1,31 +1,18 @@
 ensemble:
-  name: null
-feature:
-- name: null
+  name: voting
+  size: 2
 hpo:
   max_evals: 10
-  name: random
+  name: anneal
 models:
 - hp_space:
-  - feasiblePoints: '2'
-    parameterName: num_layers
-    type: DISCRETE
-  - cutFunc: lambda x:x[0] - 1
-    cutPara:
-    - num_layers
-    length: 2
-    maxValue:
-    - 64
-    - 64
-    minValue:
-    - 16
-    - 16
-    numericalType: INTEGER
-    parameterName: hidden
-    scalingType: LOG
-    type: NUMERICAL_LIST
-  - maxValue: 0.8
-    minValue: 0.2
+  - maxValue: 0.9
+    minValue: 0.1
+    parameterName: ratio
+    scalingType: LINEAR
+    type: DOUBLE
+  - maxValue: 0.9
+    minValue: 0.1
     parameterName: dropout
     scalingType: LINEAR
     type: DOUBLE
@@ -36,11 +23,11 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: gcn
+  name: topkpool
 trainer:
   hp_space:
   - maxValue: 300
-    minValue: 100
+    minValue: 10
     parameterName: max_epoch
     scalingType: LINEAR
     type: INTEGER
@@ -49,13 +36,18 @@ trainer:
     parameterName: early_stopping_round
     scalingType: LINEAR
     type: INTEGER
-  - maxValue: 0.01
-    minValue: 0.0025
+  - maxValue: 0.1
+    minValue: 0.0001
     parameterName: lr
     scalingType: LOG
     type: DOUBLE
-  - maxValue: 0.025
-    minValue: 0.0025
+  - maxValue: 0.005
+    minValue: 5.0e-05
     parameterName: weight_decay
     scalingType: LOG
     type: DOUBLE
+  - maxValue: 128
+    minValue: 48
+    parameterName: batch_size
+    scalingType: LINEAR
+    type: INTEGER

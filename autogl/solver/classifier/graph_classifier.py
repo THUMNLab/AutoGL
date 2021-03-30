@@ -213,7 +213,7 @@ class AutoGraphClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        cross_validation=True,
+        cross_validation=False,
         cv_split=10,
         evaluation_method="infer",
         seed=None,
@@ -245,7 +245,7 @@ class AutoGraphClassifier(BaseClassifier):
             Default ``None``.
 
         cross_validation: bool
-            Whether to use cross validation to fit on train dataset. Default ``True``.
+            Whether to use cross validation to fit on train dataset. Default ``False``.
 
         cv_split: int
             The cross validation split number. Only be effective when ``cross_validation=True``.
@@ -730,7 +730,7 @@ class AutoGraphClassifier(BaseClassifier):
         )
         if isinstance(path_or_dict, str):
             if filetype == "auto":
-                if path_or_dict.endswith(".yaml"):
+                if path_or_dict.endswith(".yaml") or path_or_dict.endswith(".yml"):
                     filetype = "yaml"
                 elif path_or_dict.endswith(".json"):
                     filetype = "json"

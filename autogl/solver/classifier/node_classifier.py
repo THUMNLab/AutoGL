@@ -650,7 +650,7 @@ class AutoNodeClassifier(BaseClassifier):
         )
         if isinstance(path_or_dict, str):
             if filetype == "auto":
-                if path_or_dict.endswith(".yaml"):
+                if path_or_dict.endswith(".yaml") or path_or_dict.endswith(".yml"):
                     filetype = "yaml"
                 elif path_or_dict.endswith(".json"):
                     filetype = "json"
