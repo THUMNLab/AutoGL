@@ -52,6 +52,7 @@ def get_feval(feval):
 
 from .graph_classification_full import GraphClassificationFullTrainer
 from .node_classification_full import NodeClassificationFullTrainer
+from .node_classification_trainer import *
 from .evaluate import Acc, Auc, Logloss
 
 __all__ = [

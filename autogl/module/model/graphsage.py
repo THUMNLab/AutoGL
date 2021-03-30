@@ -172,7 +172,7 @@ class GraphSAGE(torch.nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-@register_model("sage")
+# @register_model("sage")
 class AutoSAGE(BaseModel):
     r"""
     AutoSAGE. The model used in this automodel is GraphSAGE, i.e., the GraphSAGE from the `"Inductive Representation Learning on

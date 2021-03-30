@@ -31,7 +31,7 @@ models:
     type: DOUBLE
   - feasiblePoints":
     - mean
-    parameterName: agg,
+    parameterName: aggr,
     type: CATEGORICAL,
   - feasiblePoints:
     - leaky_relu
@@ -40,9 +40,20 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: gcn
+  name: sage
 trainer:
+  name: NodeClassificationNeighborSampling
   hp_space:
+  - parameterName: sampling_sizes
+    type: NUMERICAL_LIST
+    numericalType: INTEGER
+    length: 3
+    cutFunc: lambda x:x[0]
+    cutPara:
+    - num_layers
+    minValue: 3
+    maxValue: 8
+    scalingType: LOG
   - maxValue: 300
     minValue: 100
     parameterName: max_epoch
