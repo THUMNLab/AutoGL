@@ -7,6 +7,7 @@ from .evaluate import Logloss
 from typing import Union
 from ...datasets import utils
 from copy import deepcopy
+import torch.multiprocessing as mp
 
 from ...utils import get_logger
 
@@ -65,6 +66,7 @@ class GraphClassificationTrainer(BaseTrainer):
         lr=None,
         max_epoch=None,
         batch_size=None,
+        num_workers=None,
         early_stopping_round=7,
         weight_decay=1e-4,
         device=None,
@@ -104,6 +106,9 @@ class GraphClassificationTrainer(BaseTrainer):
         self.lr = lr if lr is not None else 1e-4
         self.max_epoch = max_epoch if max_epoch is not None else 100
         self.batch_size = batch_size if batch_size is not None else 64
+        self.num_workers = num_workers if num_workers is not None else 4
+        if self.num_workers > 0:
+            mp.set_start_method('fork', force=True)
         self.early_stopping_round = (
             early_stopping_round if early_stopping_round is not None else 100
         )
@@ -294,10 +299,10 @@ class GraphClassificationTrainer(BaseTrainer):
 
         """
         train_loader = utils.graph_get_split(
-            dataset, "train", batch_size=self.batch_size
+            dataset, "train", batch_size=self.batch_size, num_workers = self.num_workers
         )  # DataLoader(dataset['train'], batch_size=self.batch_size)
         valid_loader = utils.graph_get_split(
-            dataset, "val", batch_size=self.batch_size
+            dataset, "val", batch_size=self.batch_size, num_workers = self.num_workers
         )  # DataLoader(dataset['val'], batch_size=self.batch_size)
         self.train_only(train_loader, valid_loader)
         if keep_valid_result and valid_loader:
@@ -321,7 +326,7 @@ class GraphClassificationTrainer(BaseTrainer):
         -------
         The prediction result of ``predict_proba``.
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size, num_workers = self.num_workers)
         return self._predict_proba(loader, in_log_format=True).max(1)[1]
 
     def predict_proba(self, dataset, mask="test", in_log_format=False):
@@ -342,7 +347,7 @@ class GraphClassificationTrainer(BaseTrainer):
         -------
         The prediction result.
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size, num_workers = self.num_workers)
         return self._predict_proba(loader, in_log_format)
 
     def _predict_proba(self, loader, in_log_format=False):
@@ -425,7 +430,7 @@ class GraphClassificationTrainer(BaseTrainer):
         res: The evaluation result on the given dataset.
 
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size, num_workers = self.num_workers)
         return self._evaluate(loader, feval)
 
     def _evaluate(self, loader, feval=None):
