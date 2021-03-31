@@ -10,7 +10,7 @@ import torch
 
 from ..module.feature import FEATURE_DICT
 from ..module.hpo import HPO_DICT
-from ..module.train import NodeClassificationTrainer
+from ..module.model import MODEL_DICT
 from ..module import BaseFeatureAtom, BaseHPOptimizer, BaseTrainer
 from .utils import Leaderboard
 from ..utils import get_logger
@@ -18,8 +18,23 @@ from ..utils import get_logger
 LOGGER = get_logger("BaseSolver")
 
 
+def _initialize_single_model(model_name, parameters=None):
+    if parameters:
+        return MODEL_DICT[model_name](**parameters)
+    return MODEL_DICT[model_name]()
+
+
+def _parse_hp_space(spaces):
+    if spaces is None:
+        return None
+    for space in spaces:
+        if "cutFunc" in space and isinstance(space["cutFunc"], str):
+            space["cutFunc"] = eval(space["cutFunc"])
+    return spaces
+
+
 class BaseSolver:
-    """
+    r"""
     Base solver class, define some standard solver interfaces.
 
     Parameters
@@ -42,6 +57,12 @@ class BaseSolver:
     max_evals: int (Optional)
         If given, will set the number eval times the hpo module will use.
         Only be effective when hpo_module is  of type ``str``. Default ``50``.
+
+    default_trainer: str or list of str (Optional)
+        Default trainer class to be used.
+        If a single trainer class is given, will set all trainer to default trainer.
+        If a list of trainer class is given, will set every model with corresponding trainer
+        cls. Default ``None``.
 
     trainer_hp_space: list of dict (Optional)
         trainer hp space or list of trainer hp spaces configuration.
@@ -71,6 +92,7 @@ class BaseSolver:
         hpo_module,
         ensemble_module,
         max_evals=50,
+        default_trainer=None,
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -87,12 +109,14 @@ class BaseSolver:
         elif isinstance(device, str) and (device == "cpu" or device.startswith("cuda")):
             self.runtime_device = torch.device(device)
         else:
-            LOGGER.error("Cannor parse device %s", str(device))
+            LOGGER.error("Cannot parse device %s", str(device))
             raise ValueError("Cannot parse device {}".format(device))
 
         # initialize modules
         self.graph_model_list = []
-        self.set_graph_models(graph_models, trainer_hp_space, model_hp_spaces)
+        self.set_graph_models(
+            graph_models, default_trainer, trainer_hp_space, model_hp_spaces
+        )
         self.set_feature_module(feature_module)
         self.set_hpo_module(hpo_module, max_evals=max_evals)
         self.set_ensemble_module(ensemble_module, size=size)
@@ -109,7 +133,7 @@ class BaseSolver:
         *args,
         **kwargs,
     ) -> "BaseSolver":
-        """
+        r"""
         Set the feature module of current solver.
 
         Parameters
@@ -159,16 +183,23 @@ class BaseSolver:
     def set_graph_models(
         self,
         graph_models,
+        default_trainer=None,
         trainer_hp_space=None,
         model_hp_spaces=None,
     ) -> "BaseSolver":
-        """
+        r"""
         Set the graph models used in current solver.
 
         Parameters
         ----------
         graph_models: list of autogl.module.model.BaseModel or list of str
             The (name of) models to be optimized as backbone.
+
+        default_trainer: str or list of str (Optional)
+            Default trainer class to be used.
+            If a single trainer class is given, will set all trainer to default trainer.
+            If a list of trainer class is given, will set every model with corresponding trainer
+            cls. Default ``None``.
 
         trainer_hp_space: list of dict (Optional)
             trainer hp space or list of trainer hp spaces configuration.
@@ -187,12 +218,13 @@ class BaseSolver:
             A reference of current solver.
         """
         self.gml = graph_models
+        self._default_trainer = default_trainer
         self._trainer_hp_space = trainer_hp_space
         self._model_hp_spaces = model_hp_spaces
         return self
 
     def set_hpo_module(self, hpo_module, *args, **kwargs) -> "BaseSolver":
-        """
+        r"""
         Set the hpo module used in current solver.
 
         Parameters
@@ -225,7 +257,7 @@ class BaseSolver:
             )
 
     def set_ensemble_module(self, ensemble_module, *args, **kwargs) -> "BaseSolver":
-        """
+        r"""
         Set the ensemble module used in current solver.
 
         Parameters
@@ -243,7 +275,7 @@ class BaseSolver:
         raise NotImplementedError()
 
     def fit(self, *args, **kwargs) -> "BaseSolver":
-        """
+        r"""
         Fit current solver on given dataset.
 
         Returns
@@ -254,7 +286,7 @@ class BaseSolver:
         raise NotImplementedError()
 
     def fit_predict(self, *args, **kwargs) -> Any:
-        """
+        r"""
         Fit current solver on given dataset and return the predicted value.
 
         Returns
@@ -265,7 +297,7 @@ class BaseSolver:
         raise NotImplementedError()
 
     def predict(self, *args, **kwargs) -> Any:
-        """
+        r"""
         Predict the node class number.
 
         Returns
@@ -276,7 +308,7 @@ class BaseSolver:
         raise NotImplementedError()
 
     def get_leaderboard(self) -> Leaderboard:
-        """
+        r"""
         Get the current leaderboard of this solver.
 
         Returns
@@ -287,7 +319,7 @@ class BaseSolver:
         return self.leaderboard
 
     def get_model_by_name(self, name) -> BaseTrainer:
-        """
+        r"""
         Find and get the model instance by name.
 
         Parameters
@@ -303,8 +335,8 @@ class BaseSolver:
         assert name in self.trained_models, "cannot find model by name" + name
         return self.trained_models[name]
 
-    def get_model_by_performance(self, index) -> Tuple[NodeClassificationTrainer, str]:
-        """
+    def get_model_by_performance(self, index) -> Tuple[BaseTrainer, str]:
+        r"""
         Find and get the model instance by performance.
 
         Parameters
@@ -314,7 +346,7 @@ class BaseSolver:
 
         Returns
         -------
-        trainer: autogl.module.train.NodeClassificationTrainer
+        trainer: autogl.module.train.BaseTrainer
             A trainer instance containing the trained models and training status.
         name: str
             The name of current trainer.
@@ -324,7 +356,7 @@ class BaseSolver:
 
     @classmethod
     def from_config(cls, path_or_dict, filetype="auto") -> "BaseSolver":
-        """
+        r"""
         Load solver from config file.
 
         You can use this function to directly load a solver from predefined config dict

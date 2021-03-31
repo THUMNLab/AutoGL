@@ -38,7 +38,7 @@ def random_splits_mask(dataset, train_ratio=0.2, val_ratio=0.4, seed=None):
     assert (
         train_ratio + val_ratio <= 1
     ), "the sum of train_ratio and val_ratio is larger than 1"
-    _dataset=[d for d in dataset]
+    _dataset = [d for d in dataset]
     for data in _dataset:
         r_s = torch.get_rng_state()
         if torch.cuda.is_available():
@@ -65,8 +65,8 @@ def random_splits_mask(dataset, train_ratio=0.2, val_ratio=0.4, seed=None):
             torch.cuda.set_rng_state(r_s_cuda)
 
     dataset.data, dataset.slices = dataset.collate(_dataset)
-    if hasattr(dataset, '__data_list__'):
-        delattr(dataset, '__data_list__')
+    if hasattr(dataset, "__data_list__"):
+        delattr(dataset, "__data_list__")
     # while type(dataset.data.num_nodes) == list:
     #    dataset.data.num_nodes = dataset.data.num_nodes[0]
     # dataset.data.num_nodes = dataset.data.num_nodes[0]
@@ -171,8 +171,8 @@ def random_splits_mask_class(
         setattr(d, "test_mask", data.test_mask)
         datalist.append(d)
     dataset.data, dataset.slices = dataset.collate(datalist)
-    if hasattr(dataset, '__data_list__'):
-        delattr(dataset, '__data_list__')
+    if hasattr(dataset, "__data_list__"):
+        delattr(dataset, "__data_list__")
     # while type(dataset.data.num_nodes) == list:
     #     dataset.data.num_nodes = dataset.data.num_nodes[0]
     # dataset.data.num_nodes = dataset.data.num_nodes[0]

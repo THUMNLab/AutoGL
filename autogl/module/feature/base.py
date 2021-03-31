@@ -68,12 +68,13 @@ class BaseFeatureAtom:
         elif self._data_t == "nx":
             if not hasattr(data, "G") or data.G is None:
                 data.G = to_networkx(data, to_undirected=True)
-    def _adjust_to_tensor(self,data):
+
+    def _adjust_to_tensor(self, data):
         if self._data_t == "tensor":
             pass
         else:
             data_np2tensor(data)
-        
+
     def _preprocess(self, data):
         pass
 
@@ -114,7 +115,6 @@ class BaseFeatureAtom:
                     p._adjust_to_tensor(datai)
                     _dataset[i] = datai
                 dataset = self._rebuild(dataset, _dataset)
-                
 
     def transform(self, dataset, inplace=True):
         r"""transform dataset inplace or not w.r.t bool argument ``inplace``"""
@@ -131,7 +131,7 @@ class BaseFeatureAtom:
                     datai = p._transform(datai)
                     p._postprocess(datai)
                     p._adjust_to_tensor(datai)
-                    _dataset[i] = datai    
+                    _dataset[i] = datai
                 dataset = self._rebuild(dataset, _dataset)
         dataset.data = data_np2tensor(dataset.data)
         return dataset

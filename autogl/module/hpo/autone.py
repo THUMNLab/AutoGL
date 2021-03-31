@@ -17,12 +17,14 @@ from torch_geometric.data import GraphSAINTRandomWalkSampler
 from ..feature.subgraph.nx import NxSubgraph, NxLargeCliqueSize
 from ..feature.subgraph import nx, SgNetLSD
 
-from torch_geometric.data import InMemoryDataset 
+from torch_geometric.data import InMemoryDataset
+
 
 class _MyDataset(InMemoryDataset):
     def __init__(self, datalist) -> None:
         super().__init__()
         self.data, self.slices = self.collate(datalist)
+
 
 @register_hpo("autone")
 class AutoNE(BaseHPOptimizer):
@@ -59,7 +61,9 @@ class AutoNE(BaseHPOptimizer):
         """
         self.feval_name = trainer.get_feval(return_major=True).get_eval_name()
         self.is_higher_better = trainer.get_feval(return_major=True).is_higher_better()
-        space = trainer.hyper_parameter_space + trainer.model.hyper_parameter_space
+        space = (
+            trainer.hyper_parameter_space + trainer.get_model().hyper_parameter_space
+        )
         current_space = self._encode_para(space)
 
         def sample_subgraph(whole_data):
@@ -73,17 +77,17 @@ class AutoNE(BaseHPOptimizer):
             )
             results = []
             for data in loader:
-                in_dataset= _MyDataset([data])
+                in_dataset = _MyDataset([data])
                 results.append(in_dataset)
             return results
 
         func = SgNetLSD()
 
         def get_wne(graph):
-            graph=func.fit_transform(graph)
+            graph = func.fit_transform(graph)
             # transform = nx.NxSubgraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
             # print(type(graph))
-            #gf = transform.fit_transform(graph).data.gf
+            # gf = transform.fit_transform(graph).data.gf
             gf = graph.data.gf
             fin = list(gf[0]) + list(map(lambda x: float(x), gf[1:]))
             return fin

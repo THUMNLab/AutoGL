@@ -1,37 +1,65 @@
 ensemble:
-  name: null
+  name: voting
+  size: 2
 feature:
 - name: PYGNormalizeFeatures
 hpo:
-  max_evals: 10
-  name: random
+  max_evals: 50
+  name: tpe
 models:
 - hp_space:
-  - feasiblePoints: 2,3
+  - feasiblePoints: '2'
+    parameterName: num_layers
+    type: DISCRETE
+  - feasiblePoints: 6,8,10,12
+    parameterName: heads
+    type: DISCRETE
+  - cutFunc: lambda x:x[0] - 1
+    cutPara:
+    - num_layers
+    length: 1
+    maxValue:
+    - 16
+    minValue:
+    - 4
+    numericalType: INTEGER
+    parameterName: hidden
+    scalingType: LOG
+    type: NUMERICAL_LIST
+  - maxValue: 0.8
+    minValue: 0.2
+    parameterName: dropout
+    scalingType: LINEAR
+    type: DOUBLE
+  - feasiblePoints:
+    - leaky_relu
+    - relu
+    - elu
+    - tanh
+    parameterName: act
+    type: CATEGORICAL
+  name: gat
+- hp_space:
+  - feasiblePoints: '2'
     parameterName: num_layers
     type: DISCRETE
   - cutFunc: lambda x:x[0] - 1
     cutPara:
     - num_layers
-    length: 2
+    length: 1
     maxValue:
-    - 32
-    - 32
+    - 64
     minValue:
-    - 8
-    - 8
+    - 16
     numericalType: INTEGER
     parameterName: hidden
     scalingType: LOG
     type: NUMERICAL_LIST
-  - maxValue: 0.5
+  - maxValue: 0.8
     minValue: 0.2
     parameterName: dropout
     scalingType: LINEAR
     type: DOUBLE
-  - feasiblePoints: 8,10,12
-    parameterName: heads
-    type: DISCRETE
   - feasiblePoints:
     - leaky_relu
     - relu
@@ -42,13 +70,13 @@ models:
   name: gcn
 trainer:
   hp_space:
-  - maxValue: 400
-    minValue: 250
+  - maxValue: 300
+    minValue: 100
     parameterName: max_epoch
     scalingType: LINEAR
     type: INTEGER
-  - maxValue: 40
-    minValue: 25
+  - maxValue: 30
+    minValue: 10
     parameterName: early_stopping_round
     scalingType: LINEAR
     type: INTEGER
@@ -57,8 +85,9 @@ trainer:
     parameterName: lr
     scalingType: LOG
     type: DOUBLE
-  - maxValue: 0.0005
+  - maxValue: 0.001
     minValue: 0.0001
     parameterName: weight_decay
     scalingType: LOG
     type: DOUBLE
+
