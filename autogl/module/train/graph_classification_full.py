@@ -1,4 +1,4 @@
-from . import register_trainer, EVALUATE_DICT
+from . import register_trainer
 from .base import BaseGraphClassificationTrainer, EarlyStopping, Evaluation
 import torch
 from torch.optim.lr_scheduler import (
@@ -8,8 +8,8 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
 )
 import torch.nn.functional as F
-from ..model import MODEL_DICT, BaseModel
-from .evaluate import Logloss
+from ..model import BaseModel
+from .evaluation import get_feval, Logloss
 from typing import Union
 from ...datasets import utils
 from copy import deepcopy
@@ -18,16 +18,6 @@ import torch.multiprocessing as mp
 from ...utils import get_logger
 
 LOGGER = get_logger("graph classification solver")
-
-
-def get_feval(feval):
-    if isinstance(feval, str):
-        return EVALUATE_DICT[feval]
-    if isinstance(feval, type) and issubclass(feval, Evaluation):
-        return feval
-    if isinstance(feval, list):
-        return [get_feval(f) for f in feval]
-    raise ValueError("feval argument of type", type(feval), "is not supported!")
 
 
 @register_trainer("GraphClassificationFull")
@@ -569,10 +559,6 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         )
 
         return ret
-
-    def set_feval(self, feval):
-        # """Get the space of hyperparameter."""
-        self.feval = get_feval(feval)
 
     @property
     def hyper_parameter_space(self):

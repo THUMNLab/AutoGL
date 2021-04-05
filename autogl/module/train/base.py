@@ -1,23 +1,13 @@
 import numpy as np
-from typing import Union, Iterable
+import typing as _typing
 
 import torch
-from ..model import BaseModel, MODEL_DICT
 import pickle
+from ..model import BaseModel, ModelUniversalRegistry
+from .evaluation import Evaluation, get_feval, Acc
 from ...utils import get_logger
-from . import EVALUATE_DICT
 
 LOGGER_ES = get_logger("early-stopping")
-
-
-def get_feval(feval):
-    if isinstance(feval, str):
-        return EVALUATE_DICT[feval]
-    if isinstance(feval, type) and issubclass(feval, Evaluation):
-        return feval
-    if isinstance(feval, list):
-        return [get_feval(f) for f in feval]
-    raise ValueError("feval argument of type", type(feval), "is not supported!")
 
 
 class EarlyStopping:
@@ -93,12 +83,15 @@ class EarlyStopping:
 
 class BaseTrainer:
     def __init__(
-        self,
-        model: BaseModel,
-        device: Union[torch.device, str],
-        init=True,
-        feval=["acc"],
-        loss="nll_loss",
+            self,
+            model: BaseModel,
+            device: _typing.Union[torch.device, str],
+            init: bool = True,
+            feval: _typing.Union[
+                _typing.Sequence[str],
+                _typing.Sequence[_typing.Type[Evaluation]]
+            ] = (Acc,),
+            loss: str = "nll_loss",
     ):
         """
         The basic trainer.
@@ -114,15 +107,51 @@ class BaseTrainer:
             If True(False), the model will (not) be initialized.
         """
         super().__init__()
-        self.model = model
-        self.to(device)
-        self.init = init
-        self.feval = get_feval(feval)
-        self.loss = loss
-
-    def to(self, device):
+        self.model: BaseModel = model
+        if (
+                type(device) == torch.device or
+                (type(device) == str and device.lower() != "auto")
+        ):
+            self.__device: torch.device = torch.device(device)
+        else:
+            self.__device: torch.device = torch.device(
+                "cuda" if torch.cuda.is_available() and torch.cuda.device_count() > 0 else "cpu"
+            )
+        self.init: bool = init
+        self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(feval)
+        self.loss: str = loss
+    
+    @property
+    def device(self) -> torch.device:
+        return self.__device
+    
+    @device.setter
+    def device(self, __device: _typing.Union[torch.device, str]):
+        if (
+                type(__device) == torch.device or
+                (type(__device) == str and __device.lower() != "auto")
+        ):
+            self.__device: torch.device = torch.device(__device)
+        else:
+            self.__device: torch.device = torch.device(
+                "cuda" if torch.cuda.is_available() and torch.cuda.device_count() > 0 else "cpu"
+            )
+    
+    @property
+    def feval(self) -> _typing.Sequence[_typing.Type[Evaluation]]:
+        return self.__feval
+    
+    @feval.setter
+    def feval(
+            self, _feval: _typing.Union[
+                _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+            ]
+    ):
+        self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(_feval)
+    
+    def to(self, device: torch.device):
         """
-        Migrate trainer to new device
+        Transfer the trainer to another device
 
         Parameters
         ----------
@@ -139,9 +168,9 @@ class BaseTrainer:
         """Get auto model used in trainer."""
         raise NotImplementedError()
 
-    def get_feval(
-        self, return_major: bool = False
-    ) -> Union["Evaluation", Iterable["Evaluation"]]:
+    def get_feval(self, return_major: bool = False) -> _typing.Union[
+        _typing.Type[Evaluation], _typing.Sequence[_typing.Type[Evaluation]]
+    ]:
         """
         Parameters
         ----------
@@ -155,16 +184,11 @@ class BaseTrainer:
             Otherwise, will return the ``evaluation`` element passed when constructing.
         """
         if return_major:
-            if isinstance(self.feval, list):
+            if isinstance(self.feval, _typing.Sequence):
                 return self.feval[0]
             else:
                 return self.feval
         return self.feval
-
-    @classmethod
-    def get_task_name(cls):
-        """Get task name, e.g., `base`, `NodeClassification`, `GraphClassification`, etc."""
-        return "base"
 
     @classmethod
     def save(cls, instance, path):
@@ -188,7 +212,7 @@ class BaseTrainer:
         pass
 
     def duplicate_from_hyper_parameter(
-        self, hp, model: Union[BaseModel, str, None] = None
+            self, hp, model: _typing.Union[BaseModel, str, None] = None
     ) -> "BaseTrainer":
         """Create a new trainer with the given hyper parameter."""
         raise NotImplementedError()
@@ -279,11 +303,7 @@ class BaseTrainer:
         -------
         The evaluation result.
         """
-        raise NotImplementedError()
-
-    def set_feval(self, feval):
-        """Set the evaluation metrics."""
-        self.feval = get_feval(feval)
+        raise NotImplementedError
 
     def update_parameters(self, **kwargs):
         """
@@ -291,7 +311,7 @@ class BaseTrainer:
         """
         for k, v in kwargs.items():
             if k == "feval":
-                self.set_feval(v)
+                self.feval = get_feval(v)
             elif k == "device":
                 self.to(v)
             elif hasattr(self, k):
@@ -300,106 +320,81 @@ class BaseTrainer:
                 raise KeyError("Cannot set parameter", k, "for trainer", self.__class__)
 
 
-# a static class for evaluating results
-class Evaluation:
-    @staticmethod
-    def get_eval_name():
-        """
-        Should return the name of this evaluation method
-        """
-        raise NotImplementedError()
-
-    @staticmethod
-    def is_higher_better():
-        """
-        Should return whether this evaluation method is higher better (bool)
-        """
-        return True
-
-    @staticmethod
-    def evaluate(predict, label):
-        """
-        Should return: the evaluation result (float)
-        """
-        raise NotImplementedError()
-
-
-class BaseNodeClassificationTrainer(BaseTrainer):
+class _BaseClassificationTrainer(BaseTrainer):
+    """ Base class of trainer for classification tasks """
+    
     def __init__(
-        self,
-        model: Union[BaseModel, str],
-        num_features,
-        num_classes,
-        device="auto",
-        init=True,
-        feval=["acc"],
-        loss="nll_loss",
+            self,
+            model: _typing.Union[BaseModel, str],
+            num_features: int,
+            num_classes: int,
+            device: _typing.Union[torch.device, str, None] = "auto",
+            init: bool = True,
+            feval: _typing.Union[
+                _typing.Sequence[str],
+                _typing.Sequence[_typing.Type[Evaluation]]
+            ] = (Acc,),
+            loss: str = "nll_loss",
     ):
-        self.num_features = num_features
-        self.num_classes = num_classes
-        device = (
-            torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            if device == "auto"
-            else torch.device(device)
-        )
-        if isinstance(model, str):
-            assert model in MODEL_DICT, "Cannot parse model name " + model
-            self.model = MODEL_DICT[model](num_features, num_classes, device, init=init)
-        elif isinstance(model, BaseModel):
-            self.model = model
+        self.num_features: int = num_features
+        self.num_classes: int = num_classes
+        if (
+                type(device) == torch.device or
+                (type(device) == str and device.lower() != "auto")
+        ):
+            __device: torch.device = torch.device(device)
         else:
-            raise TypeError(
-                "Model argument only support str or BaseModel, get",
-                type(model),
-                "instead.",
+            __device: torch.device = torch.device(
+                "cuda" if torch.cuda.is_available() and torch.cuda.device_count() > 0 else "cpu"
             )
-        super().__init__(model, device=device, init=init, feval=feval, loss=loss)
-
-    @classmethod
-    def get_task_name(cls):
-        return "GraphClassification"
-
-
-class BaseGraphClassificationTrainer(BaseTrainer):
-    def __init__(
-        self,
-        model: Union[BaseModel, str],
-        num_features,
-        num_classes,
-        num_graph_features=0,
-        device=None,
-        init=True,
-        feval=["acc"],
-        loss="nll_loss",
-    ):
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.num_graph_features = num_graph_features
-        device = (
-            torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            if device == "auto"
-            else torch.device(device)
-        )
-        if isinstance(model, str):
-            assert model in MODEL_DICT, "Cannot parse model name " + model
-            self.model = MODEL_DICT[model](
-                num_features,
-                num_classes,
-                device,
-                init=init,
-                num_graph_features=num_graph_features,
+        if type(model) == str:
+            _model: BaseModel = ModelUniversalRegistry.get_model(model)(
+                num_features, num_classes, device, init=init
             )
         elif isinstance(model, BaseModel):
-            self.model = model
+            _model: BaseModel = model
         else:
             raise TypeError(
-                "Model argument only support str or BaseModel, get",
-                type(model),
-                "instead.",
+                f"Model argument only support str or BaseModel, got ${model}."
             )
+        super(_BaseClassificationTrainer, self).__init__(_model, __device, init, feval, loss)
 
-        super().__init__(model, device=device, init=init, feval=feval, loss=loss)
 
-    @classmethod
-    def get_task_name(cls):
-        return "NodeClassification"
+class BaseNodeClassificationTrainer(_BaseClassificationTrainer):
+    def __init__(
+            self,
+            model: _typing.Union[BaseModel, str],
+            num_features: int,
+            num_classes: int,
+            device: _typing.Union[torch.device, str, None] = None,
+            init: bool = True,
+            feval: _typing.Union[
+                _typing.Sequence[str],
+                _typing.Sequence[_typing.Type[Evaluation]]
+            ] = (Acc,),
+            loss: str = "nll_loss",
+    ):
+        super(BaseNodeClassificationTrainer, self).__init__(
+            model, num_features, num_classes, device, init, feval, loss
+        )
+
+
+class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
+    def __init__(
+            self,
+            model: _typing.Union[BaseModel, str],
+            num_features: int,
+            num_classes: int,
+            num_graph_features: int = 0,
+            device: _typing.Union[torch.device, str, None] = None,
+            init: bool = True,
+            feval: _typing.Union[
+                _typing.Sequence[str],
+                _typing.Sequence[_typing.Type[Evaluation]]
+            ] = (Acc,),
+            loss: str = "nll_loss",
+    ):
+        self.num_graph_features: int = num_graph_features
+        super(BaseGraphClassificationTrainer, self).__init__(
+            model, num_features, num_classes, device, init, feval, loss
+        )

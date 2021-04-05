@@ -28,7 +28,7 @@ if __name__ == "__main__":
         choices=["mutag", "imdb-b", "imdb-m", "proteins", "collab"],
     )
     parser.add_argument(
-        "--configs", default="../configs/graph_classification.yaml", help="config files"
+        "--configs", default="../configs/graphclf_full.yml", help="config files"
     )
     parser.add_argument("--device", type=int, default=0, help="device to run on")
     parser.add_argument("--seed", type=int, default=0, help="random seed")

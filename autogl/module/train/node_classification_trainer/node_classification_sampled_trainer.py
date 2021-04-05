@@ -3,23 +3,13 @@ import logging
 import typing as _typing
 from torch.nn import functional as F
 
-from .. import EVALUATE_DICT, register_trainer
+from .. import register_trainer
 from ..base import BaseNodeClassificationTrainer, EarlyStopping, Evaluation
-from ..evaluate import Logloss
+from ..evaluation import get_feval, Logloss
 from ..sampling.sampler.neighbor_sampler import NeighborSampler
-from ...model import BaseModel, ModelUniversalRegistry
+from ...model import BaseModel
 
 LOGGER: logging.Logger = logging.getLogger("Node classification sampling trainer")
-
-
-def get_feval(feval):
-    if isinstance(feval, str):
-        return EVALUATE_DICT[feval]
-    if isinstance(feval, type) and issubclass(feval, Evaluation):
-        return feval
-    if isinstance(feval, list):
-        return [get_feval(f) for f in feval]
-    raise ValueError("feval argument of type", type(feval), "is not supported!")
 
 
 @register_trainer("NodeClassificationNeighborSampling")
@@ -52,20 +42,6 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             lr_scheduler_type: _typing.Optional[str] = None,
             **kwargs
     ) -> None:
-        
-        self._functional_loss_name: str = loss
-        if device is None:
-            device: torch.device = torch.device("cpu")
-        
-        if type(model) == str:
-            self._model: BaseModel = ModelUniversalRegistry.get_model(model)(
-                num_features, num_classes, device, init=init
-            )
-        elif isinstance(model, BaseModel):
-            self._model: BaseModel = model
-        else:
-            raise TypeError
-        
         if isinstance(optimizer, type) and issubclass(optimizer, torch.optim.Optimizer):
             self._optimizer_class: _typing.Type[torch.optim.Optimizer] = optimizer
         elif type(optimizer) == str:
@@ -80,24 +56,17 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         else:
             self._optimizer_class: _typing.Type[torch.optim.Optimizer] = torch.optim.Adam
         
-        self._num_features: int = num_features
-        self._num_classes: int = num_classes
         self._learning_rate: float = lr if lr > 0 else 1e-4
         self._lr_scheduler_type: _typing.Optional[str] = lr_scheduler_type
         self._max_epoch: int = max_epoch if max_epoch > 0 else 1e2
-        self._device: torch.device = device
         
         self.__sampling_sizes: _typing.Sequence[int] = kwargs.get("sampling_sizes")
         
-        self._feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(list(feval))
         self._weight_decay: float = weight_decay if weight_decay > 0 else 1e-4
         early_stopping_round: int = early_stopping_round if early_stopping_round > 0 else 1e2
         self._early_stopping = EarlyStopping(patience=early_stopping_round, verbose=False)
-
         super(NodeClassificationNeighborSamplingTrainer, self).__init__(
-            model, num_features, num_classes,
-            device=device if device is not None else "auto",
-            init=init, loss=loss
+            model, num_features, num_classes, device, init, feval, loss
         )
         
         self._valid_result: torch.Tensor = torch.zeros(0)
@@ -164,7 +133,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         :param data: data of a specific graph
         :return: self
         """
-        data = data.to(self._device)
+        data = data.to(self.device)
         optimizer: torch.optim.Optimizer = self._optimizer_class(
             self._model.parameters(),
             lr=self._learning_rate, weight_decay=self._weight_decay
@@ -206,11 +175,11 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
                 optimizer.zero_grad()
                 data.edge_indexes = edge_indexes
                 prediction = self._model.model(data)
-                if not hasattr(F, self._functional_loss_name):
+                if not hasattr(F, self.loss):
                     raise TypeError(
-                        "PyTorch does not support loss type {}".format(self._functional_loss_name)
+                        "PyTorch does not support loss type {}".format(self.loss)
                     )
-                loss_function = getattr(F, self._functional_loss_name)
+                loss_function = getattr(F, self.loss)
                 loss: torch.Tensor = loss_function(
                     prediction[target_node_indexes],
                     data.y[target_node_indexes]
@@ -224,9 +193,9 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             """ Validate performance """
             if hasattr(data, "val_mask") and getattr(data, "val_mask") is not None:
                 validation_results: _typing.Sequence[float] = \
-                    self.evaluate((data,), "val", [self._feval[0]])
+                    self.evaluate((data,), "val", [self.feval[0]])
                 
-                if self._feval[0].is_higher_better():
+                if self.feval[0].is_higher_better():
                     validation_loss: float = -validation_results[0]
                 else:
                     validation_loss: float = validation_results[0]
@@ -244,7 +213,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         :param data: data of a specific graph
         :return: the result of prediction on the given dataset
         """
-        data = data.to(self._device)
+        data = data.to(self.device)
         self._model.model.eval()
         with torch.no_grad():
             prediction = self._model.model(data)
@@ -275,7 +244,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         :param in_log_format:
         :return:
         """
-        data = dataset[0].to(self._device)
+        data = dataset[0].to(self.device)
         if mask is not None and type(mask) == str:
             if mask.lower() == "train":
                 _mask = data.train_mask
@@ -305,12 +274,11 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         if return_major:
             return (
                 self._valid_score[0],
-                self._feval[0].is_higher_better()
+                self.feval[0].is_higher_better()
             )
         else:
             return (
-                self._valid_score,
-                [f.is_higher_better() for f in self._feval]
+                self._valid_score, [f.is_higher_better() for f in self.feval]
             )
         
     def get_name_with_hp(self) -> str:
@@ -321,8 +289,8 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
                 str(self._learning_rate),
                 str(self._max_epoch),
                 str(self._early_stopping.patience),
-                str(self._model),
-                str(self._device),
+                str(self.model),
+                str(self.device),
             ]
         )
         name = (
@@ -347,9 +315,9 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             ] = None
     ) -> _typing.Sequence[float]:
         data = dataset[0]
-        data = data.to(self._device)
+        data = data.to(self.device)
         if feval is None:
-            _feval: _typing.Sequence[_typing.Type[Evaluation]] = self._feval
+            _feval: _typing.Sequence[_typing.Type[Evaluation]] = self.feval
         else:
             _feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(list(feval))
         if mask.lower() == "train":
@@ -376,9 +344,9 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         return results
     
     def to(self, device: torch.device):
-        self._device = device
+        self.device = device
         if self._model is not None:
-            self._model.to(device)
+            self._model.to(self.device)
     
     def duplicate_from_hyper_parameter(
             self, hp: _typing.Dict[str, _typing.Any],
@@ -397,23 +365,13 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         )
         
         return NodeClassificationNeighborSamplingTrainer(
-            model, self._num_features, self._num_classes,
+            model, self.num_features, self.num_classes,
             self._optimizer_class,
-            device=self._device,
-            init=True,
-            feval=self._feval,
-            loss=self._functional_loss_name,
+            device=self.device, init=True,
+            feval=self.feval, loss=self.loss,
             lr_scheduler_type=self._lr_scheduler_type,
             **hp
         )
-    
-    def set_feval(
-            self, feval: _typing.Union[
-                _typing.Sequence[str],
-                _typing.Sequence[_typing.Type[Evaluation]]
-            ]
-    ):
-        self._feval = get_feval(list(feval))
     
     @property
     def hyper_parameter_space(self):

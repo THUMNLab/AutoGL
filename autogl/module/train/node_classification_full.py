@@ -2,7 +2,7 @@
 Node classification Full Trainer Implementation
 """
 
-from . import register_trainer, EVALUATE_DICT
+from . import register_trainer
 
 from .base import BaseNodeClassificationTrainer, EarlyStopping, Evaluation
 import torch
@@ -14,23 +14,13 @@ from torch.optim.lr_scheduler import (
 )
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
-from .evaluate import Logloss, Acc, Auc
+from .evaluation import get_feval, Logloss
 from typing import Union
 from copy import deepcopy
 
 from ...utils import get_logger
 
 LOGGER = get_logger("node classification trainer")
-
-
-def get_feval(feval):
-    if isinstance(feval, str):
-        return EVALUATE_DICT[feval]
-    if isinstance(feval, type) and issubclass(feval, Evaluation):
-        return feval
-    if isinstance(feval, list):
-        return [get_feval(f) for f in feval]
-    raise ValueError("feval argument of type", type(feval), "is not supported!")
 
 
 @register_trainer("NodeClassificationFull")
@@ -522,10 +512,6 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         )
 
         return ret
-
-    def set_feval(self, feval):
-        # """Set the evaluation metrics."""
-        self.feval = get_feval(feval)
 
     @property
     def hyper_parameter_space(self):
