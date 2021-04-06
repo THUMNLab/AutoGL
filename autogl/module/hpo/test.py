@@ -1,7 +1,8 @@
 import hyperopt
 
+from torch_geometric.nn import GCNConv, SAGEConv
 from . import register_hpo
-from .nas import BaseTrainer, GraphSpace
+from .nas import BaseEstimator, GraphSpace
 from .darts import DartsTrainer
 from .base import BaseHPOptimizer, TimeTooLimitedError
 
@@ -19,8 +20,12 @@ class TestHPO(BaseHPOptimizer):
     def optimize(self, trainer, dataset, time_limit=None, memory_limit=None):
         num_features=dataset[0].x.shape[1]
         num_classes=dataset.num_classes
-        model = GraphSpace(num_features, 64, num_classes)
-        tr = BaseTrainer()
+
+        op1 = lambda x,y: GCNConv(x,y)
+        op2 = lambda x,y: SAGEConv(x,y)
+        ops = [op1,op2]
+        model = GraphSpace(num_features, 64, num_classes, ops)
+        tr = BaseEstimator()
         nas = DartsTrainer()
         a = nas.search(model, dataset, tr)
         print(a)
