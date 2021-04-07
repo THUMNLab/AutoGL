@@ -13,12 +13,12 @@ class Evaluation:
     def get_eval_name() -> str:
         """ Expected to return the name of this evaluation method """
         raise NotImplementedError
-    
+
     @staticmethod
     def is_higher_better() -> bool:
         """ Expected to return whether this evaluation method is higher better (bool) """
         return True
-    
+
     @staticmethod
     def evaluate(predict, label) -> float:
         """ Expected to return the evaluation result (float) """
@@ -39,6 +39,7 @@ def register_evaluate(*name):
                 )
             EVALUATE_DICT[n] = cls
         return cls
+
     return register_evaluate_cls
 
 
@@ -54,22 +55,26 @@ def get_feval(feval):
 
 class EvaluationUniversalRegistry:
     @classmethod
-    def register_evaluation(cls, *names) -> _typing.Callable[
-        [_typing.Type[Evaluation]], _typing.Type[Evaluation]
-    ]:
+    def register_evaluation(
+        cls, *names
+    ) -> _typing.Callable[[_typing.Type[Evaluation]], _typing.Type[Evaluation]]:
         def _register_evaluation(
-                _class: _typing.Type[Evaluation]
+            _class: _typing.Type[Evaluation],
         ) -> _typing.Type[Evaluation]:
             for n in names:
                 if n in EVALUATE_DICT:
-                    raise ValueError("Cannot register duplicate evaluator ({})".format(n))
+                    raise ValueError(
+                        "Cannot register duplicate evaluator ({})".format(n)
+                    )
                 if not issubclass(_class, Evaluation):
                     raise ValueError(
-                        "Evaluator ({}: {}) must extend Evaluation".format(n, cls.__name__)
+                        "Evaluator ({}: {}) must extend Evaluation".format(
+                            n, cls.__name__
+                        )
                     )
                 EVALUATE_DICT[n] = _class
             return _class
-        
+
         return _register_evaluation
 
 

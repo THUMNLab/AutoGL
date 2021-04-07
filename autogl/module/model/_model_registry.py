@@ -14,7 +14,7 @@ def register_model(name):
             )
         MODEL_DICT[name] = cls
         return cls
-    
+
     return register_model_cls
 
 

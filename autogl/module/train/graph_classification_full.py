@@ -100,7 +100,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         self.batch_size = batch_size if batch_size is not None else 64
         self.num_workers = num_workers if num_workers is not None else 4
         if self.num_workers > 0:
-            mp.set_start_method('fork', force=True)
+            mp.set_start_method("fork", force=True)
         self.early_stopping_round = (
             early_stopping_round if early_stopping_round is not None else 100
         )
@@ -305,10 +305,10 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
         """
         train_loader = utils.graph_get_split(
-            dataset, "train", batch_size=self.batch_size, num_workers = self.num_workers
+            dataset, "train", batch_size=self.batch_size, num_workers=self.num_workers
         )  # DataLoader(dataset['train'], batch_size=self.batch_size)
         valid_loader = utils.graph_get_split(
-            dataset, "val", batch_size=self.batch_size, num_workers = self.num_workers
+            dataset, "val", batch_size=self.batch_size, num_workers=self.num_workers
         )  # DataLoader(dataset['val'], batch_size=self.batch_size)
         self.train_only(train_loader, valid_loader)
         if keep_valid_result and valid_loader:
@@ -332,7 +332,9 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         -------
         The prediction result of ``predict_proba``.
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size, num_workers = self.num_workers)
+        loader = utils.graph_get_split(
+            dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
+        )
         return self._predict_proba(loader, in_log_format=True).max(1)[1]
 
     def predict_proba(self, dataset, mask="test", in_log_format=False):
@@ -353,7 +355,9 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         -------
         The prediction result.
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size, num_workers = self.num_workers)
+        loader = utils.graph_get_split(
+            dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
+        )
         return self._predict_proba(loader, in_log_format)
 
     def _predict_proba(self, loader, in_log_format=False):
@@ -436,7 +440,9 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         res: The evaluation result on the given dataset.
 
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size, num_workers = self.num_workers)
+        loader = utils.graph_get_split(
+            dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
+        )
         return self._evaluate(loader, feval)
 
     def _evaluate(self, loader, feval=None):

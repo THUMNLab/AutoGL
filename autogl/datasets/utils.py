@@ -315,7 +315,9 @@ def graph_random_splits(dataset, train_ratio=0.2, val_ratio=0.4, seed=None):
     return dataset
 
 
-def graph_get_split(dataset, mask="train", is_loader=True, batch_size=128, num_workers = 0):
+def graph_get_split(
+    dataset, mask="train", is_loader=True, batch_size=128, num_workers=0
+):
     r"""Get train/test dataset/dataloader after cross validation.
 
     Parameters
@@ -337,7 +339,11 @@ def graph_get_split(dataset, mask="train", is_loader=True, batch_size=128, num_w
         dataset, "%s_split" % (mask)
     ), "Given dataset do not have %s split" % (mask)
     if is_loader:
-        return DataLoader(getattr(dataset, "%s_split" % (mask)), batch_size=batch_size, num_workers = num_workers)
+        return DataLoader(
+            getattr(dataset, "%s_split" % (mask)),
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
     else:
         return getattr(dataset, "%s_split" % (mask))
 

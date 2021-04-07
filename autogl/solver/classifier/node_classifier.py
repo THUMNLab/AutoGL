@@ -92,6 +92,9 @@ class AutoNodeClassifier(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
+            nas_spaces=nas_spaces,
+            nas_estimators=nas_estimators,
+            nas_algorithms=nas_algorithms,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,

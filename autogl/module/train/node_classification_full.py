@@ -82,13 +82,6 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             loss=loss,
         )
 
-        # init model
-        if isinstance(model, str):
-            assert model in MODEL_DICT, "Cannot parse model name " + model
-            self.model = MODEL_DICT[model](num_features, num_classes, device, init=init)
-        elif isinstance(model, BaseModel):
-            self.model = model
-
         self.opt_received = optimizer
         if type(optimizer) == str and optimizer.lower() == "adam":
             self.optimizer = torch.optim.Adam

@@ -83,15 +83,14 @@ class EarlyStopping:
 
 class BaseTrainer:
     def __init__(
-            self,
-            model: BaseModel,
-            device: _typing.Union[torch.device, str],
-            init: bool = True,
-            feval: _typing.Union[
-                _typing.Sequence[str],
-                _typing.Sequence[_typing.Type[Evaluation]]
-            ] = (Acc,),
-            loss: str = "nll_loss",
+        self,
+        model: BaseModel,
+        device: _typing.Union[torch.device, str],
+        init: bool = True,
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
     ):
         """
         The basic trainer.
@@ -108,47 +107,50 @@ class BaseTrainer:
         """
         super().__init__()
         self.model: BaseModel = model
-        if (
-                type(device) == torch.device or
-                (type(device) == str and device.lower() != "auto")
+        if type(device) == torch.device or (
+            type(device) == str and device.lower() != "auto"
         ):
             self.__device: torch.device = torch.device(device)
         else:
             self.__device: torch.device = torch.device(
-                "cuda" if torch.cuda.is_available() and torch.cuda.device_count() > 0 else "cpu"
+                "cuda"
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0
+                else "cpu"
             )
         self.init: bool = init
         self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(feval)
         self.loss: str = loss
-    
+
     @property
     def device(self) -> torch.device:
         return self.__device
-    
+
     @device.setter
     def device(self, __device: _typing.Union[torch.device, str]):
-        if (
-                type(__device) == torch.device or
-                (type(__device) == str and __device.lower() != "auto")
+        if type(__device) == torch.device or (
+            type(__device) == str and __device.lower() != "auto"
         ):
             self.__device: torch.device = torch.device(__device)
         else:
             self.__device: torch.device = torch.device(
-                "cuda" if torch.cuda.is_available() and torch.cuda.device_count() > 0 else "cpu"
+                "cuda"
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0
+                else "cpu"
             )
-    
+
     @property
     def feval(self) -> _typing.Sequence[_typing.Type[Evaluation]]:
         return self.__feval
-    
+
     @feval.setter
     def feval(
-            self, _feval: _typing.Union[
-                _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
-            ]
+        self,
+        _feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ],
     ):
         self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(_feval)
-    
+
     def to(self, device: torch.device):
         """
         Transfer the trainer to another device
@@ -168,7 +170,9 @@ class BaseTrainer:
         """Get auto model used in trainer."""
         raise NotImplementedError()
 
-    def get_feval(self, return_major: bool = False) -> _typing.Union[
+    def get_feval(
+        self, return_major: bool = False
+    ) -> _typing.Union[
         _typing.Type[Evaluation], _typing.Sequence[_typing.Type[Evaluation]]
     ]:
         """
@@ -212,7 +216,7 @@ class BaseTrainer:
         pass
 
     def duplicate_from_hyper_parameter(
-            self, hp, model: _typing.Union[BaseModel, str, None] = None
+        self, hp, model: _typing.Union[BaseModel, str, None] = None
     ) -> "BaseTrainer":
         """Create a new trainer with the given hyper parameter."""
         raise NotImplementedError()
@@ -322,57 +326,58 @@ class BaseTrainer:
 
 class _BaseClassificationTrainer(BaseTrainer):
     """ Base class of trainer for classification tasks """
-    
+
     def __init__(
-            self,
-            model: _typing.Union[BaseModel, str],
-            num_features: int,
-            num_classes: int,
-            device: _typing.Union[torch.device, str, None] = "auto",
-            init: bool = True,
-            feval: _typing.Union[
-                _typing.Sequence[str],
-                _typing.Sequence[_typing.Type[Evaluation]]
-            ] = (Acc,),
-            loss: str = "nll_loss",
+        self,
+        model: _typing.Union[BaseModel, str],
+        num_features: int,
+        num_classes: int,
+        device: _typing.Union[torch.device, str, None] = "auto",
+        init: bool = True,
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
     ):
         self.num_features: int = num_features
         self.num_classes: int = num_classes
-        if (
-                type(device) == torch.device or
-                (type(device) == str and device.lower() != "auto")
+        if type(device) == torch.device or (
+            type(device) == str and device.lower() != "auto"
         ):
             __device: torch.device = torch.device(device)
         else:
             __device: torch.device = torch.device(
-                "cuda" if torch.cuda.is_available() and torch.cuda.device_count() > 0 else "cpu"
+                "cuda"
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0
+                else "cpu"
             )
         if type(model) == str:
             _model: BaseModel = ModelUniversalRegistry.get_model(model)(
-                num_features, num_classes, device, init=init
+                num_features, num_classes, __device, init=init
             )
         elif isinstance(model, BaseModel):
             _model: BaseModel = model
         else:
             raise TypeError(
-                f"Model argument only support str or BaseModel, got ${model}."
+                f"Model argument only support str or BaseModel, got {model}."
             )
-        super(_BaseClassificationTrainer, self).__init__(_model, __device, init, feval, loss)
+        super(_BaseClassificationTrainer, self).__init__(
+            _model, __device, init, feval, loss
+        )
 
 
 class BaseNodeClassificationTrainer(_BaseClassificationTrainer):
     def __init__(
-            self,
-            model: _typing.Union[BaseModel, str],
-            num_features: int,
-            num_classes: int,
-            device: _typing.Union[torch.device, str, None] = None,
-            init: bool = True,
-            feval: _typing.Union[
-                _typing.Sequence[str],
-                _typing.Sequence[_typing.Type[Evaluation]]
-            ] = (Acc,),
-            loss: str = "nll_loss",
+        self,
+        model: _typing.Union[BaseModel, str],
+        num_features: int,
+        num_classes: int,
+        device: _typing.Union[torch.device, str, None] = None,
+        init: bool = True,
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
     ):
         super(BaseNodeClassificationTrainer, self).__init__(
             model, num_features, num_classes, device, init, feval, loss
@@ -381,18 +386,17 @@ class BaseNodeClassificationTrainer(_BaseClassificationTrainer):
 
 class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     def __init__(
-            self,
-            model: _typing.Union[BaseModel, str],
-            num_features: int,
-            num_classes: int,
-            num_graph_features: int = 0,
-            device: _typing.Union[torch.device, str, None] = None,
-            init: bool = True,
-            feval: _typing.Union[
-                _typing.Sequence[str],
-                _typing.Sequence[_typing.Type[Evaluation]]
-            ] = (Acc,),
-            loss: str = "nll_loss",
+        self,
+        model: _typing.Union[BaseModel, str],
+        num_features: int,
+        num_classes: int,
+        num_graph_features: int = 0,
+        device: _typing.Union[torch.device, str, None] = None,
+        init: bool = True,
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
     ):
         self.num_graph_features: int = num_graph_features
         super(BaseGraphClassificationTrainer, self).__init__(
