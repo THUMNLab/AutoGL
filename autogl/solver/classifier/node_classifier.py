@@ -14,6 +14,7 @@ from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT
 from ...module.train import TRAINER_DICT, get_feval
+from ...module.hpo.nas import BaseNAS, BaseEstimator, GraphSpace
 from ...module import BaseModel
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
@@ -75,6 +76,9 @@ class AutoNodeClassifier(BaseClassifier):
         self,
         feature_module="deepgl",
         graph_models=["gat", "gcn"],
+        nas_spaces=None,
+        nas_estimators=None,
+        nas_algorithms=None,
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
@@ -97,7 +101,7 @@ class AutoNodeClassifier(BaseClassifier):
         )
 
         # data to be kept when fit
-        self.data = None
+        self.dataset = None
 
     def _init_graph_module(
         self,
@@ -302,6 +306,15 @@ class AutoNodeClassifier(BaseClassifier):
             device=self.runtime_device,
             loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
         )
+
+        # perform neural architecture search
+        if self.nas_algorithms is not None:
+            # perform nas and add them to trainer list
+            for algo, space, estimator in zip(
+                self.nas_algorithms, self.nas_spaces, self.nas_estimators
+            ):
+                trainer = algo.search(space, self.dataset, estimator)
+                self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
         result_valid = []

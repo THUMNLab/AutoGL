@@ -5,6 +5,7 @@ Provide some standard solver interface.
 """
 
 from typing import Any, Tuple
+from copy import deepcopy
 
 import torch
 
@@ -68,6 +69,9 @@ class BaseSolver:
         self,
         feature_module,
         graph_models,
+        nas_spaces,
+        nas_algorithms,
+        nas_estimators,
         hpo_module,
         ensemble_module,
         max_evals=50,
@@ -96,6 +100,7 @@ class BaseSolver:
         self.set_feature_module(feature_module)
         self.set_hpo_module(hpo_module, max_evals=max_evals)
         self.set_ensemble_module(ensemble_module, size=size)
+        self.set_nas_module(nas_algorithms, nas_spaces, nas_estimators)
 
         # initialize leaderboard
         self.leaderboard = None
@@ -223,6 +228,75 @@ class BaseSolver:
                 type(hpo_module),
                 "instead.",
             )
+
+    def set_nas_module(
+        self, nas_algorithms, nas_spaces=None, nas_estimators=None
+    ) -> "BaseSolver":
+        """
+        Set the neural architecture search module in current solver.
+
+        Parameters
+        ----------
+        nas_spaces: (list of) `autogl.module.hpo.nas.GraphSpace`
+            The search space of nas. You can pass a list of space to enable
+            multiple space search. If list passed, the length of `nas_spaces`,
+            `nas_algorithms` and `nas_estimators` should be the same. If set
+            to `None`, will disable the whole nas module.
+
+        nas_algorithms: (list of) `autogl.module.hpo.nas.BaseNAS`
+            The search algorithm of nas. You can pass a list of algorithms
+            to enable multiple algorithms search. If list passed, the length of
+            `nas_spaces`, `nas_algorithms` and `nas_estimators` should be the same.
+            Default `None`.
+
+        nas_estimators: (list of) `autogl.module.hpo.nas.BaseEstimators`
+            The nas estimators. You can pass a list of estimators to enable multiple
+            estimators search. If list passed, the length of `nas_spaces`, `nas_algorithms`
+            and `nas_estimators` should be the same. Default `None`.
+
+        Returns
+        -------
+        self: autogl.solver.BaseSolver
+            A reference of current solver.
+        """
+        self.nas_algorithms = nas_algorithms
+        if self.nas_algorithms is not None:
+            max_number = -1
+            if isinstance(self.nas_algorithms, list):
+                max_number = len(self.nas_algorithms)
+            if isinstance(nas_spaces, list):
+                if max_number == -1:
+                    max_number = len(nas_spaces)
+                else:
+                    assert (
+                        len(nas_spaces) == max_number
+                    ), "lengths of algorithms/spaces/estimators do not match!"
+            if isinstance(nas_estimators, list):
+                if max_number == -1:
+                    max_number = len(nas_estimators)
+                else:
+                    assert (
+                        len(nas_estimators) == max_number
+                    ), "lengths of algorithms/spaces/estimators do not match!"
+            if max_number < 0:
+                self.nas_algorithms = [self.nas_algorithms]
+                self.nas_spaces = [nas_spaces]
+                self.nas_estimators = [nas_estimators]
+            else:
+                if not isinstance(self.nas_algorithms, list):
+                    self.nas_algorithms = [
+                        deepcopy(self.nas_algorithms) for _ in range(max_number)
+                    ]
+                if not isinstance(nas_spaces, list):
+                    self.nas_spaces = [deepcopy(nas_spaces) for _ in range(max_number)]
+                else:
+                    self.nas_spaces = nas_spaces
+                if not isinstance(nas_estimators, list):
+                    self.nas_estimators = [
+                        deepcopy(nas_estimators) for _ in range(max_number)
+                    ]
+                else:
+                    self.nas_estimators = nas_estimators
 
     def set_ensemble_module(self, ensemble_module, *args, **kwargs) -> "BaseSolver":
         """

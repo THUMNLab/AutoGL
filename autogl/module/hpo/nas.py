@@ -2,6 +2,7 @@ from torch_geometric.nn import GCNConv, SAGEConv
 from nni.nas.pytorch import mutables
 import torch.nn as nn
 
+
 class BaseNAS:
     def search(self, space, dset, trainer):
         """
@@ -21,6 +22,7 @@ class BaseNAS:
             The trainer including the best trained model
         """
 
+
 class GraphSpace(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, ops, *arg, **kwargs):
         super().__init__()
@@ -36,7 +38,8 @@ class GraphSpace(nn.Module):
         x = self.op1(data.x, data.edge_index)
         x = self.op2(x, data.edge_index)
         return x
-        
+
+
 class BaseEstimator:
     def infer(self, model, dataset):
         dset = dataset[0]

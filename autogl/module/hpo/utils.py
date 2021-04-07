@@ -85,7 +85,7 @@ class AverageMeter:
         Format string to print the values.
     """
 
-    def __init__(self, name, fmt=':f'):
+    def __init__(self, name, fmt=":f"):
         self.name = name
         self.fmt = fmt
         self.reset()
@@ -116,11 +116,11 @@ class AverageMeter:
         self.avg = self.sum / self.count
 
     def __str__(self):
-        fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
+        fmtstr = "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
         return fmtstr.format(**self.__dict__)
 
     def summary(self):
-        fmtstr = '{name}: {avg' + self.fmt + '}'
+        fmtstr = "{name}: {avg" + self.fmt + "}"
         return fmtstr.format(**self.__dict__)
 
 
@@ -158,7 +158,9 @@ def replace_layer_choice(root_module, init_fn, modules=None):
     List[Tuple[str, nn.Module]]
         A list from layer choice keys (names) and replaced modules.
     """
-    return _replace_module_with_type(root_module, init_fn, (LayerChoice, nn.LayerChoice), modules)
+    return _replace_module_with_type(
+        root_module, init_fn, (LayerChoice, nn.LayerChoice), modules
+    )
 
 
 def replace_input_choice(root_module, init_fn, modules=None):
@@ -179,4 +181,6 @@ def replace_input_choice(root_module, init_fn, modules=None):
     List[Tuple[str, nn.Module]]
         A list from layer choice keys (names) and replaced modules.
     """
-    return _replace_module_with_type(root_module, init_fn, (InputChoice, nn.InputChoice), modules)
+    return _replace_module_with_type(
+        root_module, init_fn, (InputChoice, nn.InputChoice), modules
+    )
