@@ -1,20 +1,19 @@
 """
-Example of graph classification on given datasets.
-This version use random split to only show the usage of AutoGraphClassifier.
-Refer to `graph_cv.py` for cross validation evaluation of the whole system
-following paper `A Fair Comparison of Graph Neural Networks for Graph Classification`
+Auto graph classification using cross validation methods proposed in
+paper `A Fair Comparison of Graph Neural Networks for Graph Classification`
 """
 
 import sys
-
-sys.path.append("../")
 import random
 import torch
 import numpy as np
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+
+sys.path.append("../")
+
 from autogl.datasets import build_dataset_from_name, utils
 from autogl.solver import AutoGraphClassifier
 from autogl.module import Acc
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 if __name__ == "__main__":
     parser = ArgumentParser(
@@ -28,10 +27,11 @@ if __name__ == "__main__":
         choices=["mutag", "imdb-b", "imdb-m", "proteins", "collab"],
     )
     parser.add_argument(
-        "--configs", default="../configs/graphclf_full.yml", help="config files"
+        "--configs", default="../configs/graph_classification.yaml", help="config files"
     )
     parser.add_argument("--device", type=int, default=0, help="device to run on")
     parser.add_argument("--seed", type=int, default=0, help="random seed")
+    parser.add_argument("--folds", type=int, default=10, help="fold number")
 
     args = parser.parse_args()
     if torch.cuda.is_available():
@@ -46,6 +46,7 @@ if __name__ == "__main__":
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+    print("begin processing dataset", args.dataset, "into", args.folds, "folds.")
     dataset = build_dataset_from_name(args.dataset)
     if args.dataset.startswith("imdb"):
         from autogl.module.feature.generators import PYGOneHotDegree
@@ -62,24 +63,34 @@ if __name__ == "__main__":
         from autogl.module.feature.auto_feature import Onlyconst
 
         dataset = Onlyconst().fit_transform(dataset, inplace=False)
-    utils.graph_random_splits(dataset, train_ratio=0.8, val_ratio=0.1, seed=args.seed)
+    utils.graph_cross_validation(dataset, args.folds, random_seed=args.seed)
 
-    autoClassifier = AutoGraphClassifier.from_config(args.configs)
+    accs = []
+    for fold in range(args.folds):
+        print("evaluating on fold number:", fold)
+        utils.graph_set_fold_id(dataset, fold)
+        train_dataset = utils.graph_get_split(dataset, "train", False)
+        autoClassifier = AutoGraphClassifier.from_config(args.configs)
 
-    # train
-    autoClassifier.fit(dataset, evaluation_method=[Acc], seed=args.seed)
-    autoClassifier.get_leaderboard().show()
-
-    print("best single model:\n", autoClassifier.get_leaderboard().get_best_model(0))
-
-    # test
-    predict_result = autoClassifier.predict_proba()
-    print(
-        "test acc %.4f"
-        % (
-            Acc.evaluate(
-                predict_result,
-                dataset.data.y[dataset.test_index].cpu().detach().numpy(),
+        autoClassifier.fit(
+            train_dataset,
+            train_split=0.9,
+            val_split=0.1,
+            seed=args.seed,
+            evaluation_method=[Acc],
+        )
+        predict_result = autoClassifier.predict_proba(dataset, mask="val")
+        acc = Acc.evaluate(
+            predict_result, dataset.data.y[dataset.val_index].cpu().detach().numpy()
+        )
+        print(
+            "test acc %.4f"
+            % (
+                Acc.evaluate(
+                    predict_result,
+                    dataset.data.y[dataset.val_index].cpu().detach().numpy(),
+                )
             )
         )
-    )
+        accs.append(acc)
+    print("Average acc on", args.dataset, ":", np.mean(accs), "~", np.std(accs))

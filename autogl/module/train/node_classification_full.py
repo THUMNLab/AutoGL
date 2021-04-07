@@ -1,9 +1,20 @@
-from . import register_trainer, BaseTrainer, Evaluation, EVALUATE_DICT, EarlyStopping
+"""
+Node classification Full Trainer Implementation
+"""
+
+from . import register_trainer
+
+from .base import BaseNodeClassificationTrainer, EarlyStopping, Evaluation
 import torch
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import (
+    StepLR,
+    MultiStepLR,
+    ExponentialLR,
+    ReduceLROnPlateau,
+)
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
-from .evaluate import Logloss, Acc, Auc
+from .evaluation import get_feval, Logloss
 from typing import Union
 from copy import deepcopy
 
@@ -12,18 +23,8 @@ from ...utils import get_logger
 LOGGER = get_logger("node classification trainer")
 
 
-def get_feval(feval):
-    if isinstance(feval, str):
-        return EVALUATE_DICT[feval]
-    if isinstance(feval, type) and issubclass(feval, Evaluation):
-        return feval
-    if isinstance(feval, list):
-        return [get_feval(f) for f in feval]
-    raise ValueError("feval argument of type", type(feval), "is not supported!")
-
-
-@register_trainer("NodeClassification")
-class NodeClassificationTrainer(BaseTrainer):
+@register_trainer("NodeClassificationFull")
+class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
     """
     The node classification trainer.
 
@@ -53,8 +54,6 @@ class NodeClassificationTrainer(BaseTrainer):
         If True(False), the model will (not) be initialized.
     """
 
-    space = None
-
     def __init__(
         self,
         model: Union[BaseModel, str],
@@ -65,19 +64,23 @@ class NodeClassificationTrainer(BaseTrainer):
         max_epoch=None,
         early_stopping_round=None,
         weight_decay=1e-4,
-        device=None,
+        device="auto",
         init=True,
         feval=[Logloss],
         loss="nll_loss",
+        lr_scheduler_type=None,
         *args,
         **kwargs
     ):
-        super(NodeClassificationTrainer, self).__init__(model)
-
-        self.loss_type = loss
-
-        if device is None:
-            device = "cpu"
+        super().__init__(
+            model,
+            num_features,
+            num_classes,
+            device=device,
+            init=init,
+            feval=feval,
+            loss=loss,
+        )
 
         # init model
         if isinstance(model, str):
@@ -86,6 +89,7 @@ class NodeClassificationTrainer(BaseTrainer):
         elif isinstance(model, BaseModel):
             self.model = model
 
+        self.opt_received = optimizer
         if type(optimizer) == str and optimizer.lower() == "adam":
             self.optimizer = torch.optim.Adam
         elif type(optimizer) == str and optimizer.lower() == "sgd":
@@ -93,14 +97,13 @@ class NodeClassificationTrainer(BaseTrainer):
         else:
             self.optimizer = torch.optim.Adam
 
-        self.num_features = num_features
-        self.num_classes = num_classes
+        self.lr_scheduler_type = lr_scheduler_type
+
         self.lr = lr if lr is not None else 1e-4
         self.max_epoch = max_epoch if max_epoch is not None else 100
         self.early_stopping_round = (
             early_stopping_round if early_stopping_round is not None else 100
         )
-        self.device = device
         self.args = args
         self.kwargs = kwargs
 
@@ -117,9 +120,6 @@ class NodeClassificationTrainer(BaseTrainer):
         self.valid_score = None
 
         self.initialized = False
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.device = device
 
         self.space = [
             {
@@ -151,8 +151,6 @@ class NodeClassificationTrainer(BaseTrainer):
                 "scalingType": "LOG",
             },
         ]
-        self.space += self.model.space
-        NodeClassificationTrainer.space = self.space
 
         self.hyperparams = {
             "max_epoch": self.max_epoch,
@@ -160,7 +158,6 @@ class NodeClassificationTrainer(BaseTrainer):
             "lr": self.lr,
             "weight_decay": self.weight_decay,
         }
-        self.hyperparams = {**self.hyperparams, **self.model.get_hyper_parameter()}
 
         if init is True:
             self.initialize()
@@ -201,34 +198,51 @@ class NodeClassificationTrainer(BaseTrainer):
         optimizer = self.optimizer(
             self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-        scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        lr_scheduler_type = self.lr_scheduler_type
+        if type(lr_scheduler_type) == str and lr_scheduler_type == "steplr":
+            scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == "multisteplr":
+            scheduler = MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == "exponentiallr":
+            scheduler = ExponentialLR(optimizer, gamma=0.1)
+        elif (
+            type(lr_scheduler_type) == str and lr_scheduler_type == "reducelronplateau"
+        ):
+            scheduler = ReduceLROnPlateau(optimizer, "min")
+        else:
+            scheduler = None
+
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
             optimizer.zero_grad()
             res = self.model.model.forward(data)
-            if hasattr(F, self.loss_type):
-                loss = getattr(F, self.loss_type)(res[mask], data.y[mask])
+            if hasattr(F, self.loss):
+                loss = getattr(F, self.loss)(res[mask], data.y[mask])
             else:
                 raise TypeError(
-                    "PyTorch does not support loss type {}".format(self.loss_type)
+                    "PyTorch does not support loss type {}".format(self.loss)
                 )
 
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            if self.lr_scheduler_type:
+                scheduler.step()
 
-            if type(self.feval) is list:
-                feval = self.feval[0]
-            else:
-                feval = self.feval
-            val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
-            if feval.is_higher_better() is True:
-                val_loss = -val_loss
-            self.early_stopping(val_loss, self.model.model)
-            if self.early_stopping.early_stop:
-                LOGGER.debug("Early stopping at %d", epoch)
-                self.early_stopping.load_checkpoint(self.model.model)
-                break
+            if hasattr(data, "val_mask") and data.val_mask is not None:
+                if type(self.feval) is list:
+                    feval = self.feval[0]
+                else:
+                    feval = self.feval
+                val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
+                if feval.is_higher_better() is True:
+                    val_loss = -val_loss
+                self.early_stopping(val_loss, self.model.model)
+                if self.early_stopping.early_stop:
+                    LOGGER.debug("Early stopping at %d", epoch)
+                    break
+        if hasattr(data, "val_mask") and data.val_mask is not None:
+            self.early_stopping.load_checkpoint(self.model.model)
 
     def predict_only(self, data, test_mask=None):
         """
@@ -483,23 +497,21 @@ class NodeClassificationTrainer(BaseTrainer):
             model=model,
             num_features=self.num_features,
             num_classes=self.num_classes,
-            optimizer=self.optimizer,
+            optimizer=self.opt_received,
             lr=hp["lr"],
             max_epoch=hp["max_epoch"],
             early_stopping_round=hp["early_stopping_round"],
             device=self.device,
             weight_decay=hp["weight_decay"],
             feval=self.feval,
+            loss=self.loss,
+            lr_scheduler_type=self.lr_scheduler_type,
             init=True,
             *self.args,
             **self.kwargs
         )
 
         return ret
-
-    def set_feval(self, feval):
-        # """Set the evaluation metrics."""
-        self.feval = get_feval(feval)
 
     @property
     def hyper_parameter_space(self):
@@ -510,7 +522,6 @@ class NodeClassificationTrainer(BaseTrainer):
     def hyper_parameter_space(self, space):
         # """Set the space of hyperparameter."""
         self.space = space
-        NodeClassificationTrainer.space = space
 
     def get_hyper_parameter(self):
         # """Get the hyperparameter in this trainer."""
