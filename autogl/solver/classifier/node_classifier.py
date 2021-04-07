@@ -76,9 +76,9 @@ class AutoNodeClassifier(BaseClassifier):
         self,
         feature_module=None,
         graph_models=["gat", "gcn"],
+        nas_algorithms=None,
         nas_spaces=None,
         nas_estimators=None,
-        nas_algorithms=None,
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
@@ -92,9 +92,9 @@ class AutoNodeClassifier(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
+            nas_algorithms=nas_algorithms,
             nas_spaces=nas_spaces,
             nas_estimators=nas_estimators,
-            nas_algorithms=nas_algorithms,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
@@ -200,6 +200,13 @@ class AutoNodeClassifier(BaseClassifier):
             self.graph_model_list[i] = model
 
         return self
+
+    def _init_nas_module(self, num_features, num_classes, feval, device, loss):
+        for algo, space, estimator in zip(
+            self.nas_algorithms, self.nas_spaces, self.nas_estimators
+        ):
+            # TODO: initialize important parameters
+            pass
 
     # pylint: disable=arguments-differ
     def fit(
@@ -332,6 +339,14 @@ class AutoNodeClassifier(BaseClassifier):
         )
 
         # perform neural architecture search
+        self._init_nas_module(
+            num_features=self.dataset[0].x.shape[1],
+            num_classes=dataset.num_classes,
+            feval=evaluator_list,
+            device=self.runtime_device,
+            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+        )
+
         if self.nas_algorithms is not None:
             # perform nas and add them to trainer list
             for algo, space, estimator in zip(
@@ -554,7 +569,7 @@ class AutoNodeClassifier(BaseClassifier):
         if use_ensemble and self.ensemble_module is None:
             LOGGER.warning(
                 "Cannot use ensemble because no ensebmle module is given."
-                "Will use best model instead."
+                " Will use best model instead."
             )
 
         if use_best or (use_ensemble and self.ensemble_module is None):

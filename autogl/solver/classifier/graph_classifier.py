@@ -74,6 +74,9 @@ class AutoGraphClassifier(BaseClassifier):
         self,
         feature_module=None,
         graph_models=["gin", "topkpool"],
+        nas_algorithms=None,
+        nas_spaces=None,
+        nas_estimators=None,
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
@@ -87,6 +90,9 @@ class AutoGraphClassifier(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
+            nas_algorithms=nas_algorithms,
+            nas_spaces=nas_spaces,
+            nas_estimators=nas_estimators,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
@@ -204,6 +210,15 @@ class AutoGraphClassifier(BaseClassifier):
             self.graph_model_list[i] = model
 
         return self
+
+    def _init_nas_module(
+        self, num_features, num_classes, num_graph_features, feval, device, loss
+    ):
+        for algo, space, estimator in zip(
+            self.nas_algorithms, self.nas_spaces, self.nas_estimators
+        ):
+            # TODO: initialize important parameters
+            pass
 
     # pylint: disable=arguments-differ
     def fit(
@@ -343,6 +358,26 @@ class AutoGraphClassifier(BaseClassifier):
             if not hasattr(dataset.data, "gf")
             else dataset.data.gf.size(1),
         )
+
+        self._init_nas_module(
+            num_features=dataset.num_node_features,
+            num_classes=dataset.num_classes,
+            feval=evaluator_list,
+            device=self.runtime_device,
+            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+            num_graph_features=0
+            if not hasattr(dataset.data, "gf")
+            else dataset.data.gf.size(1),
+        )
+
+        # neural architecture search
+        if self.nas_algorithms is not None:
+            # perform nas and add them to trainer list
+            for algo, space, estimator in zip(
+                self.nas_algorithms, self.nas_spaces, self.nas_estimators
+            ):
+                trainer = algo.search(space, self.dataset, estimator)
+                self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
         result_valid = []
