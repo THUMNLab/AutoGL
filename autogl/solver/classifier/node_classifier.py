@@ -20,6 +20,8 @@ from ..utils import Leaderboard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
 
+from torch_geometric.nn import GATConv, GCNConv
+
 LOGGER = get_logger("NodeClassifier")
 
 
@@ -154,6 +156,7 @@ class AutoNodeClassifier(BaseClassifier):
                         loss=loss,
                         feval=feval,
                         device=device,
+                    
                     )
                     self.graph_model_list.append(model)
                 else:
@@ -206,6 +209,7 @@ class AutoNodeClassifier(BaseClassifier):
             self.nas_algorithms, self.nas_spaces, self.nas_estimators
         ):
             # TODO: initialize important parameters
+            space.instantiate(num_features, 64, num_classes, [GATConv, GCNConv])
             pass
 
     # pylint: disable=arguments-differ

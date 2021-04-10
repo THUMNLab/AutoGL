@@ -22,25 +22,36 @@ class BaseNAS:
             The trainer including the best trained model
         """
 
-
 class GraphSpace(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, ops, *arg, **kwargs):
+    def __init__(self, *arg, **kwargs):
         super().__init__()
+
+    def instantiate(self, input_dim, hidden_dim, output_dim, ops, *arg, **kwargs):
         """self.op1 = mutables.LayerChoice([GCNConv(input_dim, hidden_dim),SAGEConv(input_dim, hidden_dim)])
         self.op2 = mutables.LayerChoice([
             GCNConv(hidden_dim, output_dim),
             SAGEConv(hidden_dim, output_dim)       
         ], key = "2")"""
-        self.op1 = mutables.LayerChoice([op(input_dim, hidden_dim) for op in ops])
-        self.op2 = mutables.LayerChoice([op(hidden_dim, output_dim) for op in ops])
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.output_dim = output_dim
+        self.ops = ops
+        self.op1 = mutables.LayerChoice([op(input_dim, hidden_dim) for op in ops], key = "1")
+        self.op2 = mutables.LayerChoice([op(hidden_dim, output_dim) for op in ops], key = "2")
+
+    def reinstantiate(self):
+        self.instantiate(self.input_dim, self.hidden_dim, self.output_dim, self.ops)
 
     def forward(self, data):
         x = self.op1(data.x, data.edge_index)
         x = self.op2(x, data.edge_index)
         return x
 
-
 class BaseEstimator:
+    def infer(self, model, dataset):
+        pass
+
+class DartsNodeClfEstimator(BaseEstimator):
     def infer(self, model, dataset):
         dset = dataset[0]
         pred = model(dset)[dset.train_mask]

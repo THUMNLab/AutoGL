@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from .nas import BaseNAS
 from .utils import AverageMeterGroup, replace_layer_choice, replace_input_choice
-
+from nni.nas.pytorch.fixed import apply_fixed_architecture
 
 _logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class DartsInputChoice(nn.Module):
         return torch.argsort(-self.alpha).cpu().numpy().tolist()[: self.n_chosen]
 
 
-class DartsTrainer(BaseNAS):
+class Darts(BaseNAS):
     """
     DARTS trainer.
 
@@ -162,7 +162,11 @@ class DartsTrainer(BaseNAS):
                     meters,
                 )
 
-        return self.export()
+        selection = self.export()
+        space.reinstantiate()
+        apply_fixed_architecture(space, selection)
+        return space
+        #return self.export()
 
     def _train_one_epoch(self, epoch):
         self.model.train()
