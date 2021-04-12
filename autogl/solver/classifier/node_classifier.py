@@ -209,8 +209,8 @@ class AutoNodeClassifier(BaseClassifier):
             self.nas_algorithms, self.nas_spaces, self.nas_estimators
         ):
             # TODO: initialize important parameters
-            space.instantiate(num_features, 64, num_classes, [GATConv, GCNConv])
-            pass
+            algo.to(device)
+            space.instantiate(input_dim=num_features, output_dim=num_classes)
 
     # pylint: disable=arguments-differ
     def fit(
@@ -342,21 +342,39 @@ class AutoNodeClassifier(BaseClassifier):
             loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
         )
 
-        # perform neural architecture search
-        self._init_nas_module(
-            num_features=self.dataset[0].x.shape[1],
-            num_classes=dataset.num_classes,
-            feval=evaluator_list,
-            device=self.runtime_device,
-            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
-        )
-
         if self.nas_algorithms is not None:
-            # perform nas and add them to trainer list
+            # perform neural architecture search
+            self._init_nas_module(
+                num_features=self.dataset[0].x.shape[1],
+                num_classes=self.dataset.num_classes,
+                feval=evaluator_list,
+                device=self.runtime_device,
+                loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+            )
+
+            assert isinstance(self._default_trainer, str) or len(self.nas_algorithms) == len(self._default_trainer) - len(self.graph_model_list), "length of default trainer should match total graph models and nas models passed"
+
+            # perform nas and add them to model list
+            idx_trainer = len(self.graph_model_list)
             for algo, space, estimator in zip(
                 self.nas_algorithms, self.nas_spaces, self.nas_estimators
             ):
-                trainer = algo.search(space, self.dataset, estimator)
+                model = algo.search(space, self.dataset, estimator)
+                # insert model into default trainer
+                if isinstance(self._default_trainer, str):
+                    train_name = self._default_trainer
+                else:
+                    train_name = self._default_trainer[idx_trainer]
+                    idx_trainer += 1
+                trainer = TRAINER_DICT[train_name](
+                    model=model,
+                    num_features=self.dataset[0].x.shape[1],
+                    num_classes=self.dataset.num_classes,
+                    loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+                    feval=evaluator_list,
+                    device=self.runtime_device,
+                    init=False,
+                )
                 self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
