@@ -212,7 +212,7 @@ class BaseTrainer:
         pass
 
     def duplicate_from_hyper_parameter(
-            self, hp, model: _typing.Union[BaseModel, str, None] = None
+            self, hp, model: _typing.Optional[BaseModel] = ...
     ) -> "BaseTrainer":
         """Create a new trainer with the given hyper parameter."""
         raise NotImplementedError()

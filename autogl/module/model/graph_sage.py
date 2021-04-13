@@ -120,5 +120,5 @@ class AutoSAGE(BaseModel):
                 hidden_features=self.hyperparams["hidden"],
                 activation_name=self.hyperparams["act"],
                 **self.hyperparams
-            )
+            ).to(self.__device)
             self._initialized = True

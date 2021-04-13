@@ -211,7 +211,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
         """
         optimizer = self.optimizer(
-            self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
 
         # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)

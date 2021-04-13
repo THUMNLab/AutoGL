@@ -196,7 +196,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         data = data.to(self.device)
         mask = data.train_mask if train_mask is None else train_mask
         optimizer = self.optimizer(
-            self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
         # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
         lr_scheduler_type = self.lr_scheduler_type
