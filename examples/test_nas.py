@@ -6,10 +6,11 @@ from torch_geometric.nn.conv.gcn_conv import GCNConv
 sys.path.append('../')
 import torch
 from autogl.solver import AutoNodeClassifier
-from autogl.module.hpo.nas import GraphSpace, DartsNodeClfEstimator
+from autogl.module.nas.nas import DartsNodeClfEstimator
+from autogl.module.nas.space import GraphSpace
 from autogl.datasets import build_dataset_from_name
 from autogl.module.model import BaseModel
-from autogl.module.hpo.darts import Darts
+from autogl.module.nas.darts import Darts
 from autogl.utils import get_logger
 
 class MyGraphSpace(GraphSpace):
@@ -37,7 +38,6 @@ class MyGraphSpace(GraphSpace):
         self._initialized = True
 
 class SpaceModel(BaseModel):
-    _logger = get_logger('space model')
     def __init__(self, space_model: MyGraphSpace, selection, device=torch.device('cuda')):
         super().__init__(init=True)
         space_model.reinstantiate()
@@ -77,27 +77,6 @@ class SpaceModel(BaseModel):
     def model(self):
         return self._model
 
-    def set_num_classes(self, num_classes):
-        """
-        TODO: if we can support resetting this (suggested), please implement
-        """
-        self._logger.error("Cannot reset num classes for nas model!")
-        raise ValueError("Cannot reset num classes for nas model!")
-
-    def set_num_features(self, num_features):
-        """
-        TODO: if we can support resetting this (suggested), please implement
-        """
-        self._logger.error("Cannot reset num features for nas model!")
-        raise ValueError("Cannot reset num features for nas model!")
-
-    def set_num_graph_features(self, num_graph_features):
-        """
-        TODO: if we can support resetting this (suggested), please implement
-        """
-        self._logger.error("Cannot reset num graph features for nas model!")
-        raise ValueError("Cannot reset num graph features for nas model!")
-
 class MyDarts(Darts):
     def __init__(self, device="cuda", *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -126,8 +105,8 @@ if __name__ == '__main__':
         hpo_module="random",
         max_evals=10,
         ensemble_module=None,
-        nas_algorithms=[MyDarts()],
-        nas_spaces=[MyGraphSpace(hidden_dim=64, ops=[GATConv, GCNConv])],
+        nas_algorithms=[Darts()],
+        nas_spaces=[GraphSpace(hidden_dim=64, ops=[GATConv, GCNConv])],
         nas_estimators=[DartsNodeClfEstimator()]
     )
     solver.fit(dataset)

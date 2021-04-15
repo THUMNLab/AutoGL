@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .nas import BaseNAS
+from .space import SpaceModel
 from .utils import AverageMeterGroup, replace_layer_choice, replace_input_choice
 from nni.nas.pytorch.fixed import apply_fixed_architecture
 
@@ -110,7 +111,9 @@ class Darts(BaseNAS):
                  device=None, log_frequency=None,
                  arc_learning_rate=3.0E-4, unrolled=False):"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, device="cuda", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.device = device
         self.num_epochs = kwargs.get("num_epochs", 5)
         self.workers = 4
         self.device = "cuda"
@@ -126,7 +129,7 @@ class Darts(BaseNAS):
         main process
         """
         self.model = space
-        self.dataset = dset
+        self.dataset = dset#.to(self.device)
         self.trainer = trainer
         self.model_optim = torch.optim.SGD(
             self.model.parameters(), lr=0.01, weight_decay=3e-4
@@ -135,6 +138,7 @@ class Darts(BaseNAS):
         self.nas_modules = []
         replace_layer_choice(self.model, DartsLayerChoice, self.nas_modules)
         replace_input_choice(self.model, DartsInputChoice, self.nas_modules)
+        self.model = self.model.to(self.device)
 
         ctrl_params = {}
         for _, m in self.nas_modules:
@@ -163,9 +167,10 @@ class Darts(BaseNAS):
                 )
 
         selection = self.export()
-        space.reinstantiate()
-        apply_fixed_architecture(space, selection)
-        return space
+        return SpaceModel(space, selection, self.device)
+        #space.reinstantiate()
+        #apply_fixed_architecture(space, selection)
+        #return space
         #return self.export()
 
     def _train_one_epoch(self, epoch):
