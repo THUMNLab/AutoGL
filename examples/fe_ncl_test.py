@@ -1,7 +1,6 @@
 import sys
-
-from networkx.algorithms.reciprocity import reciprocity
 sys.path.append('../')
+
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
 from autogl.module import Acc
@@ -13,21 +12,14 @@ import numpy as np
 import logging
 logging.basicConfig(level=logging.INFO)
 import sys
-from numpy.core.defchararray import index
-from torch.utils.data import dataset
 
-from yaml import compose, load
 sys.path.append('../')
 import random
 import numpy as np
 import torch
 import os
 import yaml
-import re
-from autogl.module.feature.base import BaseFeatureAtom
 from autogl.module.feature import FEATURE_DICT
-import pandas as pd
-import copy
 from argparse import ArgumentParser
 parser = ArgumentParser()
 # parser.add_argument('--device', default=0, type=int)
@@ -124,14 +116,3 @@ if __name__ == '__main__':
                         acc=-1
                     record_file.write(f'{cnt},{acc},{m},{d},{f},{seed}\n')
                     record_file.flush()
-
-
-                
-
-
-
-    
-
-
-
-

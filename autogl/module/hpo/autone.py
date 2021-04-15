@@ -3,20 +3,16 @@ HPO Module for tuning hyper parameters
 """
 
 import time
-import json
-import math
 import numpy as np
 from tqdm import trange
 from . import register_hpo
-from .suggestion.models import Study
 from .base import BaseHPOptimizer, TimeTooLimitedError
 
 from .autone_file import utils
 
 from torch_geometric.data import GraphSAINTRandomWalkSampler
 
-from ..feature.subgraph.nx import NxSubgraph, NxLargeCliqueSize
-from ..feature.subgraph import nx, SgNetLSD
+from ..feature.graph import SgNetLSD
 
 from torch_geometric.data import InMemoryDataset
 

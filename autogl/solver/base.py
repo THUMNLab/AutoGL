@@ -15,7 +15,7 @@ from ..module.model import MODEL_DICT
 from ..module.nas.algorithm import NAS_ALGO_DICT
 from ..module.nas.estimator import NAS_ESTIMATOR_DICT
 from ..module.nas.space import NAS_SPACE_DICT
-from ..module import BaseFeatureAtom, BaseHPOptimizer, BaseTrainer
+from ..module import BaseFeature, BaseHPOptimizer, BaseTrainer
 from .utils import LeaderBoard
 from ..utils import get_logger
 
@@ -146,7 +146,7 @@ class BaseSolver:
 
         Parameters
         ----------
-        feature_module: autogl.module.feature.BaseFeatureAtom or str or None
+        feature_module: autogl.module.feature.BaseFeature or str or None
             The (name of) auto feature engineer used to process the given dataset.
             Disable feature engineer by setting it to ``None``.
 
@@ -158,7 +158,7 @@ class BaseSolver:
         # load feature engineer module
 
         def get_feature(feature_engineer):
-            if isinstance(feature_engineer, BaseFeatureAtom):
+            if isinstance(feature_engineer, BaseFeature):
                 return feature_engineer
             if isinstance(feature_engineer, str):
                 if feature_engineer in FEATURE_DICT:
@@ -173,7 +173,7 @@ class BaseSolver:
 
         if feature_module is None:
             self.feature_module = None
-        elif isinstance(feature_module, (BaseFeatureAtom, str)):
+        elif isinstance(feature_module, (BaseFeature, str)):
             self.feature_module = get_feature(feature_module)
         elif isinstance(feature_module, list):
             self.feature_module = get_feature(feature_module[0])

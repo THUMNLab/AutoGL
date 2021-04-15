@@ -1,8 +1,8 @@
 from .netlsd import SgNetLSD
-from .base import BaseSubgraph
+from .base import BaseGraph
 from .nx import (
     register_nx,
-    NxSubgraph,
+    NxGraph,
     nxfunc,
     NxLargeCliqueSize,
     NxAverageClusteringApproximate,
@@ -23,9 +23,9 @@ from .nx import (
 
 __all__ = [
     "SgNetLSD",
-    "BaseSubgraph",
+    "BaseGraph",
     "register_nx",
-    "NxSubgraph",
+    "NxGraph",
     "nxfunc",
     "NxLargeCliqueSize",
     "NxAverageClusteringApproximate",

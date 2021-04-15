@@ -1,4 +1,4 @@
-from .base import BaseFeatureAtom
+from .base import BaseFeature
 from .base import BaseFeatureEngineer
 
 FEATURE_DICT = {}
@@ -11,7 +11,7 @@ def register_feature(name):
                 "Cannot register duplicate feature engineer ({})".format(name)
             )
         # if not issubclass(cls, BaseFeatureEngineer):
-        if not issubclass(cls, BaseFeatureAtom):
+        if not issubclass(cls, BaseFeature):
             raise ValueError(
                 "Trainer ({}: {}) must extend BaseFeatureEngineer".format(
                     name, cls.__name__
@@ -24,7 +24,6 @@ def register_feature(name):
 
 
 from .auto_feature import AutoFeatureEngineer
-from .base import BaseFeatureEngineer
 
 from .generators import (
     BaseGenerator,
@@ -45,11 +44,11 @@ from .selectors import (
     SeGBDT
 )
 
-from .subgraph import (
-    BaseSubgraph,
+from .graph import (
+    BaseGraph,
     SgNetLSD,
     register_nx,
-    NxSubgraph,
+    NxGraph,
     nxfunc,
     NxLargeCliqueSize,
     NxAverageClusteringApproximate,
@@ -71,7 +70,7 @@ from .subgraph import (
 __all__ = [
     "BaseFeatureEngineer",
     "AutoFeatureEngineer",
-    "BaseFeatureAtom",
+    "BaseFeature",
     "BaseGenerator",
     "GeGraphlet",
     "GeEigen",
@@ -85,10 +84,10 @@ __all__ = [
     "BaseSelector",
     "SeFilterConstant",
     "SeGBDT",
-    "BaseSubgraph",
+    "BaseGraph",
     "SgNetLSD",
     "register_nx",
-    "NxSubgraph",
+    "NxGraph",
     "nxfunc",
     "NxLargeCliqueSize",
     "NxAverageClusteringApproximate",

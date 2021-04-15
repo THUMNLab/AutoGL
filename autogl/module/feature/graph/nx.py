@@ -4,6 +4,7 @@ from networkx.algorithms.efficiency_measures import local_efficiency
 from networkx.algorithms.distance_regular import is_distance_regular
 from networkx.algorithms.components import number_connected_components
 from networkx.algorithms.components import is_connected
+from networkx.algorithms.cluster import average_clustering
 from networkx.algorithms.cluster import transitivity
 from networkx.algorithms.clique import graph_number_of_cliques
 from networkx.algorithms.clique import graph_clique_number
@@ -12,8 +13,11 @@ from networkx.algorithms.assortativity import degree_pearson_correlation_coeffic
 from networkx.algorithms.assortativity import degree_assortativity_coefficient
 from networkx.algorithms.approximation.clustering_coefficient import average_clustering
 from networkx.algorithms.approximation.clique import large_clique_size
-from .base import BaseSubgraph
+import netlsd
+from .base import BaseGraph
+import numpy as np
 import torch
+from functools import wraps
 from .. import register_feature
 
 NX_EXTRACTORS = []
@@ -26,9 +30,9 @@ def register_nx(cls):
 
 
 @register_nx
-class NxSubgraph(BaseSubgraph):
+class NxGraph(BaseGraph):
     def __init__(self, *args, **kwargs):
-        super(NxSubgraph, self).__init__(data_t="nx")
+        super(NxGraph, self).__init__(data_t="nx")
         self._args = args
         self._kwargs = kwargs
 
@@ -43,14 +47,12 @@ class NxSubgraph(BaseSubgraph):
 
 
 def nxfunc(func):
-    r"""A decorator for networkx subgraph transforms. You may want to use it to quickly wrap a nx subgraph feature function object.
-
+    r"""A decorator for networkx Graph transforms. You may want to use it to quickly wrap a nx Graph feature function object.
     Examples
     --------
     @register_nx
     @nxfunc(large_clique_size)
-    class NxLargeCliqueSize(NxSubgraph):pass
-
+    class NxLargeCliqueSize(NxGraph):pass
     """
 
     def decorator_func(cls):
@@ -62,117 +64,117 @@ def nxfunc(func):
 
 @register_nx
 @nxfunc(large_clique_size)
-class NxLargeCliqueSize(NxSubgraph):
+class NxLargeCliqueSize(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(average_clustering)
-class NxAverageClusteringApproximate(NxSubgraph):
+class NxAverageClusteringApproximate(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(degree_assortativity_coefficient)
-class NxDegreeAssortativityCoefficient(NxSubgraph):
+class NxDegreeAssortativityCoefficient(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(degree_pearson_correlation_coefficient)
-class NxDegreePearsonCorrelationCoefficient(NxSubgraph):
+class NxDegreePearsonCorrelationCoefficient(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(has_bridges)
-class NxHasBridge(NxSubgraph):
+class NxHasBridge(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(graph_clique_number)
-class NxGraphCliqueNumber(NxSubgraph):
+class NxGraphCliqueNumber(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(graph_number_of_cliques)
-class NxGraphNumberOfCliques(NxSubgraph):
+class NxGraphNumberOfCliques(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(transitivity)
-class NxTransitivity(NxSubgraph):
+class NxTransitivity(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(average_clustering)
-class NxAverageClustering(NxSubgraph):
+class NxAverageClustering(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(is_connected)
-class NxIsConnected(NxSubgraph):
+class NxIsConnected(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(number_connected_components)
-class NxNumberConnectedComponents(NxSubgraph):
+class NxNumberConnectedComponents(NxGraph):
     pass
 
 
 # from networkx.algorithms.components import is_attracting_component
 # @register_nx
 # @nxfunc(is_attracting_component)
-# class NxIsAttractingComponent(NxSubgraph):pass
+# class NxIsAttractingComponent(NxGraph):pass
 
 # from networkx.algorithms.components import number_attracting_components
 # @register_nx
 # @nxfunc(number_attracting_components)
-# class NxNumberAttractingComponents(NxSubgraph):pass
+# class NxNumberAttractingComponents(NxGraph):pass
 
 # from networkx.algorithms.connectivity.connectivity import average_node_connectivity
 # @register_nx
 # @nxfunc(average_node_connectivity)
-# class NxAverageNodeConnectivity(NxSubgraph):pass
+# class NxAverageNodeConnectivity(NxGraph):pass
 
 # from networkx.algorithms.distance_measures import diameter
 # @register_nx
 # @nxfunc(diameter)
-# class NxDiameter(NxSubgraph):pass
+# class NxDiameter(NxGraph):pass
 
 # from networkx.algorithms.distance_measures import radius
 # @register_nx
 # @nxfunc(radius)
-# class NxRadius(NxSubgraph):pass
+# class NxRadius(NxGraph):pass
 
 
 @register_nx
 @nxfunc(is_distance_regular)
-class NxIsDistanceRegular(NxSubgraph):
+class NxIsDistanceRegular(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(local_efficiency)
-class NxLocalEfficiency(NxSubgraph):
+class NxLocalEfficiency(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(global_efficiency)
-class NxGlobalEfficiency(NxSubgraph):
+class NxGlobalEfficiency(NxGraph):
     pass
 
 
 @register_nx
 @nxfunc(is_eulerian)
-class NxIsEulerian(NxSubgraph):
+class NxIsEulerian(NxGraph):
     pass
 
 

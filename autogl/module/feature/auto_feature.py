@@ -6,7 +6,7 @@ from tqdm import tqdm
 from tabulate import tabulate
 import time
 
-from .base import BaseFeatureAtom, BaseFeatureEngineer
+from .base import BaseFeature, BaseFeatureEngineer
 from .selectors import SeGBDT
 from . import register_feature
 
@@ -119,35 +119,30 @@ class Timer:
 @register_feature("deepgl")
 class AutoFeatureEngineer(BaseFeatureEngineer):
     r"""
-
-    An implementation of auto feature engineering method Deepgl [#]_ , which iteratively generates features by aggregating neighbour features
+    Notes
+    -----
+    An implementation of auto feature engineering method Deepgl [#]_ ,which iteratively generates features by aggregating neighbour features
     and select a fixed number of  features to automatically add important graph-aware features.
-
     References
     ----------
     .. [#] Rossi, R. A., Zhou, R., & Ahmed, N. K. (2020).
         Deep Inductive Graph Representation Learning.
         IEEE Transactions on Knowledge and Data Engineering, 32(3), 438–452.
         https://doi.org/10.1109/TKDE.2018.2878247
-
     Parameters
     ----------
     fixlen : int
         fixed number of features for every epoch. The final number of features added will be
         ``fixlen`` \times ``max_epoch``, 200 \times 5 in default.
-
     max_epoch : int
         number of epochs in total process.
-
     timebudget : int
         timebudget(seconds) for the feature engineering process, None for no time budget . Note that
         this time budget is a soft budget ,which is obtained by rough time estimation through previous iterations and
         may finally exceed the actual timebudget
-
     y_sel_func : Callable
         feature selector function object for selection at each iteration ,lightgbm in default. Note that in original paper,
         connected components of feature graph is used , and you may implement it by yourself if you want.
-
     verbosity : int
         hide any infomation except error and fatal if ``verbosity`` < 1
     """
