@@ -31,7 +31,7 @@ from .base import BaseFeatureEngineer
 from .generators import BaseGenerator
 from .selectors import BaseSelector
 
-from .subgraph import BaseSubgraph
+from .graph import BaseGraph
 
 __all__ = [
     "BaseFeatureEngineer",

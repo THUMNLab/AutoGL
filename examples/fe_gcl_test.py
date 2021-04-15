@@ -95,7 +95,7 @@ if __name__ == "__main__":
     feature_set=[
             '',
             'netlsd',
-            'NxSubgraph', 'NxLargeCliqueSize', 'NxAverageClusteringApproximate', 'NxDegreeAssortativityCoefficient', 'NxDegreePearsonCorrelationCoefficient', 'NxHasBridge', 'NxGraphCliqueNumber', 'NxGraphNumberOfCliques', 'NxTransitivity', 'NxAverageClustering', 'NxIsConnected', 'NxNumberConnectedComponents', 'NxIsDistanceRegular', 'NxLocalEfficiency', 'NxGlobalEfficiency', 'NxIsEulerian'
+            'NxGraph', 'NxLargeCliqueSize', 'NxAverageClusteringApproximate', 'NxDegreeAssortativityCoefficient', 'NxDegreePearsonCorrelationCoefficient', 'NxHasBridge', 'NxGraphCliqueNumber', 'NxGraphNumberOfCliques', 'NxTransitivity', 'NxAverageClustering', 'NxIsConnected', 'NxNumberConnectedComponents', 'NxIsDistanceRegular', 'NxLocalEfficiency', 'NxGlobalEfficiency', 'NxIsEulerian'
         ]
     datasets=[
         'mutag',
@@ -113,7 +113,7 @@ if __name__ == "__main__":
                     cnt+=1
                     if cnt<=0:
                         continue
-                    fs=['onlyconst',f] if f !='' else ['onlyconst','subgraph']
+                    fs=['onlyconst',f] if f !='' else ['onlyconst','graph']
                     try:
                         # queue_configs.append([d,f'../configs/gcl_{m}.yaml',fs,seed])
                         acc=run_gcl(d,f'../configs/gcl_{m}.yaml',fs,seed)   
