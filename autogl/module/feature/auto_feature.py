@@ -6,7 +6,7 @@ from tqdm import tqdm
 from tabulate import tabulate
 import time
 
-from .base import BaseFeatureAtom, BaseFeatureEngineer
+from .base import BaseFeature, BaseFeatureEngineer
 from .selectors import SeGBDT
 from . import register_feature
 

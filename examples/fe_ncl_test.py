@@ -24,7 +24,7 @@ import torch
 import os
 import yaml
 import re
-from autogl.module.feature.base import BaseFeatureAtom
+from autogl.module.feature.base import BaseFeature
 from autogl.module.feature import FEATURE_DICT
 import pandas as pd
 import copy

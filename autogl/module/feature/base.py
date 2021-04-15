@@ -10,8 +10,8 @@ from ...utils import get_logger
 LOGGER = get_logger("Feature")
 
 
-class BaseFeatureAtom:
-    r"""Any feature funcion object should inherit BaseFeatureAtom,
+class BaseFeature:
+    r"""Any feature funcion object should inherit BaseFeature,
     which provides basic transformations and composing operation for feature
     engineering. Basic transformations include data type adjusting(tensor or numpy),
     complementing necessary attributes for future transform. Any subclass needs
@@ -22,7 +22,7 @@ class BaseFeatureAtom:
     Parameters
     ----------
     pipe : list
-        stores pipeline of ``BaseFeatureAtom``.
+        stores pipeline of ``BaseFeature``.
 
     data_t: str
         represents the data type needed for this transform, where 'tensor' accounts for ``torch.Tensor``,
@@ -50,7 +50,7 @@ class BaseFeatureAtom:
         r"""enable and operation to support feature engineering pipeline syntax like
         SeFilterConstant()&GeEigen()&...
         """
-        return BaseFeatureAtom(self._pipe + o._pipe)
+        return BaseFeature(self._pipe + o._pipe)
 
     def _rebuild(self, dataset, datalist):
         dataset.__indices__ = None
@@ -143,14 +143,14 @@ class BaseFeatureAtom:
 
     @staticmethod
     def compose(trans_list):
-        r"""put a list of ``BaseFeatureAtom`` into feature engineering pipeline"""
-        res = BaseFeatureAtom()
+        r"""put a list of ``BaseFeature`` into feature engineering pipeline"""
+        res = BaseFeature()
         for tran in trans_list:
             res = res & tran
         return res
 
 
-class BaseFeatureEngineer(BaseFeatureAtom):
+class BaseFeatureEngineer(BaseFeature):
     def __init__(self, data_t="np", multigraph=False, *args, **kwargs):
         super(BaseFeatureEngineer, self).__init__(
             data_t=data_t, multigraph=multigraph, *args, **kwargs
@@ -159,7 +159,7 @@ class BaseFeatureEngineer(BaseFeatureAtom):
         self.kwargs = kwargs
 
 
-class TransformWrapper(BaseFeatureAtom):
+class TransformWrapper(BaseFeature):
     def __init__(self, cls, *args, **kwargs):
         super(TransformWrapper, self).__init__(data_t="tensor", *args, **kwargs)
         self._cls = cls

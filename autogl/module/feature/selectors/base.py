@@ -1,8 +1,8 @@
-from ..base import BaseFeatureAtom
+from ..base import BaseFeature
 import numpy as np
 
 
-class BaseSelector(BaseFeatureAtom):
+class BaseSelector(BaseFeature):
     def __init__(self, data_t="np", multigraph=False, **kwargs):
         super(BaseSelector, self).__init__(
             data_t=data_t, multigraph=multigraph, **kwargs

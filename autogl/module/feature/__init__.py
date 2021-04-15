@@ -1,6 +1,6 @@
 import importlib
 import os
-from .base import BaseFeatureAtom
+from .base import BaseFeature
 from .base import BaseFeatureEngineer
 
 FEATURE_DICT = {}
@@ -13,7 +13,7 @@ def register_feature(name):
                 "Cannot register duplicate feature engineer ({})".format(name)
             )
         # if not issubclass(cls, BaseFeatureEngineer):
-        if not issubclass(cls, BaseFeatureAtom):
+        if not issubclass(cls, BaseFeature):
             raise ValueError(
                 "Trainer ({}: {}) must extend BaseFeatureEngineer".format(
                     name, cls.__name__
@@ -36,5 +36,5 @@ from .graph import BaseGraph
 __all__ = [
     "BaseFeatureEngineer",
     "AutoFeatureEngineer",
-    "BaseFeatureAtom",
+    "BaseFeature",
 ]
