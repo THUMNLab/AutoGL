@@ -33,7 +33,7 @@ Currently, the following algorithms are supported in AutoGL:
     </tr>
     <tr valign="top">
         <!--<td><b>Generators</b><br>graphlet <br> eigen <br> pagerank <br> PYGLocalDegreeProfile <br> PYGNormalizeFeatures <br> PYGOneHotDegree <br> onehot <br> <br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Subgraph</b><br> NxLargeCliqueSize<br> NxAverageClusteringApproximate<br> NxDegreeAssortativityCoefficient<br> NxDegreePearsonCorrelationCoefficient<br> NxHasBridge <br>NxGraphCliqueNumber<br> NxGraphNumberOfCliques<br> NxTransitivity<br> NxAverageClustering<br> NxIsConnected<br> NxNumberConnectedComponents<br> NxIsDistanceRegular<br> NxLocalEfficiency<br> NxGlobalEfficiency<br> NxIsEulerian </td>-->
-        <td><b>Generators</b><br>graphlet <br> eigen <br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Subgraph</b><br> netlsd<br> NxAverageClustering<br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a></td>
+        <td><b>Generators</b><br>graphlet <br> eigen <br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Graph</b><br> netlsd<br> NxAverageClustering<br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a></td>
         <td><b>Node Classification</b><br> GCN <br> GAT <br> GraphSAGE <br><br><b>Graph Classification</b><br> GIN <br> TopKPool </td>
         <td> Grid <br> Random <br> Anneal <br> Bayes <br> CAMES <br> MOCAMES <br> Quasi random <br> TPE <br> AutoNE </td>
         <td> Voting <br> Stacking </td>

@@ -17,7 +17,7 @@ feature
 .. automodule:: autogl.module.feature.selectors
     :members:
 
-.. automodule:: autogl.module.feature.subgraph
+.. automodule:: autogl.module.feature.graph
     :members:
 
 .. _model documentation:
