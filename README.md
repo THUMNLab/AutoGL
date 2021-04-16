@@ -11,7 +11,7 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 
 ## News!
 
-- 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://openreview.net/forum?id=0yHwpLeInDn) are accepted in _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
+- 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987) are accepted in _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
 
 ## Introduction
 
@@ -111,7 +111,7 @@ The documentation will be automatically generated under `docs/_build/html`
 
 ## Cite
 
-You can cite [our paper](https://openreview.net/forum?id=0yHwpLeInDn) as follows if you use this code in your own work:
+You can cite [our paper](https://arxiv.org/abs/2104.04987) as follows if you use this code in your own work:
 ```
 @inproceedings{
 guan2021autogl,
