@@ -2,7 +2,7 @@ from pdb import set_trace
 import torch
 import numpy as np
 from torch_geometric.data import DataLoader
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, KFold
 
 
 def get_label_number(dataset):
@@ -179,7 +179,7 @@ def random_splits_mask_class(
     return dataset
 
 
-def graph_cross_validation(dataset, n_splits=10, shuffle=True, random_seed=42):
+def graph_cross_validation(dataset, n_splits=10, shuffle=True, random_seed=42, stratify=False):
     r"""Cross validation for graph classification data, returning one fold with specific idx in autogl.datasets or pyg.Dataloader(default)
 
     Parameters
@@ -196,7 +196,10 @@ def graph_cross_validation(dataset, n_splits=10, shuffle=True, random_seed=42):
     random_seed : int
         random_state for sklearn.model_selection.StratifiedKFold
     """
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_seed)
+    if stratify:
+        skf = StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_seed)
+    else:
+        skf = KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_seed)
     idx_list = []
 
     # BUG: from pytorch_geometric, not sure whether it is a bug. The dataset.data will return

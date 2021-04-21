@@ -4,7 +4,7 @@ import torch.utils.data
 import torch_geometric
 
 
-class _SubGraphSet(torch.utils.data.Dataset[_typing.Any]):
+class _SubGraphSet(torch.utils.data.Dataset):
     def __init__(self, datalist: _typing.Sequence[_typing.Any], *args, **kwargs):
         self.__graphs: _typing.Sequence[_typing.Any] = datalist
         self.__remaining_args: _typing.Sequence[_typing.Any] = args
