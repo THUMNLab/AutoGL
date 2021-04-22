@@ -1,16 +1,17 @@
 # Modified from NNI
 
-import copy
 import logging
 
 import torch
+import torch.optim
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .nas import BaseNAS
-from .space import SpaceModel
-from .utils import AverageMeterGroup, replace_layer_choice, replace_input_choice
-from nni.nas.pytorch.fixed import apply_fixed_architecture
+from .base import BaseNAS
+from ..estimator.base import BaseEstimator
+from ..space import BaseSpace
+from ..utils import replace_layer_choice, replace_input_choice
+from ...model.base import BaseModel
 
 _logger = logging.getLogger(__name__)
 
@@ -95,8 +96,8 @@ class Darts(BaseNAS):
         Batch size.
     workers : int
         Workers for data loading.
-    device : torch.device
-        ``torch.device("cpu")`` or ``torch.device("cuda")``.
+    device : str or torch.device
+        The device of the whole process
     log_frequency : int
         Step count per logging.
     arc_learning_rate : float
@@ -105,43 +106,31 @@ class Darts(BaseNAS):
         ``True`` if using second order optimization, else first order optimization.
     """
 
-    """def __init__(self, model, loss, metrics, optimizer,
-                 num_epochs, dataset, grad_clip=5.,
-                 learning_rate=2.5E-3, batch_size=64, workers=4,
-                 device=None, log_frequency=None,
-                 arc_learning_rate=3.0E-4, unrolled=False):"""
-
-    def __init__(self, device="cuda", *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.device = device
-        self.num_epochs = kwargs.get("num_epochs", 5)
+    def __init__(self, num_epochs=5, device="cuda"):
+        super().__init__(device=device)
+        self.num_epochs = num_epochs
         self.workers = 4
-        self.device = "cuda"
         self.log_frequency = None
+        self.gradient_clip = 5.0
+        self.model_optimizer = torch.optim.Adam
+        self.arch_optimizer = torch.optim.Adam
+        self.model_lr = 0.001
+        self.model_wd = 5e-4
+        self.arch_lr = 3e-4
+        self.arch_wd = 1e-3
 
-        # for _, module in self.nas_modules:
-        #    module.to(self.device)
-
-        # use the same architecture weight for modules with duplicated names
-
-    def search(self, space, dset, trainer):
-        """
-        main process
-        """
-        self.model = space
-        self.dataset = dset#.to(self.device)
-        self.trainer = trainer
-        self.model_optim = torch.optim.SGD(
-            self.model.parameters(), lr=0.01, weight_decay=3e-4
+    def search(self, space: BaseSpace, dataset, estimator):
+        model_optim = self.model_optimizer(
+            space.parameters(), self.model_lr, weight_decay=self.model_wd
         )
 
-        self.nas_modules = []
-        replace_layer_choice(self.model, DartsLayerChoice, self.nas_modules)
-        replace_input_choice(self.model, DartsInputChoice, self.nas_modules)
-        self.model = self.model.to(self.device)
+        nas_modules = []
+        replace_layer_choice(space, DartsLayerChoice, nas_modules)
+        replace_input_choice(space, DartsInputChoice, nas_modules)
+        space = space.to(self.device)
 
         ctrl_params = {}
-        for _, m in self.nas_modules:
+        for _, m in nas_modules:
             if m.name in ctrl_params:
                 assert (
                     m.alpha.size() == ctrl_params[m.name].size()
@@ -149,59 +138,53 @@ class Darts(BaseNAS):
                 m.alpha = ctrl_params[m.name]
             else:
                 ctrl_params[m.name] = m.alpha
-        self.ctrl_optim = torch.optim.Adam(
-            list(ctrl_params.values()), 3e-4, betas=(0.5, 0.999), weight_decay=1.0e-3
+        arch_optim = self.arch_optimizer(
+            list(ctrl_params.values()), self.arch_lr, weight_decay=self.arch_wd
         )
-        self.grad_clip = 5.0
 
-        for step in range(self.num_epochs):
-            self._train_one_epoch(step)
-            if self.log_frequency is not None and step % self.log_frequency == 0:
-                _logger.info(
-                    "Epoch [%s/%s] Step [%s/%s]  %s",
-                    epoch + 1,
-                    self.num_epochs,
-                    step + 1,
-                    len(self.train_loader),
-                    meters,
-                )
+        for epoch in range(self.num_epochs):
+            self._train_one_epoch(
+                epoch, space, dataset, estimator, model_optim, arch_optim
+            )
 
-        selection = self.export()
-        return SpaceModel(space, selection, self.device)
-        #space.reinstantiate()
-        #apply_fixed_architecture(space, selection)
-        #return space
-        #return self.export()
+        selection = self.export(nas_modules)
+        return space.export(selection, self.device)
 
-    def _train_one_epoch(self, epoch):
-        self.model.train()
-        meters = AverageMeterGroup()
+    def _train_one_epoch(
+        self,
+        epoch,
+        model: BaseSpace,
+        dataset,
+        estimator,
+        model_optim: torch.optim.Optimizer,
+        arch_optim: torch.optim.Optimizer,
+    ):
+        model.train()
 
         # phase 1. architecture step
-        self.ctrl_optim.zero_grad()
+        arch_optim.zero_grad()
         # only no unroll here
-        _, loss = self._infer()
+        _, loss = self._infer(model, dataset, estimator, "val")
         loss.backward()
-        self.ctrl_optim.step()
+        arch_optim.step()
 
         # phase 2: child network step
-        self.model_optim.zero_grad()
-        metric, loss = self._infer()
+        model_optim.zero_grad()
+        metric, loss = self._infer(model, dataset, estimator, "train")
         loss.backward()
-        if self.grad_clip > 0:
-            nn.utils.clip_grad_norm_(
-                self.model.parameters(), self.grad_clip
-            )  # gradient clipping
-        self.model_optim.step()
+        # gradient clipping
+        if self.gradient_clip > 0:
+            nn.utils.clip_grad_norm_(model.parameters(), self.gradient_clip)
+        model_optim.step()
 
-    def _infer(self):
-        metric, loss = self.trainer.infer(self.model, self.dataset)
+    def _infer(self, model: BaseModel, dataset, estimator: BaseEstimator, mask="train"):
+        metric, loss = estimator.infer(model, dataset, mask=mask)
         return metric, loss
 
     @torch.no_grad()
-    def export(self):
+    def export(self, nas_modules) -> dict:
         result = dict()
-        for name, module in self.nas_modules:
+        for name, module in nas_modules:
             if name not in result:
                 result[name] = module.export()
         return result

@@ -352,7 +352,7 @@ class AutoNodeClassifier(BaseClassifier):
                 loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
             )
 
-            assert isinstance(self._default_trainer, str) or len(self.nas_algorithms) == len(self._default_trainer) - len(self.graph_model_list), "length of default trainer should match total graph models and nas models passed"
+            assert not isinstance(self._default_trainer, list) or len(self.nas_algorithms) == len(self._default_trainer) - len(self.graph_model_list), "length of default trainer should match total graph models and nas models passed"
 
             # perform nas and add them to model list
             idx_trainer = len(self.graph_model_list)
@@ -361,20 +361,32 @@ class AutoNodeClassifier(BaseClassifier):
             ):
                 model = algo.search(space, self.dataset, estimator)
                 # insert model into default trainer
-                if isinstance(self._default_trainer, str):
-                    train_name = self._default_trainer
-                else:
+                if isinstance(self._default_trainer, list):
                     train_name = self._default_trainer[idx_trainer]
                     idx_trainer += 1
-                trainer = TRAINER_DICT[train_name](
-                    model=model,
-                    num_features=self.dataset[0].x.shape[1],
-                    num_classes=self.dataset.num_classes,
-                    loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
-                    feval=evaluator_list,
-                    device=self.runtime_device,
-                    init=False,
-                )
+                else:
+                    train_name = self._default_trainer
+                if isinstance(train_name, str):
+                    trainer = TRAINER_DICT[train_name](
+                        model=model,
+                        num_features=self.dataset[0].x.shape[1],
+                        num_classes=self.dataset.num_classes,
+                        loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+                        feval=evaluator_list,
+                        device=self.runtime_device,
+                        init=False,
+                    )
+                else:
+                    trainer = train_name
+                    trainer.model = model
+                    trainer.update_parameters(
+                        num_classes=self.dataset.num_classes,
+                        num_features=self.dataset[0].x.shape[1],
+                        loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+                        feval=evaluator_list,
+                        device=self.runtime_device,
+                    
+                    )
                 self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
