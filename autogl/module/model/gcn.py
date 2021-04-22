@@ -62,6 +62,25 @@ class GCN(torch.nn.Module):
                 x = F.dropout(x, p=self.args["dropout"], training=self.training)
         return F.log_softmax(x, dim=1)
 
+    def encode(self, data):
+        x = data.x
+        for i in range(self.num_layer - 1):
+            x = self.convs[i](x, data.train_pos_edge_index)
+            if i != self.num_layer - 2:
+                x = activate_func(x, self.args["act"])
+                # x = F.dropout(x, p=self.args["dropout"], training=self.training)
+        return x
+
+    def decode(self, z, pos_edge_index, neg_edge_index):
+        edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)
+        logits = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=-1)
+        return logits
+
+    def decode_all(self, z):
+        prob_adj = z @ z.t()
+        return (prob_adj > 0).nonzero(as_tuple=False).t()
+
+
 
 @register_model("gcn")
 class AutoGCN(BaseModel):
@@ -142,11 +161,18 @@ class AutoGCN(BaseModel):
         ]
 
         # initial point of hp search
+        # self.hyperparams = {
+        #     "num_layers": 2,
+        #     "hidden": [16],
+        #     "dropout": 0.2,
+        #     "act": "leaky_relu",
+        # }
+
         self.hyperparams = {
-            "num_layers": 2,
-            "hidden": [16],
-            "dropout": 0.2,
-            "act": "leaky_relu",
+            "num_layers": 3,
+            "hidden": [128, 64],
+            "dropout": 0,
+            "act": "relu",
         }
 
         self.initialized = False

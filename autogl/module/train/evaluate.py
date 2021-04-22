@@ -47,7 +47,10 @@ class Auc(Evaluation):
         """
         Should return: the evaluation result (float)
         """
-        pos_predict = predict[:, 1]
+        if len(predict.shape) == 1:
+            pos_predict = predict
+        else:
+            pos_predict = predict[:, 1]
         return roc_auc_score(label, pos_predict)
 
 

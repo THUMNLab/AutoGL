@@ -48,12 +48,14 @@ def get_feval(feval):
 
 from .graph_classification import GraphClassificationTrainer
 from .node_classification import NodeClassificationTrainer
+from .link_prediction import LinkPredictionTrainer
 from .evaluate import Acc, Auc, Logloss
 
 __all__ = [
     "BaseTrainer",
     "GraphClassificationTrainer",
     "NodeClassificationTrainer",
+    "LinkPredictionTrainer",
     "Evaluation",
     "Acc",
     "Auc",
