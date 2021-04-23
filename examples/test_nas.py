@@ -7,6 +7,7 @@ from autogl.solver import AutoNodeClassifier
 from autogl.module.train import NodeClassificationFullTrainer
 from autogl.module.nas import Darts, OneShotEstimator, SinglePathNodeClassificationSpace
 from autogl.module.train import Acc
+from autogl.module.nas.algorithm.enas import Enas
 
 if __name__ == '__main__':
     dataset = build_dataset_from_name('cora')

@@ -9,6 +9,7 @@ from .base import BaseSpace
 from ...model import BaseModel
 from ....utils import get_logger
 
+from ...model import AutoGCN
 
 class FixedNodeClassificationModel(BaseModel):
     _logger = get_logger("space model")
@@ -56,7 +57,7 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         self,
         hidden_dim: _typ.Optional[int] = 64,
         layer_number: _typ.Optional[int] = 2,
-        dropout: _typ.Optional[float] = 0.6,
+        dropout: _typ.Optional[float] = 0.2,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,
@@ -109,9 +110,10 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         for layer in range(self.layer_number):
             x = getattr(self, f"op_{layer}")(x, edges)
             if layer != self.layer_number - 1:
-                x = F.relu(x)
-                x = F.dropout(x, p=self.dropout, training=self.training)
+                x = F.leaky_relu(x)
+                x = F.dropout(x, p=self.dropout, training = self.training)
         return F.log_softmax(x, dim=1)
 
     def export(self, selection, device) -> BaseModel:
+        #return AutoGCN(self.input_dim, self.output_dim, device)
         return FixedNodeClassificationModel(self, selection, device)
