@@ -8,6 +8,7 @@ from autogl.module.model import BaseModel
 from autogl.module.train import NodeClassificationFullTrainer
 from autogl.module.nas import Darts, OneShotEstimator, SinglePathNodeClassificationSpace
 from autogl.module.train import Acc
+from autogl.module.nas.algorithm.enas import Enas
 
 if __name__ == '__main__':
     dataset = build_dataset_from_name('cora')
@@ -30,6 +31,7 @@ if __name__ == '__main__':
             feval=['acc'],
             loss="nll_loss",
             lr_scheduler_type=None,),
+        #nas_algorithms=[Enas()],
         nas_algorithms=[Darts(num_epochs=1)],
         nas_spaces=[SinglePathNodeClassificationSpace(hidden_dim=16, ops=[GCNConv, GCNConv])],
         nas_estimators=[OneShotEstimator()]

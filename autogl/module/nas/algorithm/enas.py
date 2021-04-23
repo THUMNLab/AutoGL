@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .nas import BaseNAS
-from .space import SpaceModel
-from .utils import AverageMeterGroup, replace_layer_choice, replace_input_choice
+from .base import BaseNAS
+from ..space import BaseSpace
+from ..utils import AverageMeterGroup, replace_layer_choice, replace_input_choice
 from nni.nas.pytorch.fixed import apply_fixed_architecture
 _logger = logging.getLogger(__name__)
 def _get_mask(sampled, total):
@@ -288,10 +288,10 @@ class Enas(BaseNAS):
         self.ctrl_kwargs=ctrl_kwargs
         self.ctrl_lr=ctrl_lr
 
-    def search(self, space, dset, trainer):
+    def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset#.to(self.device)
-        self.trainer = trainer
+        self.estimator = estimator
         self.model_optim = torch.optim.SGD(
             self.model.parameters(), lr=0.01, weight_decay=3e-4
         )
@@ -313,7 +313,8 @@ class Enas(BaseNAS):
             self._train_controller(i)
         
         selection=self.export()
-        return SpaceModel(space,selection,self.device)
+        return space.export(selection,self.device)
+
     def _train_model(self, epoch): 
         self.model.train()
         self.controller.eval()
@@ -364,5 +365,5 @@ class Enas(BaseNAS):
             return self.controller.resample()
 
     def _infer(self):
-        metric, loss = self.trainer.infer(self.model, self.dataset)
+        metric, loss = self.estimator.infer(self.model, self.dataset)
         return metric, loss
