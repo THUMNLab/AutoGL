@@ -31,7 +31,7 @@ if __name__ == '__main__':
             loss="nll_loss",
             lr_scheduler_type=None,),
         nas_algorithms=[Darts(num_epochs=1)],
-        nas_spaces=[SinglePathNodeClassificationSpace(hidden_dim=16, ops=[GCNConv, GCNConv])],
+        nas_spaces=[SinglePathNodeClassificationSpace(hidden_dim=16, ops=[GCNConv, GATConv])],
         nas_estimators=[OneShotEstimator()]
     )
     solver.fit(dataset)
