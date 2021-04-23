@@ -357,6 +357,8 @@ class _BaseClassificationTrainer(BaseTrainer):
             )
         elif isinstance(model, BaseModel):
             _model: BaseModel = model
+        elif model is None:
+            _model = None
         else:
             raise TypeError(
                 f"Model argument only support str or BaseModel, got {model}."

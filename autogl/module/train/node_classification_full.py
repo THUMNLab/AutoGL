@@ -56,9 +56,9 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str],
-        num_features,
-        num_classes,
+        model: Union[BaseModel, str]=None,
+        num_features=None,
+        num_classes=None,
         optimizer=None,
         lr=None,
         max_epoch=None,
