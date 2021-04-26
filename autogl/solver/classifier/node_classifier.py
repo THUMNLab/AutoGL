@@ -70,12 +70,10 @@ class AutoNodeClassifier(BaseClassifier):
         Default ``auto``.
     """
 
-    # pylint: disable=W0102
-
     def __init__(
         self,
         feature_module=None,
-        graph_models=["gat", "gcn"],
+        graph_models=("gat", "gcn"),
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
