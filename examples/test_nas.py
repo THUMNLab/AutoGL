@@ -1,10 +1,9 @@
 import sys
 sys.path.append('../')
-from torch_geometric.nn import GCNConv, GATConv
+from torch_geometric.nn import GCNConv
 import torch
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
-from autogl.module.model import BaseModel
 from autogl.module.train import NodeClassificationFullTrainer
 from autogl.module.nas import Darts, OneShotEstimator, SinglePathNodeClassificationSpace
 from autogl.module.train import Acc
@@ -13,14 +12,11 @@ from autogl.module.nas.algorithm.enas import Enas
 if __name__ == '__main__':
     dataset = build_dataset_from_name('cora')
     solver = AutoNodeClassifier(
-        feature_module=None,
+        feature_module='PYGNormalizeFeatures',
         graph_models=[],
         hpo_module=None,
         ensemble_module=None,
         default_trainer=NodeClassificationFullTrainer(
-            BaseModel(),
-            None,
-            None,
             optimizer=torch.optim.Adam,
             lr=0.01,
             max_epoch=200,
@@ -32,7 +28,7 @@ if __name__ == '__main__':
             loss="nll_loss",
             lr_scheduler_type=None,),
         nas_algorithms=[Enas()],
-        #nas_algorithms=[Darts(num_epochs=1)],
+        #nas_algorithms=[Darts(num_epochs=200)],
         nas_spaces=[SinglePathNodeClassificationSpace(hidden_dim=16, ops=[GCNConv, GCNConv])],
         nas_estimators=[OneShotEstimator()]
     )

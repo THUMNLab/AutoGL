@@ -34,7 +34,7 @@ class FixedNodeClassificationModel(BaseModel):
         return super().to(device)
 
     def forward(self, *args, **kwargs):
-        return self._model.forward(*args, **kwargs)
+        return self._model(*args, **kwargs)
 
     def from_hyper_parameter(self, hp):
         """
@@ -85,6 +85,7 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         self.input_dim = input_dim or self.input_dim
         self.output_dim = output_dim or self.output_dim
         self.ops = ops or self.ops
+        self.dropout = dropout or self.dropout
         for layer in range(self.layer_number):
             setattr(
                 self,
