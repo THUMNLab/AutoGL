@@ -7,7 +7,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import nni.retiarii.nn.pytorch as nn
-from nni.nas.pytorch.mutables import InputChoice, LayerChoice
+from nni.nas.pytorch.mutables import Mutable, InputChoice, LayerChoice
 
 _logger = logging.getLogger(__name__)
 
@@ -123,6 +123,21 @@ class AverageMeter:
         fmtstr = "{name}: {avg" + self.fmt + "}"
         return fmtstr.format(**self.__dict__)
 
+def get_module_order(root_module):
+    key2order = {}
+    def apply(m):
+        for name, child in m.named_children():
+            if isinstance(child, Mutable):
+                key2order[child.key] = child.order 
+            else:
+                apply(child)
+
+    apply(root_module)
+    return key2order
+
+def sort_replaced_module(k2o, modules):
+    modules = sorted(modules, key = lambda x:k2o[x[0]])
+    return modules
 
 def _replace_module_with_type(root_module, init_fn, type_name, modules):
     if modules is None:

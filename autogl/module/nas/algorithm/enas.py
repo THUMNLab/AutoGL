@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from .base import BaseNAS
 from ..space import BaseSpace
-from ..utils import AverageMeterGroup, replace_layer_choice, replace_input_choice
+from ..utils import AverageMeterGroup, replace_layer_choice, replace_input_choice, get_module_order, sort_replaced_module
 from nni.nas.pytorch.fixed import apply_fixed_architecture
 _logger = logging.getLogger(__name__)
 def _get_mask(sampled, total):
@@ -297,8 +297,12 @@ class Enas(BaseNAS):
         )
         # replace choice
         self.nas_modules = []
+
+        k2o = get_module_order(self.model)
         replace_layer_choice(self.model, PathSamplingLayerChoice, self.nas_modules)
         replace_input_choice(self.model, PathSamplingInputChoice, self.nas_modules)
+        self.nas_modules = sort_replaced_module(k2o, self.nas_modules)
+
         # to device
         self.model = self.model.to(self.device)
         # fields

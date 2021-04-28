@@ -71,7 +71,7 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         self.ops = ops
         self.dropout = dropout
 
-    def instantiate(
+    def _instantiate(
         self,
         hidden_dim: _typ.Optional[int] = None,
         layer_number: _typ.Optional[int] = None,
@@ -89,7 +89,8 @@ class SinglePathNodeClassificationSpace(BaseSpace):
             setattr(
                 self,
                 f"op_{layer}",
-                mutables.LayerChoice(
+                self.setLayerChoice(
+                    layer,
                     [
                         op(
                             self.input_dim if layer == 0 else self.hidden_dim,
@@ -99,7 +100,6 @@ class SinglePathNodeClassificationSpace(BaseSpace):
                         )
                         for op in self.ops
                     ],
-                    key=f"{layer}",
                 ),
             )
         self._initialized = True

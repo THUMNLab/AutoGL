@@ -1,7 +1,21 @@
 from abc import abstractmethod
 from autogl.module.model import BaseModel
 import torch.nn as nn
+from nni.nas.pytorch import mutables
 
+class OrderedMutable():
+    def __init__(self, order):
+        self.order = order
+
+class OrderedLayerChoice(OrderedMutable, mutables.LayerChoice):
+    def __init__(self, order, *args, **kwargs):
+        OrderedMutable.__init__(self, order)
+        mutables.LayerChoice.__init__(self, *args, **kwargs)
+
+class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
+    def __init__(self, order, *args, **kwargs):
+        OrderedMutable.__init__(self, order)
+        mutables.InputChoice.__init__(self, *args, **kwargs)
 
 class BaseSpace(nn.Module):
     """
@@ -21,12 +35,11 @@ class BaseSpace(nn.Module):
         self._initialized = False
 
     @abstractmethod
-    def instantiate(self):
+    def _instantiate(self):
         """
         Instantiate modules in the space
         """
-        if not self._initialized:
-            self._initialized = True
+        raise NotImplementedError()
 
     @abstractmethod
     def forward(self, *args, **kwargs):
@@ -53,3 +66,31 @@ class BaseSpace(nn.Module):
             model to be exported.
         """
         raise NotImplementedError()
+
+    def instantiate(self, *args, **kwargs):
+        self._default_key = 0
+        self._instantiate(*args, **kwargs)
+        if not self._initialized:
+            self._initialized = True
+
+    def setLayerChoice(self, *args, **kwargs):
+        """
+        Give a unique key if not given
+        """
+        if len(args) < 5 and not "key" in kwargs:
+            key = f"default_key_{self._default_key}"
+            self._default_key += 1
+            kwargs["key"] = key
+        layer = OrderedLayerChoice(*args, **kwargs)
+        return layer
+
+    def setInputChoice(self, *args, **kwargs):
+        """
+        Give a unique key if not given
+        """
+        if len(args) < 7 and not "key" in kwargs:
+            key = f"default_key_{self._default_key}"
+            self._default_key += 1
+            kwargs["key"] = key
+        layer = OrderedInputChoice(*args, **kwargs)
+        return layer
