@@ -98,7 +98,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         self.lr = lr if lr is not None else 1e-4
         self.max_epoch = max_epoch if max_epoch is not None else 100
         self.batch_size = batch_size if batch_size is not None else 64
-        self.num_workers = num_workers if num_workers is not None else 4
+        self.num_workers = num_workers if num_workers is not None else 0
         if self.num_workers > 0:
             mp.set_start_method("fork", force=True)
         self.early_stopping_round = (
