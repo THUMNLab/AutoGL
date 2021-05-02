@@ -294,13 +294,15 @@ class ClassificationModel(_BaseModel):
         num_classes: int = ...,
         num_graph_features: int = ...,
         device: _typing.Union[str, torch.device] = ...,
+        hyper_parameter_space: _typing.Sequence[_typing.Any] = ...,
         init: bool = False,
         **kwargs
     ):
         if "initialize" in kwargs:
             del kwargs["initialize"]
         super(ClassificationModel, self).__init__(
-            initialize=init, device=device, **kwargs
+            initialize=init, hyper_parameter_space=hyper_parameter_space,
+            device=device, **kwargs
         )
         if num_classes != Ellipsis and type(num_classes) == int:
             self.__num_classes: int = num_classes if num_classes > 0 else 0

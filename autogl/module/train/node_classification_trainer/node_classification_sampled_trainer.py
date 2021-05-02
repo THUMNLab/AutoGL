@@ -9,6 +9,9 @@ from ..base import BaseNodeClassificationTrainer, EarlyStopping, Evaluation
 from ..evaluation import get_feval, Logloss
 from ..sampling.sampler.neighbor_sampler import NeighborSampler
 from ..sampling.sampler.graphsaint_sampler import *
+from ..sampling.sampler.layer_dependent_importance_sampler import (
+    LayerDependentImportanceSampler
+)
 from ...model import BaseModel
 
 LOGGER: logging.Logger = logging.getLogger("Node classification sampling trainer")
@@ -366,7 +369,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         model: _typing.Union[BaseModel],
         num_features: int,
         num_classes: int,
-        optimizer: _typing.Union[_typing.Type[torch.optim.Optimizer], str, None],
+        optimizer: _typing.Union[_typing.Type[torch.optim.Optimizer], str, None] = ...,
         lr: float = 1e-4,
         max_epoch: int = 100,
         early_stopping_round: int = 100,
@@ -428,30 +431,16 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         )
 
         """ Set hyper parameters """
-        if "num_subgraphs" not in kwargs:
-            raise KeyError
-        elif type(kwargs.get("num_subgraphs")) != int:
-            raise TypeError
-        elif not kwargs.get("num_subgraphs") > 0:
-            raise ValueError
-        else:
-            self.__num_subgraphs: int = kwargs.get("num_subgraphs")
-        if "sampling_budget" not in kwargs:
-            raise KeyError
-        elif type(kwargs.get("sampling_budget")) != int:
-            raise TypeError
-        elif not kwargs.get("sampling_budget") > 0:
-            raise ValueError
-        else:
-            self.__sampling_budget: int = kwargs.get("sampling_budget")
-        if "sampling_method" not in kwargs:
-            self.__sampling_method_identifier: str = "node"
-        elif type(kwargs.get("sampling_method")) != str:
-            self.__sampling_method_identifier: str = "node"
-        else:
+        self.__num_subgraphs: int = kwargs.get("num_subgraphs")
+        self.__sampling_budget: int = kwargs.get("sampling_budget")
+        if (
+                kwargs.get("sampling_method") is not None
+                and type(kwargs.get("sampling_method")) == str
+                and kwargs.get("sampling_method") in ("node", "edge")
+        ):
             self.__sampling_method_identifier: str = kwargs.get("sampling_method")
-            if self.__sampling_method_identifier.lower() not in ("node", "edge"):
-                self.__sampling_method_identifier: str = "node"
+        else:
+            self.__sampling_method_identifier: str = "node"
 
         self.__is_initialized: bool = False
         if init:
@@ -480,7 +469,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         """
         data = data.to(self.device)
         optimizer: torch.optim.Optimizer = self._optimizer_class(
-            self.model.parameters(),
+            self.model.model.parameters(),
             lr=self._learning_rate,
             weight_decay=self._weight_decay,
         )
@@ -694,7 +683,9 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         if return_major:
             return self._valid_score[0], self.feval[0].is_higher_better()
         else:
-            return (self._valid_score, [f.is_higher_better() for f in self.feval])
+            return (
+                self._valid_score, [f.is_higher_better() for f in self.feval]
+            )
 
     @property
     def hyper_parameter_space(self) -> _typing.Sequence[_typing.Dict[str, _typing.Any]]:
@@ -748,6 +739,380 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
             )
         )
         return NodeClassificationGraphSAINTTrainer(
+            model,
+            self.num_features,
+            self.num_classes,
+            self._optimizer_class,
+            device=self.device,
+            init=True,
+            feval=self.feval,
+            loss=self.loss,
+            lr_scheduler_type=self._lr_scheduler_type,
+            **hp,
+        )
+
+
+@register_trainer("NodeClassificationLayerDependentImportanceSamplingTrainer")
+class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassificationTrainer):
+    def __init__(
+            self,
+            model: _typing.Union[BaseModel, str],
+            num_features: int,
+            num_classes: int,
+            optimizer: _typing.Union[_typing.Type[torch.optim.Optimizer], str, None] = ...,
+            lr: float = 1e-4,
+            max_epoch: int = 100,
+            early_stopping_round: int = 100,
+            weight_decay: float = 1e-4,
+            device: _typing.Optional[torch.device] = None,
+            init: bool = True,
+            feval: _typing.Union[
+                _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+            ] = (Logloss,),
+            loss: str = "nll_loss",
+            lr_scheduler_type: _typing.Optional[str] = None,
+            **kwargs,
+    ) -> None:
+        if isinstance(optimizer, type) and issubclass(optimizer, torch.optim.Optimizer):
+            self._optimizer_class: _typing.Type[torch.optim.Optimizer] = optimizer
+        elif type(optimizer) == str:
+            if optimizer.lower() == "adam":
+                self._optimizer_class: _typing.Type[
+                    torch.optim.Optimizer
+                ] = torch.optim.Adam
+            elif optimizer.lower() == "adam" + "w":
+                self._optimizer_class: _typing.Type[
+                    torch.optim.Optimizer
+                ] = torch.optim.AdamW
+            elif optimizer.lower() == "sgd":
+                self._optimizer_class: _typing.Type[
+                    torch.optim.Optimizer
+                ] = torch.optim.SGD
+            else:
+                self._optimizer_class: _typing.Type[
+                    torch.optim.Optimizer
+                ] = torch.optim.Adam
+        else:
+            self._optimizer_class: _typing.Type[
+                torch.optim.Optimizer
+            ] = torch.optim.Adam
+        self._learning_rate: float = lr if lr > 0 else 1e-4
+        self._lr_scheduler_type: _typing.Optional[str] = lr_scheduler_type
+        self._max_epoch: int = max_epoch if max_epoch > 0 else 1e2
+        self._weight_decay: float = weight_decay if weight_decay > 0 else 1e-4
+        self._early_stopping = EarlyStopping(
+            patience=early_stopping_round if early_stopping_round > 0 else 1e2,
+            verbose=False
+        )
+        """ Assign an empty initial hyper parameter space """
+        self._hyper_parameter_space: _typing.Sequence[_typing.Dict[str, _typing.Any]] = []
+
+        self._valid_result: torch.Tensor = torch.zeros(0)
+        self._valid_result_prob: torch.Tensor = torch.zeros(0)
+        self._valid_score: _typing.Sequence[float] = ()
+
+        super(NodeClassificationLayerDependentImportanceSamplingTrainer, self).__init__(
+            model, num_features, num_classes, device, init, feval, loss
+        )
+
+        """ Set hyper parameters """
+        " Configure num_layers "
+        self.__num_layers: int = kwargs.get("num_layers")
+        " Configure sampled_node_size_budget "
+        self.__sampled_node_size_budget: int = (
+            kwargs.get("sampled_node_size_budget")
+        )
+
+        self.__is_initialized: bool = False
+        if init:
+            self.initialize()
+
+    def initialize(self):
+        if self.__is_initialized:
+            return self
+        self.model.initialize()
+        self.__is_initialized = True
+        return self
+
+    def to(self, device: torch.device):
+        self.device = device
+        if self.model is not None:
+            self.model.to(self.device)
+
+    def get_model(self):
+        return self.model
+
+    def __train_only(self, data):
+        """
+        The function of training on the given dataset and mask.
+        :param data: data of a specific graph
+        :return: self
+        """
+        optimizer: torch.optim.Optimizer = self._optimizer_class(
+            self.model.model.parameters(),
+            lr=self._learning_rate,
+            weight_decay=self._weight_decay
+        )
+
+        if type(self._lr_scheduler_type) == str:
+            if self._lr_scheduler_type.lower() == "step" + "lr":
+                lr_scheduler: torch.optim.lr_scheduler.StepLR = (
+                    torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+                )
+            elif self._lr_scheduler_type.lower() == "multi" + "step" + "lr":
+                lr_scheduler: torch.optim.lr_scheduler.MultiStepLR = (
+                    torch.optim.lr_scheduler.MultiStepLR(
+                        optimizer, milestones=[30, 80], gamma=0.1
+                    )
+                )
+            elif self._lr_scheduler_type.lower() == "exponential" + "lr":
+                lr_scheduler: torch.optim.lr_scheduler.ExponentialLR = (
+                    torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+                )
+            elif self._lr_scheduler_type.lower() == "ReduceLROnPlateau".lower():
+                lr_scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau = (
+                    torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min")
+                )
+            else:
+                lr_scheduler: torch.optim.lr_scheduler.LambdaLR = (
+                    torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _: 1.0)
+                )
+        else:
+            lr_scheduler: torch.optim.lr_scheduler.LambdaLR = (
+                torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _: 1.0)
+            )
+
+        sampled_node_size_budget: int = self.__sampled_node_size_budget
+        num_layers: int = self.__num_layers
+
+        __layer_dependent_importance_sampler: LayerDependentImportanceSampler = (
+            LayerDependentImportanceSampler(data.edge_index)
+        )
+        __top_layer_target_nodes_indexes: torch.LongTensor = (
+            torch.where(data.train_mask)[0].unique()
+        )
+        for current_epoch in range(self._max_epoch):
+            self.model.model.train()
+            optimizer.zero_grad()
+            """ epoch start """
+            " sample graphs "
+            __layers: _typing.Sequence[
+                _typing.Tuple[torch.Tensor, torch.Tensor]
+            ] = __layer_dependent_importance_sampler.sample(
+                __top_layer_target_nodes_indexes,
+                [sampled_node_size_budget for _ in range(num_layers)]
+            )
+            data.edge_indexes = [layer[0] for layer in __layers]
+            data.edge_weights = [layer[1] for layer in __layers]
+            data = data.to(self.device)
+
+            result: torch.Tensor = self.model.model.forward(data)
+            if hasattr(torch.nn.functional, self.loss):
+                loss_function = getattr(
+                    torch.nn.functional, self.loss
+                )
+                loss_value: torch.Tensor = loss_function(
+                    result[data.train_mask],
+                    data.y[data.train_mask]
+                )
+            else:
+                raise TypeError(
+                    f"PyTorch does not support loss type {self.loss}"
+                )
+
+            loss_value.backward()
+            optimizer.step()
+            if self._lr_scheduler_type:
+                lr_scheduler.step()
+
+            if (
+                    hasattr(data, "val_mask") and
+                    getattr(data, "val_mask") is not None and
+                    type(getattr(data, "val_mask")) == torch.Tensor
+            ):
+                validation_results: _typing.Sequence[float] = self.evaluate(
+                    (data,), "val", [self.feval[0]]
+                )
+                if self.feval[0].is_higher_better():
+                    validation_loss: float = -validation_results[0]
+                else:
+                    validation_loss: float = validation_results[0]
+                self._early_stopping(validation_loss, self.model.model)
+                if self._early_stopping.early_stop:
+                    LOGGER.debug("Early stopping at %d", current_epoch)
+                    break
+        if (
+                hasattr(data, "val_mask") and
+                getattr(data, "val_mask") is not None and
+                type(getattr(data, "val_mask")) == torch.Tensor
+        ):
+            self._early_stopping.load_checkpoint(self.model.model)
+
+    def __predict_only(self, data) -> torch.Tensor:
+        """
+        The function of predicting on the given data.
+        :param data: data of a specific graph
+        :return: the result of prediction on the given dataset
+        """
+        data = data.to(self.device)
+        self.model.model.eval()
+        with torch.no_grad():
+            predicted_x: torch.Tensor = self.model.model(data)
+        return predicted_x
+
+    def predict_proba(
+            self, dataset, mask: _typing.Optional[str]=None,
+            in_log_format: bool=False
+    ):
+        """
+        The function of predicting the probability on the given dataset.
+        :param dataset: The node classification dataset used to be predicted.
+        :param mask:
+        :param in_log_format:
+        :return:
+        """
+        data = dataset[0].to(self.device)
+        if mask is not None and type(mask) == str:
+            if mask.lower() == "train":
+                _mask: torch.Tensor = data.train_mask
+            elif mask.lower() == "test":
+                _mask: torch.Tensor = data.test_mask
+            elif mask.lower() == "val":
+                _mask: torch.Tensor = data.val_mask
+            else:
+                _mask: torch.Tensor = data.test_mask
+        else:
+            _mask: torch.Tensor = data.test_mask
+        result = self.__predict_only(data)[_mask]
+        return result if in_log_format else torch.exp(result)
+
+    def predict(self, dataset, mask: _typing.Optional[str] = None) -> torch.Tensor:
+        return self.predict_proba(dataset, mask, in_log_format=True).max(1)[1]
+
+    def evaluate(
+            self,
+            dataset,
+            mask: _typing.Optional[str] = None,
+            feval: _typing.Union[
+                None, _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+            ] = None,
+    ) -> _typing.Sequence[float]:
+        data = dataset[0]
+        data = data.to(self.device)
+        if feval is None:
+            _feval: _typing.Sequence[_typing.Type[Evaluation]] = self.feval
+        else:
+            _feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(list(feval))
+        if mask is not None and type(mask) == str:
+            if mask.lower() == "train":
+                _mask: torch.Tensor = data.train_mask
+            elif mask.lower() == "test":
+                _mask: torch.Tensor = data.test_mask
+            elif mask.lower() == "val":
+                _mask: torch.Tensor = data.val_mask
+            else:
+                _mask: torch.Tensor = data.test_mask
+        else:
+            _mask: torch.Tensor = data.test_mask
+        prediction_probability: torch.Tensor = self.predict_proba(dataset, mask)
+        y_ground_truth: torch.Tensor = data.y[_mask]
+
+        eval_results = []
+        for f in _feval:
+            try:
+                eval_results.append(f.evaluate(prediction_probability, y_ground_truth))
+            except:
+                eval_results.append(
+                    f.evaluate(
+                        prediction_probability.cpu().numpy(),
+                        y_ground_truth.cpu().numpy(),
+                    )
+                )
+        return eval_results
+
+    def train(self, dataset, keep_valid_result: bool = True):
+        """
+        The function of training on the given dataset and keeping valid result.
+        :param dataset:
+        :param keep_valid_result: Whether to save the validation result after training
+        """
+        data = dataset[0]
+        self.__train_only(data)
+        if keep_valid_result:
+            prediction: torch.Tensor = self.__predict_only(data)
+            self._valid_result: torch.Tensor = prediction[data.val_mask].max(1)[1]
+            self._valid_result_prob: torch.Tensor = prediction[data.val_mask]
+            self._valid_score: _typing.Sequence[float] = self.evaluate(dataset, "val")
+
+    def get_valid_predict(self) -> torch.Tensor:
+        return self._valid_result
+
+    def get_valid_predict_proba(self) -> torch.Tensor:
+        return self._valid_result_prob
+
+    def get_valid_score(
+            self, return_major: bool = True
+    ) -> _typing.Union[
+        _typing.Tuple[float, bool],
+        _typing.Tuple[_typing.Sequence[float], _typing.Sequence[bool]]
+    ]:
+        if return_major:
+            return self._valid_score[0], self.feval[0].is_higher_better()
+        else:
+            return self._valid_score, [f.is_higher_better() for f in self.feval]
+
+    @property
+    def hyper_parameter_space(self) -> _typing.Sequence[_typing.Dict[str, _typing.Any]]:
+        return self._hyper_parameter_space
+
+    @hyper_parameter_space.setter
+    def hyper_parameter_space(
+            self, hp_space: _typing.Sequence[_typing.Dict[str, _typing.Any]]
+    ) -> None:
+        if not isinstance(hp_space, _typing.Sequence):
+            raise TypeError
+        self._hyper_parameter_space = hp_space
+
+    def get_name_with_hp(self) -> str:
+        name = "-".join(
+            [
+                str(self._optimizer_class),
+                str(self._learning_rate),
+                str(self._max_epoch),
+                str(self._early_stopping.patience),
+                str(self.model),
+                str(self.device),
+            ]
+        )
+        name = (
+            name
+            + "|"
+            + "-".join(
+                [
+                    str(x[0]) + "-" + str(x[1])
+                    for x in self.model.get_hyper_parameter().items()
+                ]
+            )
+        )
+        return name
+
+    def duplicate_from_hyper_parameter(
+            self,
+            hp: _typing.Dict[str, _typing.Any],
+            model: _typing.Optional[BaseModel] = None,
+    ) -> "NodeClassificationLayerDependentImportanceSamplingTrainer":
+        if model is None or not isinstance(model, BaseModel):
+            model: BaseModel = self.model
+        model = model.from_hyper_parameter(
+            dict(
+                [
+                    x
+                    for x in hp.items()
+                    if x[0] in [y["parameterName"] for y in model.hyper_parameter_space]
+                ]
+            )
+        )
+        return NodeClassificationLayerDependentImportanceSamplingTrainer(
             model,
             self.num_features,
             self.num_classes,

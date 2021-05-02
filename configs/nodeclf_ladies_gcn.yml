@@ -7,19 +7,19 @@ hpo:
   name: random
 models:
 - hp_space:
-  - feasiblePoints: 2,3
+  - feasiblePoints:
+    - 0
+    parameterName: add_self_loops,
+    type: CATEGORICAL,
+  - feasiblePoints: 5,5
     parameterName: num_layers
     type: DISCRETE
   - cutFunc: lambda x:x[0] - 1
     cutPara:
     - num_layers
-    length: 2
-    maxValue:
-    - 32
-    - 128
-    minValue:
-    - 32
-    - 128
+    length: 4
+    maxValue: 256
+    minValue: 64
     numericalType: INTEGER
     parameterName: hidden
     scalingType: LOG
@@ -30,30 +30,19 @@ models:
     scalingType: LINEAR
     type: DOUBLE
   - feasiblePoints:
-    - mean
-    parameterName: aggr
-    type: CATEGORICAL
-  - feasiblePoints:
     - leaky_relu
     - relu
     - elu
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: sage
+  name: gcn
 trainer:
-  name: NodeClassificationNeighborSampling
+  name: NodeClassificationLayerDependentImportanceSamplingTrainer
   hp_space:
-  - parameterName: sampling_sizes
-    type: NUMERICAL_LIST
-    numericalType: INTEGER
-    length: 3
-    cutFunc: lambda x:x[0]
-    cutPara:
-    - num_layers
-    minValue: 3
-    maxValue: 8
-    scalingType: LOG
+  - feasiblePoints: 128,256,512
+    parameterName: sampled_node_size_budget
+    type: DISCRETE
   - maxValue: 300
     minValue: 100
     parameterName: max_epoch
