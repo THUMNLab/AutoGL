@@ -156,6 +156,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,
         init: bool = False,
+        search_act_con=False
     ):
         super().__init__()
         self.layer_number = layer_number
@@ -164,6 +165,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         self.output_dim = output_dim
         self.ops = ops
         self.dropout = dropout
+        self.search_act_con=search_act_con
 
     def _instantiate(
         self,
@@ -187,8 +189,9 @@ class GraphNasNodeClassificationSpace(BaseSpace):
             node_labels.append(f"op_{layer}")
             setattr(self,f"in_{layer}",self.setInputChoice(layer,choose_from=node_labels[:-1], n_chosen=1, return_mask=False,key=f"in_{layer}"))
             setattr(self,f"op_{layer}",self.setLayerChoice(layer,[gnn_map(op,self.hidden_dim,self.hidden_dim)for op in gnn_list],key=f"op_{layer}"))
-        # setattr(self,f"act",self.setLayerChoice(2*layer,[act_map_nn(a)for a in act_list],key=f"act"))
-        # setattr(self,f"concat",self.setLayerChoice(2*layer+1,map_nn(["add", "product", "concat"]) ,key=f"concat"))
+        if self.search_act_con:
+            setattr(self,f"act",self.setLayerChoice(2*layer,[act_map_nn(a)for a in act_list],key=f"act"))
+            setattr(self,f"concat",self.setLayerChoice(2*layer+1,map_nn(["add", "product", "concat"]) ,key=f"concat"))
         self._initialized = True
 
     def forward(self, data):
@@ -199,10 +202,11 @@ class GraphNasNodeClassificationSpace(BaseSpace):
             node_in = getattr(self, f"in_{layer}")(prev_nodes_out)
             node_out= getattr(self, f"op_{layer}")(node_in,edges)
             prev_nodes_out.append(node_out)
-        x = torch.cat(prev_nodes_out[2:],dim=1)
-        x = F.leaky_relu(x)
-        # x = F.dropout(x, p=self.dropout, training = self.training)
-        if False:
+        if self.search_act_con:
+            x = torch.cat(prev_nodes_out[2:],dim=1)
+            x = F.leaky_relu(x)
+            x = F.dropout(x, p=self.dropout, training = self.training)
+        else:
             act=getattr(self, f"act")
             con=getattr(self, f"concat")()
             states=prev_nodes_out
