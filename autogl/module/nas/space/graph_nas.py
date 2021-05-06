@@ -142,7 +142,7 @@ class ZeroConvFunc(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        return grad_output
+        return 0
 class ZeroConv(nn.Module):
     def __init__(self,
                  in_channels,
