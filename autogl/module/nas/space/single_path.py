@@ -27,6 +27,8 @@ class FixedNodeClassificationModel(BaseModel):
         apply_fixed_architecture(self._model, selection, verbose=False)
         self.params = {"num_class": self.num_classes, "features_num": self.num_features}
         self.device = device
+        print(self._model)
+        print(selection)
 
     def to(self, device):
         if isinstance(device, (str, torch.device)):

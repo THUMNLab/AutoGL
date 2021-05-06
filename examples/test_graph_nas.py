@@ -28,9 +28,9 @@ if __name__ == '__main__':
             feval=['acc'],
             loss="nll_loss",
             lr_scheduler_type=None,),
-        nas_algorithms=[Enas(num_epochs=10)],
+        nas_algorithms=[Enas(num_epochs=100)],
         #nas_algorithms=[Darts(num_epochs=200)],
-        nas_spaces=[GraphNasNodeClassificationSpace(hidden_dim=16, ops=[GCNConv, GCNConv],search_act_con=True)],
+        nas_spaces=[GraphNasNodeClassificationSpace(hidden_dim=16,search_act_con=False)],
         nas_estimators=[OneShotEstimator()]
     )
     solver.fit(dataset)

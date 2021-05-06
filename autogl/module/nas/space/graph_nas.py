@@ -43,6 +43,9 @@ class LambdaModule(nn.Module):
 
     def forward(self, x):
         return self.lambd(x)
+    
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__,self.lambd)
 class StrModule(nn.Module):
     def __init__(self, lambd):
         super().__init__()
@@ -50,6 +53,9 @@ class StrModule(nn.Module):
 
     def forward(self, *args,**kwargs):
         return self.str  
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__,self.str)
 def act_map(act):
     if act == "linear":
         return lambda x: x
@@ -128,6 +134,15 @@ class LinearConv(nn.Module):
                                    self.out_channels)
 
 
+from torch.autograd import Function
+class ZeroConvFunc(Function):
+    @staticmethod
+    def forward(ctx,x):
+        return x
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output
 class ZeroConv(nn.Module):
     def __init__(self,
                  in_channels,
@@ -138,9 +153,8 @@ class ZeroConv(nn.Module):
         self.out_channels = out_channels
         self.out_dim = out_channels
 
-
     def forward(self, x, edge_index, edge_weight=None):
-        return torch.zeros([x.size(0), self.out_dim]).to(x.device)
+        return ZeroConvFunc.apply(torch.zeros([x.size(0), self.out_dim]).to(x.device))
 
     def __repr__(self):
         return '{}({}, {})'.format(self.__class__.__name__, self.in_channels,
@@ -202,7 +216,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
             node_in = getattr(self, f"in_{layer}")(prev_nodes_out)
             node_out= getattr(self, f"op_{layer}")(node_in,edges)
             prev_nodes_out.append(node_out)
-        if self.search_act_con:
+        if not self.search_act_con:
             x = torch.cat(prev_nodes_out[2:],dim=1)
             x = F.leaky_relu(x)
             x = F.dropout(x, p=self.dropout, training = self.training)
