@@ -273,7 +273,7 @@ class Enas(BaseNAS):
     def __init__(self, device='cuda', workers=4,log_frequency=None,
                  grad_clip=5., entropy_weight=0.0001, skip_weight=0.8, baseline_decay=0.999,
                  ctrl_lr=0.00035, ctrl_steps_aggregate=20, ctrl_kwargs=None,*args,**kwargs):
-        super().__init__(*args,**kwargs)
+        super().__init__(device)
         self.device=device
         self.num_epochs = kwargs.get("num_epochs", 5)
         self.workers = workers
