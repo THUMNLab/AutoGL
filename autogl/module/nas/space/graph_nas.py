@@ -247,7 +247,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
                 x=self.classifier1(x)
             else:
                 x=self.classifier2(x)
-        # set_trace()
         return F.log_softmax(x, dim=1)
 
     def export(self, selection, device) -> BaseModel:

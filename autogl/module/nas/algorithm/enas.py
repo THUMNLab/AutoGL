@@ -273,7 +273,7 @@ class Enas(BaseNAS):
 
     def __init__(self, device='cuda', workers=4,log_frequency=None,
                  grad_clip=5., entropy_weight=0.0001, skip_weight=0.8, baseline_decay=0.999,
-                 ctrl_lr=0.00035, ctrl_steps_aggregate=20, ctrl_kwargs=None,*args,**kwargs):
+                 ctrl_lr=0.00035, ctrl_steps_aggregate=20, ctrl_kwargs=None,n_warmup=100,model_lr=5e-3,model_wd=5e-4,*args,**kwargs):
         super().__init__(device)
         self.device=device
         self.num_epochs = kwargs.get("num_epochs", 5)
@@ -288,14 +288,13 @@ class Enas(BaseNAS):
         self.workers = workers
         self.ctrl_kwargs=ctrl_kwargs
         self.ctrl_lr=ctrl_lr
-
+        self.n_warmup=n_warmup
+        self.model_lr = model_lr
+        self.model_wd = model_wd
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset#.to(self.device)
-        self.estimator = estimator
-        self.model_optim = torch.optim.SGD(
-            self.model.parameters(), lr=0.01, weight_decay=3e-4
-        )
+        self.estimator = estimator    
         # replace choice
         self.nas_modules = []
 
@@ -306,12 +305,24 @@ class Enas(BaseNAS):
 
         # to device
         self.model = self.model.to(self.device)
+        self.model_optim = torch.optim.Adam(
+            self.model.parameters(), lr=self.model_lr, weight_decay=self.model_wd
+        )
         # fields
         self.nas_fields = [ReinforceField(name, len(module),
                                           isinstance(module, PathSamplingLayerChoice) or module.n_chosen == 1)
                            for name, module in self.nas_modules]
         self.controller = ReinforceController(self.nas_fields, **(self.ctrl_kwargs or {}))
         self.ctrl_optim = torch.optim.Adam(self.controller.parameters(), lr=self.ctrl_lr)
+        self._resample()
+        
+        # warm up supernet
+        with tqdm(range(self.n_warmup)) as bar:
+            for i in bar:
+                acc,l1=self._train_model(i)
+                with torch.no_grad():
+                    val_acc,val_loss=self._infer('val')
+                bar.set_postfix(loss=l1,acc=acc,val_acc=val_acc,val_loss=val_loss)
         # train
         with tqdm(range(self.num_epochs)) as bar:
             for i in bar:
@@ -330,8 +341,9 @@ class Enas(BaseNAS):
                 bar.set_postfix(loss_model=l1,reward_controller=l2)
         
         selection=self.export()
+        print(selection)
         return space.export(selection,self.device)
-
+    
     def _train_model(self, epoch): 
         self.model.train()
         self.controller.eval()
@@ -342,7 +354,8 @@ class Enas(BaseNAS):
         if self.grad_clip > 0:
             nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
         self.model_optim.step()
-        return loss.item()
+
+        return metric,loss.item()
 
     def _train_controller(self, epoch):
         self.model.eval()
@@ -352,8 +365,8 @@ class Enas(BaseNAS):
         for ctrl_step in range(self.ctrl_steps_aggregate):
             self._resample()
             with torch.no_grad():
-                metric,loss=self._infer()
-            reward =-metric  # todo : now metric is loss 
+                metric,loss=self._infer(mask='val')
+            reward =metric 
             rewards.append(reward)
             if self.entropy_weight:
                 reward += self.entropy_weight * self.controller.sample_entropy.item()
@@ -373,7 +386,7 @@ class Enas(BaseNAS):
             if self.log_frequency is not None and ctrl_step % self.log_frequency == 0:
                 _logger.info('RL Epoch [%d/%d] Step [%d/%d]  %s', epoch + 1, self.num_epochs,
                                 ctrl_step + 1, self.ctrl_steps_aggregate)
-        return (sum(rewards)/len(rewards)).item()
+        return sum(rewards)/len(rewards)
 
     def _resample(self):
         result = self.controller.resample()
@@ -385,6 +398,6 @@ class Enas(BaseNAS):
         with torch.no_grad():
             return self.controller.resample()
 
-    def _infer(self):
-        metric, loss = self.estimator.infer(self.model, self.dataset)
+    def _infer(self,mask='train'):
+        metric, loss = self.estimator.infer(self.model, self.dataset,mask=mask)
         return metric, loss
