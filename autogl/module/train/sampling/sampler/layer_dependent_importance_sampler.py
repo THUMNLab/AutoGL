@@ -3,12 +3,13 @@ import torch
 import torch.utils.data
 import typing as _typing
 import torch_geometric
+from . import target_dependant_sampler
 
 
-class LayerDependentImportanceSampler:
+class LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTargetDependantSampler):
     class _Utility:
         @classmethod
-        def compute_edge_weights(cls, __all_edge_index_with_self_loops: torch.LongTensor) -> torch.Tensor:
+        def compute_edge_weights(cls, __all_edge_index_with_self_loops: torch.Tensor) -> torch.Tensor:
             __out_degree: torch.Tensor = \
                 torch_geometric.utils.degree(__all_edge_index_with_self_loops[0])
             __in_degree: torch.Tensor = \
@@ -93,32 +94,48 @@ class LayerDependentImportanceSampler:
                 selected_edges_mask_for_source_nodes & selected_edges_mask_for_target_nodes
             )[0]
 
-    def __init__(self, all_edge_index: torch.LongTensor):
-        self.__all_edge_index_with_self_loops: torch.LongTensor = \
-            torch_geometric.utils.add_remaining_self_loops(all_edge_index)[0]
-        self.__all_edge_weights: torch.Tensor = \
-            self._Utility.compute_edge_weights(self.__all_edge_index_with_self_loops)
+    def __init__(
+            self, edge_index: torch.LongTensor,
+            target_nodes_indexes: torch.LongTensor,
+            layer_wise_arguments: _typing.Sequence,
+            batch_size: _typing.Optional[int] = 1, num_workers: int = 0,
+            shuffle: bool = True, **kwargs
+    ):
+        super().__init__(
+            torch_geometric.utils.add_remaining_self_loops(edge_index)[0],
+            target_nodes_indexes, layer_wise_arguments, batch_size, num_workers, shuffle, **kwargs
+        )
+        self.__all_edge_weights: torch.Tensor = self._Utility.compute_edge_weights(self._edge_index)
 
-    def __sample_layer(
+    def _sample_edges_for_layer(
             self, target_nodes_indexes: torch.LongTensor,
-            sampled_node_size_budget: int
-    ) -> _typing.Tuple[torch.Tensor, torch.Tensor, torch.LongTensor, torch.LongTensor]:
+            layer_argument: _typing.Any, *args, **kwargs
+    ) -> _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]:
         """
-        :param target_nodes_indexes:
-                node indexes for target nodes in the top layer or nodes sampled in upper layer
-        :param sampled_node_size_budget:
-        :return: (Tensor, Tensor, LongTensor, LongTensor)
+        Sample edges for one layer
+        :param target_nodes_indexes: indexes of target nodes
+        :param layer_argument: argument for current layer
+        :param args: remaining positional arguments
+        :param kwargs: remaining keyword arguments
+        :return: (edge_id_in_integral_graph, edge_weight)
         """
+        if type(layer_argument) != int:
+            raise TypeError
+        elif not layer_argument > 0:
+            raise ValueError
+        else:
+            sampled_node_size_budget: int = layer_argument
+
         all_candidate_edge_indexes: torch.LongTensor = torch.cat(
             [
-                torch.where(self.__all_edge_index_with_self_loops[1] == current_target_node_index)[0]
+                torch.where(self._edge_index[1] == current_target_node_index)[0]
                 for current_target_node_index in target_nodes_indexes.unique().tolist()
             ]
         ).unique()
         __all_candidate_source_nodes_indexes, all_candidate_source_nodes_probabilities = \
             self._Utility.get_candidate_source_nodes_probabilities(
                 all_candidate_edge_indexes,
-                self.__all_edge_index_with_self_loops,
+                self._edge_index,
                 self.__all_edge_weights
             )
         assert __all_candidate_source_nodes_indexes.size() == all_candidate_source_nodes_probabilities.size()
@@ -138,7 +155,7 @@ class LayerDependentImportanceSampler:
 
         __selected_edges_indexes: torch.LongTensor = (
             self._Utility.filter_selected_edges_by_source_nodes_and_target_nodes(
-                self.__all_edge_index_with_self_loops,
+                self._edge_index,
                 selected_source_node_indexes, target_nodes_indexes
             )
         ).unique()
@@ -149,9 +166,9 @@ class LayerDependentImportanceSampler:
                         [
                             all_candidate_source_nodes_probabilities[
                                 __all_candidate_source_nodes_indexes == current_source_node_index
-                            ].item()
+                                ].item()
                             for current_source_node_index
-                            in self.__all_edge_index_with_self_loops[0, __selected_edges_indexes].tolist()
+                            in self._edge_index[0, __selected_edges_indexes].tolist()
                         ]
                     )
                 )
@@ -167,49 +184,100 @@ class LayerDependentImportanceSampler:
                         __edge_index[1] == current_target_node_index
                 )
                 __edge_weight[__current_mask_for_edges] = (
-                    __edge_weight[__current_mask_for_edges] / (
-                        torch.sum(__edge_weight[__current_mask_for_edges])
-                    )
+                        __edge_weight[__current_mask_for_edges] / (
+                            torch.sum(__edge_weight[__current_mask_for_edges])
+                        )
                 )
             return __edge_weight
 
         normalized_selected_edges_weight: torch.Tensor = __normalize_edges_weight_by_target_nodes(
-            self.__all_edge_index_with_self_loops[:, __selected_edges_indexes],
+            self._edge_index[:, __selected_edges_indexes],
             non_normalized_selected_edges_weight
         )
-        return (
-            self.__all_edge_index_with_self_loops[:, __selected_edges_indexes],
-            normalized_selected_edges_weight,
-            selected_source_node_indexes,
-            __selected_edges_indexes
-        )
+        return __selected_edges_indexes, normalized_selected_edges_weight
 
-    def sample(
-            self, __top_layer_target_nodes_indexes: torch.LongTensor,
-            sampling_node_size_budgets: _typing.Sequence[int]
-    ) -> _typing.Sequence[_typing.Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        :param __top_layer_target_nodes_indexes: indexes of target nodes for the top layer
-        :param sampling_node_size_budgets:
-        :return:
-        """
-        if type(__top_layer_target_nodes_indexes) != torch.Tensor:
-            raise TypeError
-        if not isinstance(sampling_node_size_budgets, _typing.Sequence):
-            raise TypeError
-        if len(sampling_node_size_budgets) == 0:
-            raise ValueError
-
-        layers: _typing.List[_typing.Tuple[torch.Tensor, torch.Tensor]] = []
-        upper_layer_sampled_node_indexes: torch.LongTensor = __top_layer_target_nodes_indexes
-        for current_sampled_node_size_budget in sampling_node_size_budgets[::-1]:
-            _sampling_result: _typing.Tuple[
-                torch.Tensor, torch.Tensor, torch.LongTensor, torch.LongTensor
-            ] = self.__sample_layer(upper_layer_sampled_node_indexes, current_sampled_node_size_budget)
-            current_layer_edge_index: torch.Tensor = _sampling_result[0]
-            current_layer_edge_weight: torch.Tensor = _sampling_result[1]
-            layers.append((current_layer_edge_index, current_layer_edge_weight))
-
-            upper_layer_sampled_node_indexes: torch.LongTensor = _sampling_result[2]
-
-        return layers[::-1]
+    # todo: Migrated to the overrode _sample_edges_for_layer method, remove in the future version
+    # def __sample_layer(
+    #         self, target_nodes_indexes: torch.LongTensor,
+    #         sampled_node_size_budget: int
+    # ) -> _typing.Tuple[torch.Tensor, torch.Tensor, torch.LongTensor, torch.LongTensor]:
+    #     """
+    #     :param target_nodes_indexes:
+    #             node indexes for target nodes in the top layer or nodes sampled in upper layer
+    #     :param sampled_node_size_budget:
+    #     :return: (Tensor, Tensor, LongTensor, LongTensor)
+    #     """
+    #     all_candidate_edge_indexes: torch.LongTensor = torch.cat(
+    #         [
+    #             torch.where(self._edge_index[1] == current_target_node_index)[0]
+    #             for current_target_node_index in target_nodes_indexes.unique().tolist()
+    #         ]
+    #     ).unique()
+    #     __all_candidate_source_nodes_indexes, all_candidate_source_nodes_probabilities = \
+    #         self._Utility.get_candidate_source_nodes_probabilities(
+    #             all_candidate_edge_indexes,
+    #             self._edge_index,
+    #             self.__all_edge_weights
+    #         )
+    #     assert __all_candidate_source_nodes_indexes.size() == all_candidate_source_nodes_probabilities.size()
+    #
+    #     """ Sampling """
+    #     if sampled_node_size_budget < __all_candidate_source_nodes_indexes.numel():
+    #         selected_source_node_indexes: torch.LongTensor = __all_candidate_source_nodes_indexes[
+    #             torch.from_numpy(
+    #                 np.unique(np.random.choice(
+    #                     np.arange(__all_candidate_source_nodes_indexes.numel()), sampled_node_size_budget,
+    #                     p=all_candidate_source_nodes_probabilities.numpy()
+    #                 ))
+    #             ).unique()
+    #         ].unique()
+    #     else:
+    #         selected_source_node_indexes: torch.LongTensor = __all_candidate_source_nodes_indexes
+    #
+    #     __selected_edges_indexes: torch.LongTensor = (
+    #         self._Utility.filter_selected_edges_by_source_nodes_and_target_nodes(
+    #             self._edge_index,
+    #             selected_source_node_indexes, target_nodes_indexes
+    #         )
+    #     ).unique()
+    #
+    #     non_normalized_selected_edges_weight: torch.Tensor = (
+    #             self.__all_edge_weights[__selected_edges_indexes] / (
+    #                 selected_source_node_indexes.numel() * torch.tensor(
+    #                     [
+    #                         all_candidate_source_nodes_probabilities[
+    #                             __all_candidate_source_nodes_indexes == current_source_node_index
+    #                         ].item()
+    #                         for current_source_node_index
+    #                         in self._edge_index[0, __selected_edges_indexes].tolist()
+    #                     ]
+    #                 )
+    #             )
+    #     )
+    #
+    #     def __normalize_edges_weight_by_target_nodes(
+    #             __edge_index: torch.Tensor, __edge_weight: torch.Tensor
+    #     ) -> torch.Tensor:
+    #         if __edge_index.size(1) != __edge_weight.numel():
+    #             raise ValueError
+    #         for current_target_node_index in __edge_index[1].unique().tolist():
+    #             __current_mask_for_edges: torch.BoolTensor = (
+    #                     __edge_index[1] == current_target_node_index
+    #             )
+    #             __edge_weight[__current_mask_for_edges] = (
+    #                 __edge_weight[__current_mask_for_edges] / (
+    #                     torch.sum(__edge_weight[__current_mask_for_edges])
+    #                 )
+    #             )
+    #         return __edge_weight
+    #
+    #     normalized_selected_edges_weight: torch.Tensor = __normalize_edges_weight_by_target_nodes(
+    #         self._edge_index[:, __selected_edges_indexes],
+    #         non_normalized_selected_edges_weight
+    #     )
+    #     return (
+    #         self._edge_index[:, __selected_edges_indexes],
+    #         normalized_selected_edges_weight,
+    #         selected_source_node_indexes,
+    #         __selected_edges_indexes
+    #     )
