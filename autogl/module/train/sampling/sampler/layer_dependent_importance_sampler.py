@@ -24,7 +24,7 @@ class LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTar
                     __in_degree[__all_edge_index_with_self_loops[1]]
                 ]
             )
-            temp_tensor: torch.Tensor = 1.0 / temp_tensor
+            temp_tensor: torch.Tensor = torch.pow(temp_tensor, -0.5)
             temp_tensor[torch.isinf(temp_tensor)] = 0.0
             return temp_tensor[0] * temp_tensor[1]
 
@@ -134,9 +134,8 @@ class LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTar
         ).unique()
         __all_candidate_source_nodes_indexes, all_candidate_source_nodes_probabilities = \
             self._Utility.get_candidate_source_nodes_probabilities(
-                all_candidate_edge_indexes,
-                self._edge_index,
-                self.__all_edge_weights
+                all_candidate_edge_indexes, self._edge_index,
+                self.__all_edge_weights * self.__all_edge_weights
             )
         assert __all_candidate_source_nodes_indexes.size() == all_candidate_source_nodes_probabilities.size()
 
@@ -162,7 +161,7 @@ class LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTar
 
         non_normalized_selected_edges_weight: torch.Tensor = (
                 self.__all_edge_weights[__selected_edges_indexes] / (
-                    selected_source_node_indexes.numel() * torch.tensor(
+                    torch.tensor(
                         [
                             all_candidate_source_nodes_probabilities[
                                 __all_candidate_source_nodes_indexes == current_source_node_index
@@ -195,89 +194,3 @@ class LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTar
             non_normalized_selected_edges_weight
         )
         return __selected_edges_indexes, normalized_selected_edges_weight
-
-    # todo: Migrated to the overrode _sample_edges_for_layer method, remove in the future version
-    # def __sample_layer(
-    #         self, target_nodes_indexes: torch.LongTensor,
-    #         sampled_node_size_budget: int
-    # ) -> _typing.Tuple[torch.Tensor, torch.Tensor, torch.LongTensor, torch.LongTensor]:
-    #     """
-    #     :param target_nodes_indexes:
-    #             node indexes for target nodes in the top layer or nodes sampled in upper layer
-    #     :param sampled_node_size_budget:
-    #     :return: (Tensor, Tensor, LongTensor, LongTensor)
-    #     """
-    #     all_candidate_edge_indexes: torch.LongTensor = torch.cat(
-    #         [
-    #             torch.where(self._edge_index[1] == current_target_node_index)[0]
-    #             for current_target_node_index in target_nodes_indexes.unique().tolist()
-    #         ]
-    #     ).unique()
-    #     __all_candidate_source_nodes_indexes, all_candidate_source_nodes_probabilities = \
-    #         self._Utility.get_candidate_source_nodes_probabilities(
-    #             all_candidate_edge_indexes,
-    #             self._edge_index,
-    #             self.__all_edge_weights
-    #         )
-    #     assert __all_candidate_source_nodes_indexes.size() == all_candidate_source_nodes_probabilities.size()
-    #
-    #     """ Sampling """
-    #     if sampled_node_size_budget < __all_candidate_source_nodes_indexes.numel():
-    #         selected_source_node_indexes: torch.LongTensor = __all_candidate_source_nodes_indexes[
-    #             torch.from_numpy(
-    #                 np.unique(np.random.choice(
-    #                     np.arange(__all_candidate_source_nodes_indexes.numel()), sampled_node_size_budget,
-    #                     p=all_candidate_source_nodes_probabilities.numpy()
-    #                 ))
-    #             ).unique()
-    #         ].unique()
-    #     else:
-    #         selected_source_node_indexes: torch.LongTensor = __all_candidate_source_nodes_indexes
-    #
-    #     __selected_edges_indexes: torch.LongTensor = (
-    #         self._Utility.filter_selected_edges_by_source_nodes_and_target_nodes(
-    #             self._edge_index,
-    #             selected_source_node_indexes, target_nodes_indexes
-    #         )
-    #     ).unique()
-    #
-    #     non_normalized_selected_edges_weight: torch.Tensor = (
-    #             self.__all_edge_weights[__selected_edges_indexes] / (
-    #                 selected_source_node_indexes.numel() * torch.tensor(
-    #                     [
-    #                         all_candidate_source_nodes_probabilities[
-    #                             __all_candidate_source_nodes_indexes == current_source_node_index
-    #                         ].item()
-    #                         for current_source_node_index
-    #                         in self._edge_index[0, __selected_edges_indexes].tolist()
-    #                     ]
-    #                 )
-    #             )
-    #     )
-    #
-    #     def __normalize_edges_weight_by_target_nodes(
-    #             __edge_index: torch.Tensor, __edge_weight: torch.Tensor
-    #     ) -> torch.Tensor:
-    #         if __edge_index.size(1) != __edge_weight.numel():
-    #             raise ValueError
-    #         for current_target_node_index in __edge_index[1].unique().tolist():
-    #             __current_mask_for_edges: torch.BoolTensor = (
-    #                     __edge_index[1] == current_target_node_index
-    #             )
-    #             __edge_weight[__current_mask_for_edges] = (
-    #                 __edge_weight[__current_mask_for_edges] / (
-    #                     torch.sum(__edge_weight[__current_mask_for_edges])
-    #                 )
-    #             )
-    #         return __edge_weight
-    #
-    #     normalized_selected_edges_weight: torch.Tensor = __normalize_edges_weight_by_target_nodes(
-    #         self._edge_index[:, __selected_edges_indexes],
-    #         non_normalized_selected_edges_weight
-    #     )
-    #     return (
-    #         self._edge_index[:, __selected_edges_indexes],
-    #         normalized_selected_edges_weight,
-    #         selected_source_node_indexes,
-    #         __selected_edges_indexes
-    #     )

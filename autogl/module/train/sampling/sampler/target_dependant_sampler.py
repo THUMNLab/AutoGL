@@ -254,6 +254,7 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
                         __sampled_nodes_in_sub_graph_mapping.get(current_target_node_index_in_integral_data)
                         for current_target_node_index_in_integral_data
                         in top_layer_target_nodes_indexes.tolist()
+                        if current_target_node_index_in_integral_data in __sampled_nodes_in_sub_graph_mapping
                     ]
                 ).long(),  # Remap
                 top_layer_target_nodes_indexes

@@ -1,6 +1,7 @@
 import numpy as np
 import typing as _typing
 from sklearn.metrics import (
+    f1_score,
     log_loss,
     accuracy_score,
     roc_auc_score,
@@ -221,3 +222,18 @@ class Mrr(Evaluation):
         """
         pos_predict = predict[:, 1]
         return label_ranking_average_precision_score(label, pos_predict)
+
+
+@register_evaluate("MicroF1")
+class MicroF1(Evaluation):
+    @staticmethod
+    def get_eval_name() -> str:
+        return "MicroF1"
+
+    @staticmethod
+    def is_higher_better() -> bool:
+        return True
+
+    @staticmethod
+    def evaluate(predict, label) -> float:
+        return f1_score(label, np.argmax(predict, axis=1), average='micro')

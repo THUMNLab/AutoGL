@@ -7,23 +7,19 @@ hpo:
   name: random
 models:
 - hp_space:
-  - feasiblePoints:
-    - 0
-    parameterName: add_self_loops,
-    type: CATEGORICAL,
-  - feasiblePoints: 5,5
-    parameterName: num_layers
-    type: DISCRETE
-  - cutFunc: lambda x:x[0] - 1
+  - parameterName: num_layers
+    type: FIXED
+    value: 5
+  - parameterName: hidden
+    type: CATEGORICAL_LIST
+    cutFunc: lambda x:x[0] - 1
     cutPara:
     - num_layers
     length: 4
-    maxValue: 256
-    minValue: 64
-    numericalType: INTEGER
-    parameterName: hidden
-    scalingType: LOG
-    type: NUMERICAL_LIST
+    feasiblePoints:
+    - 128
+    - 256
+    - 512
   - maxValue: 0.8
     minValue: 0.2
     parameterName: dropout
@@ -36,23 +32,46 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
+  - parameterName: add_self_loops
+    type: FIXED
+    value: 0
+  - parameterName: normalize
+    type: FIXED
+    value: 0
   name: gcn
 trainer:
   name: NodeClassificationLayerDependentImportanceSamplingTrainer
   hp_space:
-  - feasiblePoints: 128,256,512
-    parameterName: sampled_node_size_budget
-    type: DISCRETE
-  - maxValue: 300
-    minValue: 100
+  - parameterName: sampled_node_sizes
+    type: CATEGORICAL_LIST
+    length: 5
+    feasiblePoints:
+    - 128
+    - 256
+    - 512
+    - 1024
+    cutFunc: lambda x:x[0]
+    cutPara:
+    - num_layers
+  - maxValue: 128
+    minValue: 64
     parameterName: max_epoch
     scalingType: LINEAR
     type: INTEGER
-  - maxValue: 30
-    minValue: 10
+  - maxValue: 16
+    minValue: 8
     parameterName: early_stopping_round
     scalingType: LINEAR
     type: INTEGER
+  - parameterName: training_batch_size
+    type: FIXED
+    value: 1024
+  - parameterName: predicting_batch_size
+    type: FIXED
+    value: 1024
+  - parameterName: predicting_sampler_num_workers
+    type: FIXED
+    value: 0
   - maxValue: 0.05
     minValue: 0.01
     parameterName: lr

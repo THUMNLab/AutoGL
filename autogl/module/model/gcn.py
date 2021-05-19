@@ -17,7 +17,8 @@ class GCN(torch.nn.Module):
         hidden_features: _typing.Sequence[int],
         dropout: float,
         activation_name: str,
-        add_self_loops: bool = True
+        add_self_loops: bool = True,
+        normalize: bool = True
     ):
         super().__init__()
         self.__convolution_layers: torch.nn.ModuleList = torch.nn.ModuleList()
@@ -25,13 +26,17 @@ class GCN(torch.nn.Module):
         if num_layers == 1:
             self.__convolution_layers.append(
                 torch_geometric.nn.GCNConv(
-                    num_features, num_classes, add_self_loops=add_self_loops
+                    num_features, num_classes,
+                    add_self_loops=add_self_loops,
+                    normalize=normalize
                 )
             )
         else:
             self.__convolution_layers.append(
                 torch_geometric.nn.GCNConv(
-                    num_features, hidden_features[0], add_self_loops=add_self_loops
+                    num_features, hidden_features[0],
+                    add_self_loops=add_self_loops,
+                    normalize=normalize
                 )
             )
             for i in range(len(hidden_features)):
@@ -221,8 +226,6 @@ class AutoGCN(ClassificationModel):
             self.hyper_parameter.get("hidden"),
             self.hyper_parameter.get("dropout"),
             self.hyper_parameter.get("act"),
-            add_self_loops=(
-                    "add_self_loops" in self.hyper_parameter
-                    and self.hyper_parameter.get("add_self_loops")
-            )
+            add_self_loops=bool(self.hyper_parameter.get("add_self_loops", True)),
+            normalize=bool(self.hyper_parameter.get("normalize", True))
         ).to(self.device)
