@@ -25,14 +25,27 @@ class GIN(torch.nn.Module):
         self.num_layer = int(self.args["num_layers"])
         assert self.num_layer > 2, "Number of layers in GIN should not less than 3"
 
-        missing_keys = list(set(["features_num", "num_class", "num_graph_features",
-                    "num_layers", "hidden", "dropout", "act",
-                    "mlp_layers", "eps"]) - set(self.args.keys()))
+        missing_keys = list(
+            set(
+                [
+                    "features_num",
+                    "num_class",
+                    "num_graph_features",
+                    "num_layers",
+                    "hidden",
+                    "dropout",
+                    "act",
+                    "mlp_layers",
+                    "eps",
+                ]
+            )
+            - set(self.args.keys())
+        )
         if len(missing_keys) > 0:
-            raise Exception("Missing keys: %s." % ','.join(missing_keys))
-        if not self.num_layer == len(self.args['hidden']) + 1:
-            LOGGER.warn('Warning: layer size does not match the length of hidden units')
-        self.num_graph_features = self.args['num_graph_features']
+            raise Exception("Missing keys: %s." % ",".join(missing_keys))
+        if not self.num_layer == len(self.args["hidden"]) + 1:
+            LOGGER.warn("Warning: layer size does not match the length of hidden units")
+        self.num_graph_features = self.args["num_graph_features"]
 
         if self.args["act"] == "leaky_relu":
             act = LeakyReLU()
@@ -80,7 +93,8 @@ class GIN(torch.nn.Module):
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
-        graph_feature = data.gf
+        if self.num_graph_features > 0:
+            graph_feature = data.gf
 
         for i in range(self.num_layer - 2):
             x = self.convs[i](x, edge_index)
@@ -88,7 +102,8 @@ class GIN(torch.nn.Module):
             x = self.bns[i](x)
 
         x = global_add_pool(x, batch)
-        x = torch.cat([x, graph_feature], dim=-1)
+        if self.num_graph_features > 0:
+            x = torch.cat([x, graph_feature], dim=-1)
         x = self.fc1(x)
         x = activate_func(x, self.args["act"])
         x = F.dropout(x, p=self.args["dropout"], training=self.training)

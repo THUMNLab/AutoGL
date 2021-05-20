@@ -4,8 +4,10 @@ from ..base import BaseFeatureAtom
 
 
 class BaseGenerator(BaseFeatureAtom):
-    def __init__(self, data_t="np", multigraph=True,**kwargs):
-        super(BaseGenerator, self).__init__(data_t=data_t, multigraph=multigraph,**kwargs)
+    def __init__(self, data_t="np", multigraph=True, **kwargs):
+        super(BaseGenerator, self).__init__(
+            data_t=data_t, multigraph=multigraph, **kwargs
+        )
 
 
 @register_feature("onehot")

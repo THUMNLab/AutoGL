@@ -24,6 +24,7 @@ def register_feature(name):
 
     return register_feature_cls
 
+
 from .auto_feature import AutoFeatureEngineer
 from .base import BaseFeatureEngineer
 

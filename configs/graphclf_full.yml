@@ -1,32 +1,18 @@
 ensemble:
-  name: null
-feature:
-- name: PYGNormalizeFeatures
+  name: voting
+  size: 2
 hpo:
   max_evals: 10
-  name: random
+  name: anneal
 models:
 - hp_space:
-  - feasiblePoints: '2'
-    parameterName: num_layers
-    type: DISCRETE
-  - feasiblePoints: 6,8,10,12
-    parameterName: heads
-    type: DISCRETE
-  - cutFunc: lambda x:x[0] - 1
-    cutPara:
-    - num_layers
-    length: 1
-    maxValue:
-    - 16
-    minValue:
-    - 4
-    numericalType: INTEGER
-    parameterName: hidden
-    scalingType: LOG
-    type: NUMERICAL_LIST
-  - maxValue: 0.8
-    minValue: 0.2
+  - maxValue: 0.9
+    minValue: 0.1
+    parameterName: ratio
+    scalingType: LINEAR
+    type: DOUBLE
+  - maxValue: 0.9
+    minValue: 0.1
     parameterName: dropout
     scalingType: LINEAR
     type: DOUBLE
@@ -37,11 +23,11 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: gat
+  name: topkpool
 trainer:
   hp_space:
   - maxValue: 300
-    minValue: 100
+    minValue: 10
     parameterName: max_epoch
     scalingType: LINEAR
     type: INTEGER
@@ -50,13 +36,18 @@ trainer:
     parameterName: early_stopping_round
     scalingType: LINEAR
     type: INTEGER
-  - maxValue: 0.05
-    minValue: 0.01
+  - maxValue: 0.1
+    minValue: 0.0001
     parameterName: lr
     scalingType: LOG
     type: DOUBLE
-  - maxValue: 0.001
-    minValue: 0.0001
+  - maxValue: 0.005
+    minValue: 5.0e-05
     parameterName: weight_decay
     scalingType: LOG
     type: DOUBLE
+  - maxValue: 128
+    minValue: 48
+    parameterName: batch_size
+    scalingType: LINEAR
+    type: INTEGER

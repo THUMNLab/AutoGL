@@ -1,7 +1,8 @@
+from pdb import set_trace
 import torch
 import numpy as np
 from torch_geometric.data import DataLoader
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, KFold
 
 
 def get_label_number(dataset):
@@ -37,32 +38,35 @@ def random_splits_mask(dataset, train_ratio=0.2, val_ratio=0.4, seed=None):
     assert (
         train_ratio + val_ratio <= 1
     ), "the sum of train_ratio and val_ratio is larger than 1"
-    data = dataset[0]
-    r_s = torch.get_rng_state()
-    if torch.cuda.is_available():
-        r_s_cuda = torch.cuda.get_rng_state()
-    if seed is not None:
-        torch.manual_seed(seed)
+    _dataset = [d for d in dataset]
+    for data in _dataset:
+        r_s = torch.get_rng_state()
         if torch.cuda.is_available():
-            torch.cuda.manual_seed(seed)
+            r_s_cuda = torch.cuda.get_rng_state()
+        if seed is not None:
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
 
-    perm = torch.randperm(data.num_nodes)
-    train_index = perm[: int(data.num_nodes * train_ratio)]
-    val_index = perm[
-        int(data.num_nodes * train_ratio) : int(
-            data.num_nodes * (train_ratio + val_ratio)
-        )
-    ]
-    test_index = perm[int(data.num_nodes * (train_ratio + val_ratio)) :]
-    data.train_mask = index_to_mask(train_index, size=data.num_nodes)
-    data.val_mask = index_to_mask(val_index, size=data.num_nodes)
-    data.test_mask = index_to_mask(test_index, size=data.num_nodes)
+        perm = torch.randperm(data.num_nodes)
+        train_index = perm[: int(data.num_nodes * train_ratio)]
+        val_index = perm[
+            int(data.num_nodes * train_ratio) : int(
+                data.num_nodes * (train_ratio + val_ratio)
+            )
+        ]
+        test_index = perm[int(data.num_nodes * (train_ratio + val_ratio)) :]
+        data.train_mask = index_to_mask(train_index, size=data.num_nodes)
+        data.val_mask = index_to_mask(val_index, size=data.num_nodes)
+        data.test_mask = index_to_mask(test_index, size=data.num_nodes)
 
-    torch.set_rng_state(r_s)
-    if torch.cuda.is_available():
-        torch.cuda.set_rng_state(r_s_cuda)
+        torch.set_rng_state(r_s)
+        if torch.cuda.is_available():
+            torch.cuda.set_rng_state(r_s_cuda)
 
-    dataset.data, dataset.slices = dataset.collate([d for d in dataset])
+    dataset.data, dataset.slices = dataset.collate(_dataset)
+    if hasattr(dataset, "__data_list__"):
+        delattr(dataset, "__data_list__")
     # while type(dataset.data.num_nodes) == list:
     #    dataset.data.num_nodes = dataset.data.num_nodes[0]
     # dataset.data.num_nodes = dataset.data.num_nodes[0]
@@ -160,14 +164,24 @@ def random_splits_mask_class(
     if torch.cuda.is_available():
         torch.cuda.set_rng_state(r_s_cuda)
 
-    dataset.data, dataset.slices = dataset.collate([d for d in dataset])
+    datalist = []
+    for d in dataset:
+        setattr(d, "train_mask", data.train_mask)
+        setattr(d, "val_mask", data.val_mask)
+        setattr(d, "test_mask", data.test_mask)
+        datalist.append(d)
+    dataset.data, dataset.slices = dataset.collate(datalist)
+    if hasattr(dataset, "__data_list__"):
+        delattr(dataset, "__data_list__")
     # while type(dataset.data.num_nodes) == list:
     #     dataset.data.num_nodes = dataset.data.num_nodes[0]
     # dataset.data.num_nodes = dataset.data.num_nodes[0]
     return dataset
 
 
-def graph_cross_validation(dataset, n_splits=10, shuffle=True, random_seed=42):
+def graph_cross_validation(
+    dataset, n_splits=10, shuffle=True, random_seed=42, stratify=False
+):
     r"""Cross validation for graph classification data, returning one fold with specific idx in autogl.datasets or pyg.Dataloader(default)
 
     Parameters
@@ -184,7 +198,12 @@ def graph_cross_validation(dataset, n_splits=10, shuffle=True, random_seed=42):
     random_seed : int
         random_state for sklearn.model_selection.StratifiedKFold
     """
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_seed)
+    if stratify:
+        skf = StratifiedKFold(
+            n_splits=n_splits, shuffle=shuffle, random_state=random_seed
+        )
+    else:
+        skf = KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_seed)
     idx_list = []
 
     # BUG: from pytorch_geometric, not sure whether it is a bug. The dataset.data will return
@@ -303,7 +322,9 @@ def graph_random_splits(dataset, train_ratio=0.2, val_ratio=0.4, seed=None):
     return dataset
 
 
-def graph_get_split(dataset, mask="train", is_loader=True, batch_size=128):
+def graph_get_split(
+    dataset, mask="train", is_loader=True, batch_size=128, num_workers=0
+):
     r"""Get train/test dataset/dataloader after cross validation.
 
     Parameters
@@ -325,7 +346,11 @@ def graph_get_split(dataset, mask="train", is_loader=True, batch_size=128):
         dataset, "%s_split" % (mask)
     ), "Given dataset do not have %s split" % (mask)
     if is_loader:
-        return DataLoader(getattr(dataset, "%s_split" % (mask)), batch_size=batch_size)
+        return DataLoader(
+            getattr(dataset, "%s_split" % (mask)),
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
     else:
         return getattr(dataset, "%s_split" % (mask))
 

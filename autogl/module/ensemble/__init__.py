@@ -16,8 +16,10 @@ def register_ensembler(name):
 
     return register_ensembler_cls
 
+
 from .voting import Voting
 from .stacking import Stacking
+
 
 def build_ensembler_from_name(name: str) -> BaseEnsembler:
     """

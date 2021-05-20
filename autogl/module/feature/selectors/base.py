@@ -3,8 +3,10 @@ import numpy as np
 
 
 class BaseSelector(BaseFeatureAtom):
-    def __init__(self, data_t="np", multigraph=False,**kwargs):
-        super(BaseSelector, self).__init__(data_t=data_t, multigraph=multigraph,**kwargs)
+    def __init__(self, data_t="np", multigraph=False, **kwargs):
+        super(BaseSelector, self).__init__(
+            data_t=data_t, multigraph=multigraph, **kwargs
+        )
         self._sel = None
 
     def _transform(self, data):
