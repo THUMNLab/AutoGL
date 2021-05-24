@@ -1,13 +1,13 @@
-from . import register_trainer, BaseTrainer, Evaluation, EVALUATE_DICT, EarlyStopping
+from . import register_trainer, BaseTrainer, Evaluation
 import torch
 from torch.optim.lr_scheduler import StepLR
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
-from .evaluate import Logloss, Acc, Auc
+from .evaluation import Auc, EVALUATE_DICT
+from .base import EarlyStopping
 from typing import Union
 from copy import deepcopy
 from torch_geometric.utils import negative_sampling
-from torch_geometric.utils import train_test_split_edges
 
 from ...utils import get_logger
 
@@ -73,7 +73,7 @@ class LinkPredictionTrainer(BaseTrainer):
         *args,
         **kwargs
     ):
-        super(LinkPredictionTrainer, self).__init__(model)
+        super().__init__(model, device, init, feval, loss)
 
         self.loss_type = loss
 

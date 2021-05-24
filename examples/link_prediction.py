@@ -2,17 +2,12 @@ import os.path as osp
 import sys
 sys.path.insert(0, '../')
 import torch
-from torch_geometric.datasets import Planetoid
-import torch_geometric.transforms as T
-from sklearn.metrics import accuracy_score as acc
-from sklearn.metrics import roc_auc_score
+from autogl.datasets import build_dataset_from_name
 from autogl.module.train import LinkPredictionTrainer
 import numpy as np
 from torch_geometric.utils import train_test_split_edges
 
-dataset = 'Cora'
-path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data', dataset)
-dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
+dataset = build_dataset_from_name('cora')
 
 print('len', len(dataset))
 print('num_class', dataset.num_classes)
