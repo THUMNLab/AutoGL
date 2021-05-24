@@ -39,17 +39,33 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
 
     def _transform(
         self, batch_size: int, n_id: torch.LongTensor,
-        adj_list: _typing.Sequence[
+        adj_or_adj_list: _typing.Union[
+            _typing.Sequence[
+                _typing.Tuple[torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]]
+            ],
             _typing.Tuple[torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]]
         ]
     ) -> TargetDependantSampledData:
-        return TargetDependantSampledData(
-            [
-                (current_layer[0], current_layer[1], self.__edge_weight[current_layer[1]])
-                for current_layer in adj_list
-            ],
-            (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]), n_id
-        )
+        if (
+                isinstance(adj_or_adj_list[0], _typing.Tuple) and
+                isinstance(adj_or_adj_list, _typing.Sequence) and
+                not isinstance(adj_or_adj_list, _typing.Tuple)
+        ):
+            return TargetDependantSampledData(
+                [
+                    (current_layer[0], current_layer[1], self.__edge_weight[current_layer[1]])
+                    for current_layer in adj_or_adj_list
+                ],
+                (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]), n_id
+            )
+        elif isinstance(adj_or_adj_list, _typing.Tuple) and type(adj_or_adj_list[0]) == torch.Tensor:
+            adj_or_adj_list: _typing.Tuple[
+                torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]
+            ] = adj_or_adj_list
+            return TargetDependantSampledData(
+                [(adj_or_adj_list[0], adj_or_adj_list[1], self.__edge_weight[adj_or_adj_list[1]])],
+                (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]), n_id
+            )
 
     def __iter__(self):
         return iter(self.__pyg_neighbor_sampler)

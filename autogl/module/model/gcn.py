@@ -185,6 +185,11 @@ class AutoGCN(ClassificationModel):
                 "feasiblePoints": [1],
             },
             {
+                "parameterName": "normalize",
+                "type": "CATEGORICAL",
+                "feasiblePoints": [1],
+            },
+            {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
                 "feasiblePoints": "2,3,4",
@@ -213,10 +218,20 @@ class AutoGCN(ClassificationModel):
                 "feasiblePoints": ["leaky_relu", "relu", "elu", "tanh"],
             },
         ]
+        default_hp = {
+            "add_self_loops": 1,
+            "normalize": 1,
+            "num_layers": 2,
+            "hidden": [16],
+            "dropout": 0.2,
+            "act": "leaky_relu",
+        }
 
         super(AutoGCN, self).__init__(
             num_features, num_classes, device=device,
-            hyper_parameter_space=default_hp_space, init=init, **kwargs
+            hyper_parameter_space=default_hp_space,
+            hyper_parameter=default_hp, init=init,
+            **kwargs
         )
 
     def _initialize(self):

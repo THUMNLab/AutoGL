@@ -17,6 +17,7 @@ from ..sampling.sampler.layer_dependent_importance_sampler import (
     LayerDependentImportanceSampler
 )
 from ...model import BaseModel
+from ...model.base import SequentialGraphNeuralNetwork
 
 LOGGER: logging.Logger = logging.getLogger("Node classification sampling trainer")
 
@@ -1054,44 +1055,112 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         :param mask_or_target_nodes_indexes: ...
         :return: the result of prediction on the given dataset
         """
-        if mask_or_target_nodes_indexes.dtype == torch.bool:
-            target_nodes_indexes: _typing.Any = (
-                torch.where(mask_or_target_nodes_indexes)[0]
-            )
-        else:
-            target_nodes_indexes: _typing.Any = mask_or_target_nodes_indexes.long()
-
-        neighbor_sampler: NeighborSampler = NeighborSampler(
-            integral_data.edge_index, target_nodes_indexes, [-1 for _ in self.__sampling_sizes],
-            batch_size=self.__predicting_batch_size,
-            num_workers=self.__predicting_sampler_num_workers, shuffle=False
-        )
-
-        prediction_batch_cumulative_builder = (
-            EvaluatorUtility.PredictionBatchCumulativeBuilder()
-        )
         self.model.model.eval()
-        for sampled_data in neighbor_sampler:
-            sampled_data: TargetDependantSampledData = sampled_data
-            sampled_graph: autogl.data.Data = autogl.data.Data(
-                integral_data.x[sampled_data.all_sampled_nodes_indexes],
-                integral_data.y[sampled_data.all_sampled_nodes_indexes]
-            )
-            sampled_graph.to(self.device)
-            sampled_graph.edge_indexes: _typing.Sequence[torch.LongTensor] = [
-                current_layer.edge_index_for_sampled_graph.to(self.device)
-                for current_layer in sampled_data.sampled_edges_for_layers
-            ]
+        integral_data = integral_data.to(torch.device("cpu"))
+        if isinstance(self.model.model, SequentialGraphNeuralNetwork):
+            sequential_gnn_model: SequentialGraphNeuralNetwork = self.model.model
+            __num_layers: int = len(self.__sampling_sizes)
 
-            with torch.no_grad():
-                prediction_batch_cumulative_builder.add_batch(
-                    sampled_data.target_nodes_indexes.indexes_in_integral_graph.cpu().numpy(),
-                    self.model.model(sampled_graph)[
-                        sampled_data.target_nodes_indexes.indexes_in_sampled_graph
-                    ].cpu().numpy()
+            x: torch.Tensor = getattr(integral_data, "x")
+            for _current_layer_index in range(__num_layers - 1):
+                __next_x: _typing.Optional[torch.Tensor] = None
+                current_neighbor_sampler: NeighborSampler = NeighborSampler(
+                    integral_data.edge_index, torch.arange(x.size(0)).unique(),
+                    [-1], batch_size=self.__predicting_batch_size,
+                    num_workers=self.__predicting_sampler_num_workers, shuffle=False
                 )
+                for _target_dependant_sampled_data in current_neighbor_sampler:
+                    _target_dependant_sampled_data: TargetDependantSampledData = (
+                        _target_dependant_sampled_data
+                    )
+                    _sampled_graph: autogl.data.Data = autogl.data.Data(
+                        x=x[_target_dependant_sampled_data.all_sampled_nodes_indexes],
+                        edge_index=(
+                            _target_dependant_sampled_data.sampled_edges_for_layers[0].edge_index_for_sampled_graph
+                        )
+                    )
+                    _sampled_graph: autogl.data.Data = _sampled_graph.to(self.device)
 
-        return torch.from_numpy(prediction_batch_cumulative_builder.compose()[1])
+                    with torch.no_grad():
+                        __sampled_graph_inferences: torch.Tensor = (
+                            sequential_gnn_model.encoder_sequential_modules[_current_layer_index](_sampled_graph)
+                        )
+                    __sampled_graph_inferences: torch.Tensor = __sampled_graph_inferences.cpu()
+                    if __next_x is None:
+                        __next_x: torch.Tensor = torch.zeros(x.size(0), __sampled_graph_inferences.size(1))
+                    __next_x[_target_dependant_sampled_data.target_nodes_indexes.indexes_in_integral_graph] = (
+                        __sampled_graph_inferences[
+                            _target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph
+                        ]
+                    )
+                x: torch.Tensor = __next_x
+            # The following procedures are for the top layer
+            if mask_or_target_nodes_indexes.dtype == torch.bool:
+                target_nodes_indexes: _typing.Any = (
+                    torch.where(mask_or_target_nodes_indexes)[0]
+                )
+            else:
+                target_nodes_indexes: _typing.Any = mask_or_target_nodes_indexes.long()
+
+            current_neighbor_sampler: NeighborSampler = NeighborSampler(
+                integral_data.edge_index, target_nodes_indexes,
+                [-1], batch_size=self.__predicting_batch_size,
+                num_workers=self.__predicting_sampler_num_workers, shuffle=False
+            )
+            prediction_batch_cumulative_builder = (
+                EvaluatorUtility.PredictionBatchCumulativeBuilder()
+            )
+            for _target_dependant_sampled_data in current_neighbor_sampler:
+                _sampled_graph: autogl.data.Data = autogl.data.Data(
+                    x[_target_dependant_sampled_data.all_sampled_nodes_indexes],
+                    _target_dependant_sampled_data.sampled_edges_for_layers[0].edge_index_for_sampled_graph
+                )
+                _sampled_graph: autogl.data.Data = _sampled_graph.to(self.device)
+                with torch.no_grad():
+                    prediction_batch_cumulative_builder.add_batch(
+                        _target_dependant_sampled_data.target_nodes_indexes.indexes_in_integral_graph.cpu().numpy(),
+                        sequential_gnn_model.decode(
+                            sequential_gnn_model.encoder_sequential_modules[-1](_sampled_graph)
+                        )[_target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph].cpu().numpy()
+                    )
+            return torch.from_numpy(prediction_batch_cumulative_builder.compose()[1])
+        else:
+            if mask_or_target_nodes_indexes.dtype == torch.bool:
+                target_nodes_indexes: _typing.Any = (
+                    torch.where(mask_or_target_nodes_indexes)[0]
+                )
+            else:
+                target_nodes_indexes: _typing.Any = mask_or_target_nodes_indexes.long()
+
+            neighbor_sampler: NeighborSampler = NeighborSampler(
+                integral_data.edge_index, target_nodes_indexes, [-1 for _ in self.__sampling_sizes],
+                batch_size=self.__predicting_batch_size,
+                num_workers=self.__predicting_sampler_num_workers, shuffle=False
+            )
+
+            prediction_batch_cumulative_builder = (
+                EvaluatorUtility.PredictionBatchCumulativeBuilder()
+            )
+            self.model.model.eval()
+            for _target_dependant_sampled_data in neighbor_sampler:
+                _sampled_graph: autogl.data.Data = autogl.data.Data(
+                    x=integral_data.x[
+                        _target_dependant_sampled_data.all_sampled_nodes_indexes
+                    ]
+                )
+                _sampled_graph = _sampled_graph.to(self.device)
+                _sampled_graph.edge_indexes: _typing.Sequence[torch.LongTensor] = [
+                    current_layer.edge_index_for_sampled_graph.to(self.device)
+                    for current_layer in _target_dependant_sampled_data.sampled_edges_for_layers
+                ]
+                with torch.no_grad():
+                    prediction_batch_cumulative_builder.add_batch(
+                        _target_dependant_sampled_data.target_nodes_indexes.indexes_in_integral_graph.cpu().numpy(),
+                        self.model.model(_sampled_graph)[
+                            _target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph
+                        ].cpu().numpy()
+                    )
+            return torch.from_numpy(prediction_batch_cumulative_builder.compose()[1])
 
     def predict_proba(
             self, dataset, mask: _typing.Optional[str] = None,

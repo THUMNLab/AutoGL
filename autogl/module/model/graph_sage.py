@@ -3,11 +3,61 @@ import torch
 import torch.nn.functional
 from torch_geometric.nn.conv import SAGEConv
 
+import autogl.data
 from . import register_model
-from .base import ClassificationModel, activate_func
+from .base import (
+    ClassificationModel, activate_func,
+    SequentialGraphNeuralNetwork
+)
 
 
-class GraphSAGE(torch.nn.Module):
+class GraphSAGE(SequentialGraphNeuralNetwork):
+    class _SAGELayer(torch.nn.Module):
+        def __init__(
+                self, input_channels: int, output_channels: int, aggr: str,
+                activation_name: _typing.Optional[str] = ...,
+                dropout_probability: _typing.Optional[float] = ...
+        ):
+            super().__init__()
+            self._convolution: SAGEConv = SAGEConv(
+                input_channels, output_channels, aggr=aggr
+            )
+            if (
+                    activation_name is not Ellipsis and
+                    activation_name is not None and
+                    type(activation_name) == str
+            ):
+                self._activation_name: _typing.Optional[str] = activation_name
+            else:
+                self._activation_name: _typing.Optional[str] = None
+            if (
+                    dropout_probability is not Ellipsis and
+                    dropout_probability is not None and
+                    type(dropout_probability) == float
+            ):
+                if dropout_probability < 0:
+                    dropout_probability = 0
+                if dropout_probability > 1:
+                    dropout_probability = 1
+                self._dropout: _typing.Optional[torch.nn.Dropout] = (
+                    torch.nn.Dropout(dropout_probability)
+                )
+            else:
+                self._dropout: _typing.Optional[torch.nn.Dropout] = None
+
+        def forward(self, data) -> torch.Tensor:
+            x: torch.Tensor = getattr(data, "x")
+            edge_index: torch.Tensor = getattr(data, "edge_index")
+            if type(x) != torch.Tensor or type(edge_index) != torch.Tensor:
+                raise TypeError
+
+            x: torch.Tensor = self._convolution.forward(x, edge_index)
+            if self._activation_name is not None:
+                x: torch.Tensor = activate_func(x, self._activation_name)
+            if self._dropout is not None:
+                x: torch.Tensor = self._dropout.forward(x)
+            return x
+
     def __init__(
         self,
         num_features: int,
@@ -23,113 +73,54 @@ class GraphSAGE(torch.nn.Module):
         if aggr not in ("add", "max", "mean"):
             aggr = "mean"
 
-        self.__convolution_layers: torch.nn.ModuleList = torch.nn.ModuleList()
-
-        num_layers: int = len(hidden_features) + 1
-        if num_layers == 1:
-            self.__convolution_layers.append(
-                SAGEConv(num_features, num_classes, aggr=aggr)
+        if len(hidden_features) == 0:
+            self.__sequential_module_list: torch.nn.ModuleList = torch.nn.ModuleList(
+                (self._SAGELayer(num_features, num_classes, aggr),)
             )
         else:
-            self.__convolution_layers.append(
-                SAGEConv(num_features, hidden_features[0], aggr=aggr)
-            )
+            self.__sequential_module_list: torch.nn.ModuleList = torch.nn.ModuleList()
+            self.__sequential_module_list.append(self._SAGELayer(
+                num_features, hidden_features[0], aggr, activation_name, dropout
+            ))
             for i in range(len(hidden_features)):
                 if i + 1 < len(hidden_features):
-                    self.__convolution_layers.append(
-                        SAGEConv(hidden_features[i], hidden_features[i + 1], aggr=aggr)
-                    )
+                    self.__sequential_module_list.append(self._SAGELayer(
+                        hidden_features[i], hidden_features[i + 1], aggr,
+                        activation_name, dropout
+                    ))
                 else:
-                    self.__convolution_layers.append(
-                        SAGEConv(hidden_features[i], num_classes, aggr=aggr)
-                    )
-        self.__dropout: float = dropout
-        self.__activation_name: str = activation_name
+                    self.__sequential_module_list.append(self._SAGELayer(
+                        hidden_features[i], num_classes, aggr
+                    ))
 
-    def __basic_forward(
-            self,
-            x: torch.Tensor,
-            edge_index: torch.Tensor,
-            edge_weight: _typing.Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        for layer_index in range(len(self.__convolution_layers)):
-            x: torch.Tensor = self.__convolution_layers[layer_index](
-                x, edge_index, edge_weight
-            )
-            if layer_index + 1 < len(self.__convolution_layers):
-                x = activate_func(x, self.__activation_name)
-                x = torch.nn.functional.dropout(
-                    x, p=self.__dropout, training=self.training
-                )
-        return torch.nn.functional.log_softmax(x, dim=1)
+    @property
+    def encoder_sequential_modules(self) -> torch.nn.ModuleList:
+        return self.__sequential_module_list
 
-    def __layer_wise_forward(
-            self, x: torch.Tensor,
-            edge_indexes: _typing.Sequence[torch.Tensor],
-            edge_weights: _typing.Sequence[_typing.Optional[torch.Tensor]]
-    ) -> torch.Tensor:
-        assert len(edge_indexes) == len(edge_weights) == len(self.__convolution_layers)
-        for edge_index in edge_indexes:
-            if type(edge_index) != torch.Tensor:
-                raise TypeError
-            if edge_index.size(0) != 2:
-                raise ValueError
-        for edge_weight in edge_weights:
-            if not (edge_weight is None or type(edge_weight) == torch.Tensor):
-                raise TypeError
-
-        for layer_index in range(len(self.__convolution_layers)):
-            x: torch.Tensor = self.__convolution_layers[layer_index](
-                x, edge_indexes[layer_index]
-            )
-            if layer_index + 1 < len(self.__convolution_layers):
-                x = activate_func(x, self.__activation_name)
-                x = torch.nn.functional.dropout(x, p=self.__dropout, training=self.training)
-        return torch.nn.functional.log_softmax(x, dim=1)
-
-    def forward(self, data) -> torch.Tensor:
+    def encode(self, data) -> torch.Tensor:
         if (
-                hasattr(data, "edge_indexes") and
-                isinstance(getattr(data, "edge_indexes"), _typing.Sequence) and
-                len(getattr(data, "edge_indexes")) == len(self.__convolution_layers)
+            hasattr(data, "edge_indexes") and
+            isinstance(getattr(data, "edge_indexes"), _typing.Sequence) and
+            len(getattr(data, "edge_indexes")) == len(self.__sequential_module_list)
         ):
-            edge_indexes: _typing.Sequence[torch.Tensor] = getattr(data, "edge_indexes")
-            if (
-                hasattr(data, "edge_weights") and
-                isinstance(getattr(data, "edge_weights"), _typing.Sequence) and
-                len(getattr(data, "edge_weights")) == len(self.__convolution_layers)
-            ):
-                edge_weights: _typing.Sequence[_typing.Optional[torch.Tensor]] = (
-                    getattr(data, "edge_weights")
-                )
-            else:
-                edge_weights: _typing.Sequence[_typing.Optional[torch.Tensor]] = [
-                    None for _ in range(len(self.__convolution_layers))
-                ]
-            return self.__layer_wise_forward(
-                getattr(data, "x"), edge_indexes, edge_weights
-            )
-        else:
-            if not (hasattr(data, "x") and hasattr(data, "edge_index")):
-                raise AttributeError
-            if not (
-                type(getattr(data, "x")) == torch.Tensor
-                and type(getattr(data, "edge_index")) == torch.Tensor
-            ):
-                raise TypeError
+            for __edge_index in getattr(data, "edge_indexes"):
+                if type(__edge_index) != torch.Tensor:
+                    raise TypeError
+            """ Layer-wise encode """
             x: torch.Tensor = getattr(data, "x")
-            edge_index: torch.LongTensor = getattr(data, "edge_index")
-            if (
-                hasattr(data, "edge_weight")
-                and type(getattr(data, "edge_weight")) == torch.Tensor
-                and getattr(data, "edge_weight").size() == (edge_index.size(1),)
-            ):
-                edge_weight: _typing.Optional[torch.Tensor] = getattr(
-                    data, "edge_weight"
+            for i, __edge_index in enumerate(getattr(data, "edge_indexes")):
+                _intermediate_data: autogl.data.Data = autogl.data.Data(
+                    x=x, edge_index=__edge_index
                 )
-            else:
-                edge_weight: _typing.Optional[torch.Tensor] = None
-            return self.__basic_forward(x, edge_index, edge_weight)
+                x: torch.Tensor = self.encoder_sequential_modules[i](_intermediate_data)
+            return x
+        else:
+            for i in range(len(self.encoder_sequential_modules)):
+                data.x = self.encoder_sequential_modules[i](data)
+            return data.x
+
+    def decode(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.log_softmax(x, dim=1)
 
 
 @register_model("sage")
@@ -201,9 +192,17 @@ class AutoSAGE(ClassificationModel):
                 "feasiblePoints": ["mean", "add", "max"],
             },
         ]
+        default_hp = {
+            "num_layers": 3,
+            "hidden": [64, 32],
+            "dropout": 0.5,
+            "act": "relu",
+            "agg": "mean",
+        }
         super(AutoSAGE, self).__init__(
             num_features, num_classes, device=device,
-            hyper_parameter_space=default_hp_space, init=init, **kwargs
+            hyper_parameter_space=default_hp_space,
+            hyper_parameter=default_hp, init=init, **kwargs
         )
 
     def _initialize(self):
