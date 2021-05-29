@@ -4,6 +4,7 @@ from .base import (
     Evaluation,
     BaseNodeClassificationTrainer,
     BaseGraphClassificationTrainer,
+    BaseLinkPredictionTrainer
 )
 
 def register_trainer(name):
@@ -30,6 +31,7 @@ __all__ = [
     "Evaluation",
     "BaseGraphClassificationTrainer",
     "BaseNodeClassificationTrainer",
+    "BaseLinkPredictionTrainer",
     "GraphClassificationFullTrainer",
     "NodeClassificationFullTrainer",
     "LinkPredictionTrainer",

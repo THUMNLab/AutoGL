@@ -1,10 +1,10 @@
-from . import register_trainer, BaseTrainer, Evaluation
+from . import register_trainer, Evaluation
 import torch
 from torch.optim.lr_scheduler import StepLR
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
 from .evaluation import Auc, EVALUATE_DICT
-from .base import EarlyStopping
+from .base import EarlyStopping, BaseLinkPredictionTrainer
 from typing import Union
 from copy import deepcopy
 from torch_geometric.utils import negative_sampling
@@ -23,8 +23,8 @@ def get_feval(feval):
     raise ValueError("feval argument of type", type(feval), "is not supported!")
 
 
-@register_trainer("LinkPrediction")
-class LinkPredictionTrainer(BaseTrainer):
+@register_trainer("LinkPredictionFull")
+class LinkPredictionTrainer(BaseLinkPredictionTrainer):
     """
     The link prediction trainer.
 
@@ -58,34 +58,21 @@ class LinkPredictionTrainer(BaseTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str],
-        num_features,
-        num_classes,
+        model: Union[BaseModel, str] = None,
+        num_features=None,
         optimizer=None,
-        lr=None,
-        max_epoch=None,
-        early_stopping_round=None,
+        lr=1e-4,
+        max_epoch=100,
+        early_stopping_round=101,
         weight_decay=1e-4,
-        device=None,
+        device='auto',
         init=True,
         feval=[Auc],
         loss="binary_cross_entropy_with_logits",
         *args,
         **kwargs
     ):
-        super().__init__(model, device, init, feval, loss)
-
-        self.loss_type = loss
-
-        if device is None:
-            device = "cpu"
-
-        # init model
-        if isinstance(model, str):
-            assert model in MODEL_DICT, "Cannot parse model name " + model
-            self.model = MODEL_DICT[model](num_features, num_classes, device, init=init)
-        elif isinstance(model, BaseModel):
-            self.model = model
+        super().__init__(model, num_features, device, init, feval, loss)
 
         if type(optimizer) == str and optimizer.lower() == "adam":
             self.optimizer = torch.optim.Adam
@@ -94,19 +81,12 @@ class LinkPredictionTrainer(BaseTrainer):
         else:
             self.optimizer = torch.optim.Adam
 
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.lr = lr if lr is not None else 1e-4
-        self.max_epoch = max_epoch if max_epoch is not None else 100
-        self.early_stopping_round = (
-            early_stopping_round if early_stopping_round is not None else 100
-        )
+        self.lr = lr
+        self.max_epoch = max_epoch
+        self.early_stopping_round = early_stopping_round
         self.device = device
         self.args = args
         self.kwargs = kwargs
-
-        self.feval = get_feval(feval)
-
         self.weight_decay = weight_decay
 
         self.early_stopping = EarlyStopping(
@@ -118,8 +98,6 @@ class LinkPredictionTrainer(BaseTrainer):
         self.valid_score = None
 
         self.initialized = False
-        self.num_features = num_features
-        self.num_classes = num_classes
         self.device = device
 
         self.space = [
@@ -152,7 +130,7 @@ class LinkPredictionTrainer(BaseTrainer):
                 "scalingType": "LOG",
             },
         ]
-        self.space += self.model.space
+
         LinkPredictionTrainer.space = self.space
 
         self.hyperparams = {
@@ -161,7 +139,6 @@ class LinkPredictionTrainer(BaseTrainer):
             "lr": self.lr,
             "weight_decay": self.weight_decay,
         }
-        self.hyperparams = {**self.hyperparams, **self.model.get_hyper_parameter()}
 
         if init is True:
             self.initialize()
@@ -171,6 +148,8 @@ class LinkPredictionTrainer(BaseTrainer):
         if self.initialized is True:
             return
         self.initialized = True
+        self.model.set_num_classes(self.num_classes)
+        self.model.set_num_features(self.num_features)
         self.model.initialize()
 
     def get_model(self):
@@ -203,7 +182,7 @@ class LinkPredictionTrainer(BaseTrainer):
         data = data.to(self.device)
         # mask = data.train_mask if train_mask is None else train_mask
         optimizer = self.optimizer(
-            self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
         scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
         for epoch in range(1, self.max_epoch):
@@ -219,10 +198,10 @@ class LinkPredictionTrainer(BaseTrainer):
             link_logits = self.model.model.decode(z, data.train_pos_edge_index, neg_edge_index)
             link_labels = self.get_link_labels(data.train_pos_edge_index, neg_edge_index)
             # loss = F.binary_cross_entropy_with_logits(link_logits, link_labels)
-            if hasattr(F, self.loss_type):
-                loss = getattr(F, self.loss_type)(link_logits, link_labels)
+            if hasattr(F, self.loss):
+                loss = getattr(F, self.loss)(link_logits, link_labels)
             else:
-                raise TypeError("PyTorch does not support loss type {}".format(self.loss_type))
+                raise TypeError("PyTorch does not support loss type {}".format(self.loss))
 
             loss.backward()
             optimizer.step()
@@ -440,10 +419,7 @@ class LinkPredictionTrainer(BaseTrainer):
 
         res = []
         for f in feval:
-            try:
-                res.append(f.evaluate(link_probs, link_labels))
-            except:
-                res.append(f.evaluate(link_probs.cpu().numpy(), link_labels.cpu().numpy()))
+            res.append(f.evaluate(link_probs.cpu().numpy(), link_labels.cpu().numpy()))
         if return_signle:
             return res[0]
         return res
@@ -480,6 +456,8 @@ class LinkPredictionTrainer(BaseTrainer):
             hp = origin_hp
         if model is None:
             model = self.model
+        model.set_num_classes(self.num_classes)
+        model.set_num_features(self.num_features)
         model = model.from_hyper_parameter(
             dict(
                 [
@@ -493,7 +471,6 @@ class LinkPredictionTrainer(BaseTrainer):
         ret = self.__class__(
             model=model,
             num_features=self.num_features,
-            num_classes=self.num_classes,
             optimizer=self.optimizer,
             lr=hp["lr"],
             max_epoch=hp["max_epoch"],

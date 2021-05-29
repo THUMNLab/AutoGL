@@ -6,6 +6,7 @@ from autogl.datasets import build_dataset_from_name
 from autogl.module.train import LinkPredictionTrainer
 import numpy as np
 from torch_geometric.utils import train_test_split_edges
+from sklearn.metrics import roc_auc_score
 
 dataset = build_dataset_from_name('cora')
 

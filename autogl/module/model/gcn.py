@@ -3,7 +3,7 @@ import torch.nn.functional
 import torch_geometric
 import typing as _typing
 from . import register_model
-from .base import activate_func, ClassificationModel
+from .base import BaseModel, activate_func, ClassificationModel
 from ...utils import get_logger
 
 LOGGER = get_logger("GCNModel")
@@ -94,10 +94,11 @@ class GCN(torch.nn.Module):
 
     def encode(self, data):
         x = data.x
-        for i in range(self.num_layer - 1):
-            x = self.convs[i](x, data.train_pos_edge_index)
-            if i != self.num_layer - 2:
-                x = activate_func(x, self.args["act"])
+        num_layers = len(self.__convolution_layers)
+        for i in range(num_layers - 1):
+            x = self.__convolution_layers[i](x, data.train_pos_edge_index)
+            if i != num_layers - 2:
+                x = activate_func(x, self.__activation_name)
                 # x = F.dropout(x, p=self.args["dropout"], training=self.training)
         return x
 
@@ -112,8 +113,10 @@ class GCN(torch.nn.Module):
 
 
 
+#@register_model("gcn")
+#class AutoGCN(ClassificationModel):
 @register_model("gcn")
-class AutoGCN(ClassificationModel):
+class AutoGCN(BaseModel):
     r"""
     AutoGCN.
     The model used in this automodel is GCN, i.e., the graph convolutional network from the
@@ -152,9 +155,10 @@ class AutoGCN(ClassificationModel):
         init: bool = False,
         **kwargs
     ) -> None:
-        super(AutoGCN, self).__init__(
-            num_features, num_classes, device=device, init=init, **kwargs
-        )
+        super().__init__()
+        self.num_features = num_features
+        self.num_classes = num_classes
+        self.device = device
 
         self.params = {
             "features_num": self.num_features,
@@ -210,11 +214,11 @@ class AutoGCN(ClassificationModel):
         if init is True:
             self.initialize()
 
-    def _initialize(self):
+    def initialize(self):
         self.model = GCN(
             self.num_features,
             self.num_classes,
-            self.hyper_parameter.get("hidden"),
-            self.hyper_parameter.get("dropout"),
-            self.hyper_parameter.get("act"),
+            self.hyperparams.get("hidden"),
+            self.hyperparams.get("dropout"),
+            self.hyperparams.get("act"),
         ).to(self.device)

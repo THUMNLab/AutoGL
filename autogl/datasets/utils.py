@@ -2,8 +2,15 @@ from pdb import set_trace
 import torch
 import numpy as np
 from torch_geometric.data import DataLoader
+from torch_geometric.utils import train_test_split_edges
 from sklearn.model_selection import StratifiedKFold, KFold
 
+
+def split_edges(dataset, train_ratio, val_ratio):
+    datas = [data for data in dataset]
+    for i in range(len(datas)):
+        datas[i] = train_test_split_edges(datas[i], val_ratio, 1 - train_ratio - val_ratio)
+    dataset.data, dataset.slices = dataset.collate(datas)
 
 def get_label_number(dataset):
     r"""Get the number of labels in this dataset as dict."""
