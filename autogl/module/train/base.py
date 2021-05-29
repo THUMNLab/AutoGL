@@ -287,9 +287,11 @@ class BaseTrainer:
         """Get the validation score."""
         raise NotImplementedError()
 
-    def get_name_with_hp(self):
-        """Get the name of hyperparameter."""
-        raise NotImplementedError()
+    def __repr__(self) -> str:
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        return repr(self)
 
     def evaluate(self, dataset, mask=None, feval=None):
         """

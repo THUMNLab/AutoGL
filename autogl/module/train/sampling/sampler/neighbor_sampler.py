@@ -5,6 +5,16 @@ from .target_dependant_sampler import TargetDependantSampler, TargetDependantSam
 
 
 class NeighborSampler(TargetDependantSampler, _typing.Iterable):
+    class _SequenceDataset(torch.utils.data.Dataset):
+        def __init__(self, sequence):
+            self.__sequence = sequence
+
+        def __len__(self):
+            return len(self.__sequence)
+
+        def __getitem__(self, idx):
+            return self.__sequence[idx]
+
     @classmethod
     def __compute_edge_weight(cls, edge_index: torch.LongTensor) -> torch.Tensor:
         __num_nodes = max(int(edge_index[0].max()), int(edge_index[1].max())) + 1
@@ -28,6 +38,17 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
             batch_size: int = 1, num_workers: int = 0,
             shuffle: bool = True, **kwargs
     ):
+        def is_deterministic(__cached: bool = bool(kwargs.get("cached", True))) -> bool:
+            if not __cached:
+                return False
+            _deterministic: bool = True
+            for _sampling_size in sampling_sizes:
+                if type(_sampling_size) != int:
+                    raise TypeError("The sampling_sizes argument must be a sequence of integer")
+                if _sampling_size >= 0:
+                    _deterministic = False
+                    break
+            return _deterministic
         self.__edge_weight: torch.Tensor = self.__compute_edge_weight(edge_index)
         self.__pyg_neighbor_sampler: torch_geometric.data.NeighborSampler = (
             torch_geometric.data.NeighborSampler(
@@ -36,6 +57,16 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
                 num_workers=num_workers, shuffle=shuffle, **kwargs
             )
         )
+
+        if is_deterministic():
+            pyg_neighbor_sampler: _typing.Iterable = self.__pyg_neighbor_sampler
+            self.__cached_sampled_data_list: _typing.Optional[
+                _typing.List[TargetDependantSampledData]
+            ] = [sampled_data for sampled_data in pyg_neighbor_sampler]
+        else:
+            self.__cached_sampled_data_list: _typing.Optional[
+                _typing.List[TargetDependantSampledData]
+            ] = None
 
     def _transform(
         self, batch_size: int, n_id: torch.LongTensor,
@@ -68,7 +99,16 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
             )
 
     def __iter__(self):
-        return iter(self.__pyg_neighbor_sampler)
+        if (
+                self.__cached_sampled_data_list is not None and
+                isinstance(self.__cached_sampled_data_list, _typing.Sequence)
+        ):
+            return iter(torch.utils.data.DataLoader(
+                self._SequenceDataset(self.__cached_sampled_data_list),
+                collate_fn=lambda x: x[0]
+            ))
+        else:
+            return iter(self.__pyg_neighbor_sampler)
 
     @classmethod
     def create_basic_sampler(

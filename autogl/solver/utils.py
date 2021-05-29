@@ -1,23 +1,23 @@
 """
-Util tools used by solver
+Utilities used by the solver
 
-* leaderboard: The leaderboard that maintains the performance of models.
+* LeaderBoard: The LeaderBoard that maintains the performance of models.
 """
 
 import random
-
-import torch
+import typing as _typing
+import torch.backends.cudnn
 import numpy as np
 import pandas as pd
 
 from ..utils import get_logger
 
-LOGGER = get_logger("leaderboard")
+LOGGER = get_logger("LeaderBoard")
 
 
-class Leaderboard:
+class LeaderBoard:
     """
-    The leaderboard that can be used to store / sort the model performance automatically.
+    The LeaderBoard that can be used to store / sort the model performance automatically.
 
     Parameters
     ----------
@@ -29,16 +29,38 @@ class Leaderboard:
         A list of indicator that whether the field score is higher better.
     """
 
-    def __init__(self, fields, is_higher_better):
-        assert isinstance(fields, list)
-        self.keys = ["name"] + fields
-        self.perform_dict = pd.DataFrame(columns=self.keys)
-        self.is_higher_better = is_higher_better
-        self.major_field = fields[0]
+    def __init__(
+            self, fields: _typing.Sequence[str],
+            is_higher_better: _typing.Union[
+                _typing.Sequence[bool],
+                _typing.Dict[str, bool]
+            ]
+    ):
+        if not isinstance(fields, _typing.Sequence):
+            raise TypeError
+        for _field in fields:
+            if type(_field) != str:
+                raise TypeError
+        if isinstance(is_higher_better, dict):
+            self.__is_higher_better: _typing.Sequence[bool] = [
+                bool(is_higher_better[field]) for field in fields
+            ]
+        elif isinstance(is_higher_better, _typing.Sequence):
+            self.__is_higher_better: _typing.Sequence[bool] = [
+                bool(item) for item in is_higher_better
+            ]
+        else:
+            raise TypeError
+        self.__fields: _typing.Sequence[str] = fields
+        self.__major_field: str = fields[0]
+
+        self.__performance_data_frame: pd.DataFrame = pd.DataFrame(
+            columns=["name", "representation"] + list(fields)
+        )
 
     def set_major_field(self, field) -> None:
         """
-        Set the major field of current leaderboard.
+        Set the major field of current LeaderBoard.
 
         Parameters
         ----------
@@ -49,17 +71,59 @@ class Leaderboard:
         -------
         None
         """
-        if field in self.keys and not field == "name":
-            self.major_field = field
+        if field in self.__fields:
+            self.__major_field = field
         else:
             LOGGER.warning(
-                "do not find major field %s in current leaderboard, will ignore.", field
+                "do not find major field %s in the current LeaderBoard, will ignore.", field
             )
 
-    def insert_model_performance(self, name, performance) -> None:
+    def add_performance(
+            self, name: str,
+            representation: _typing.Union[str, _typing.Dict[str, _typing.Any]],
+            performance: _typing.Dict[str, float]
+    ) -> 'LeaderBoard':
         """
-        Add/Override a record of model performance. If name given is already in the leaderboard,
-        will overrride the slot.
+        Add a record of model performance.
+
+        Parameters
+        ----------
+        name: `str`
+            The model name/identifier that identifies the model.
+
+        representation: `str` or `dict`
+            The representation of the corresponding methodology.
+
+        performance: `dict`
+            The performance dict. The key inside the dict should be the fields when initialized.
+            The value of the dict should be the corresponding scores.
+
+        Returns
+        -------
+        self:
+            this `LeaderBoard` instance for chained call
+        """
+        import yaml
+        if isinstance(representation, dict):
+            __representation: str = yaml.dump(representation)
+        elif isinstance(representation, str):
+            __representation: str = representation
+        else:
+            raise TypeError
+
+        __dict = {"name": name, "representation": __representation}
+        __dict.update(performance)
+        self.__performance_data_frame = self.__performance_data_frame.append(
+            pd.DataFrame(__dict, index=[0]), ignore_index=True
+        )
+        return self
+
+    def insert_model_performance(
+            self, name: str, performance: _typing.Dict[str, _typing.Any]
+    ) -> None:
+        """
+        Add a record of model performance.
+        todo: This method will be deprecated
 
         Parameters
         ----------
@@ -74,39 +138,7 @@ class Leaderboard:
         -------
         None
         """
-        if name not in self.perform_dict["name"]:
-            # we just add a new row
-            performance["name"] = name
-            new = pd.DataFrame(performance, index=[0])
-            self.perform_dict = self.perform_dict.append(new, ignore_index=True)
-        else:
-            LOGGER.warning(
-                "model already in the leaderboard, will override current result."
-            )
-            self.remove_model_performance(name)
-            self.insert_model_performance(name, performance)
-
-    def remove_model_performance(self, name) -> None:
-        """
-        Remove the record of given models.
-
-        Parameters
-        ----------
-        name: `str`
-            The model name/identifier that needed to be removed.
-
-        Returns
-        -------
-        None
-        """
-        if name not in self.perform_dict["name"]:
-            LOGGER.warning(
-                "no model detected in current leaderboard, will ignore removing action."
-            )
-            return
-        index = self.perform_dict["name"][self.perform_dict["name"] == name].index
-        self.perform_dict.drop(self.perform_dict.index[index], inplace=True)
-        return
+        self.add_performance(name, name, performance)
 
     def get_best_model(self, index=0) -> str:
         """
@@ -122,34 +154,67 @@ class Leaderboard:
         name: `str`
             The name/identifier of the required model.
         """
-        sorted_df = self.perform_dict.sort_values(
-            by=self.major_field, ascending=not self.is_higher_better[self.major_field]
+        sorted_performance_df = self.__performance_data_frame.sort_values(
+            self.__major_field,
+            ascending=not (
+                dict(zip(self.__fields, self.__is_higher_better))[self.__major_field]
+                if self.__major_field in self.__fields else True
+            )
         )
-        name_list = sorted_df["name"].tolist()
+        name_list = sorted_performance_df["name"].tolist()
         if "ensemble" in name_list:
             name_list.remove("ensemble")
         return name_list[index]
 
-    def show(self, top_k=-1) -> None:
+    def show(self, top_k=0) -> None:
         """
-        Show current leaderboard (from good model to bad).
+        Show current LeaderBoard (from best model to worst).
 
         Parameters
         ----------
         top_k: `int`
-            Controls the number model shown. If below `0`, will show all the models. Default `-1`.
+            Controls the number model shown.
+            If less than or equal to `0`, will show all the models. Default to `0`.
 
         Returns
         -------
         None
         """
-        if top_k == -1:
-            top_k = len(self.perform_dict["name"])
+        top_k: int = top_k if top_k > 0 else len(self.__performance_data_frame)
+
+        '''
+        reindex self.__performance_data_frame
+        to ensure the columns of name and representation are in left-side of the data frame
+        '''
+        _columns = self.__performance_data_frame.columns.tolist()
+        maxcolwidths: _typing.List[_typing.Optional[int]] = []
+        if "representation" in _columns:
+            _columns.remove("representation")
+            _columns.insert(0, "representation")
+            maxcolwidths.append(40)
+        if "name" in _columns:
+            _columns.remove("name")
+            _columns.insert(0, "name")
+            maxcolwidths.append(40)
+        self.__performance_data_frame = self.__performance_data_frame[_columns]
+
+        sorted_performance_df: pd.DataFrame = self.__performance_data_frame.sort_values(
+            self.__major_field,
+            ascending=not (
+                dict(zip(self.__fields, self.__is_higher_better))[self.__major_field]
+                if self.__major_field in self.__fields else True
+            )
+        )
+        sorted_performance_df = sorted_performance_df.head(top_k)
+
+        from tabulate import tabulate
+        _columns = sorted_performance_df.columns.tolist()
+        maxcolwidths.extend([None for _ in range(len(_columns) - len(maxcolwidths))])
         print(
-            self.perform_dict.sort_values(
-                by=self.major_field,
-                ascending=not self.is_higher_better[self.major_field],
-            ).head(top_k)
+            tabulate(
+                list(zip(*[sorted_performance_df[column] for column in _columns])),
+                headers=_columns, tablefmt="grid"
+            )
         )
 
 

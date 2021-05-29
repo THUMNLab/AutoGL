@@ -4,7 +4,6 @@ import logging
 import typing as _typing
 import torch.nn.functional
 import torch.utils.data
-import tqdm
 
 import autogl.data
 from .. import register_trainer
@@ -215,8 +214,8 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
 
             """ Validate performance """
             if (
-                hasattr(data, "val_mask")
-                and type(getattr(data, "val_mask")) == torch.Tensor
+                    hasattr(data, "val_mask")
+                    and type(getattr(data, "val_mask")) == torch.Tensor
             ):
                 validation_results: _typing.Sequence[float] = self.evaluate(
                     (data,), "val", [self.feval[0]]
@@ -246,7 +245,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         return predicted_x
 
     def predict_proba(
-        self, dataset, mask: _typing.Optional[str] = None, in_log_format=False
+            self, dataset, mask: _typing.Optional[str] = None, in_log_format=False
     ):
         """
         The function of predicting the probability on the given dataset.
@@ -274,12 +273,12 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         return self.predict_proba(dataset, mask, in_log_format=True).max(1)[1]
 
     def evaluate(
-        self,
-        dataset,
-        mask: _typing.Optional[str] = None,
-        feval: _typing.Union[
-            None, _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
-        ] = None,
+            self,
+            dataset,
+            mask: _typing.Optional[str] = None,
+            feval: _typing.Union[
+                None, _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+            ] = None,
     ) -> _typing.Sequence[float]:
         data = dataset[0]
         data = data.to(self.device)
@@ -335,7 +334,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         return self._valid_result_prob
 
     def get_valid_score(
-        self, return_major: bool = True
+            self, return_major: bool = True
     ) -> _typing.Tuple[
         _typing.Union[float, _typing.Sequence[float]],
         _typing.Union[bool, _typing.Sequence[bool]],
@@ -353,39 +352,30 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
 
     @hyper_parameter_space.setter
     def hyper_parameter_space(
-        self, hp_space: _typing.Sequence[_typing.Dict[str, _typing.Any]]
+            self, hp_space: _typing.Sequence[_typing.Dict[str, _typing.Any]]
     ) -> None:
         if not isinstance(hp_space, _typing.Sequence):
             raise TypeError
         self._hyper_parameter_space = hp_space
 
-    def get_name_with_hp(self) -> str:
-        name = "-".join(
-            [
-                str(self._optimizer_class),
-                str(self._learning_rate),
-                str(self._max_epoch),
-                str(self._early_stopping.patience),
-                str(self.model),
-                str(self.device),
-            ]
-        )
-        name = (
-            name
-            + "|"
-            + "-".join(
-                [
-                    str(x[0]) + "-" + str(x[1])
-                    for x in self.model.get_hyper_parameter().items()
-                ]
-            )
-        )
-        return name
+    def __repr__(self) -> dict:
+        return {
+            "trainer_name": self.__class__.__name__,
+            "optimizer": self.optimizer,
+            "learning_rate": self.lr,
+            "max_epoch": self.max_epoch,
+            "early_stopping_round": self.early_stopping_round,
+            "model": repr(self.model)
+        }
+
+    def __str__(self) -> str:
+        import yaml
+        return yaml.dump(repr(self))
 
     def duplicate_from_hyper_parameter(
-        self,
-        hp: _typing.Dict[str, _typing.Any],
-        model: _typing.Optional[BaseModel] = None,
+            self,
+            hp: _typing.Dict[str, _typing.Any],
+            model: _typing.Optional[BaseModel] = None,
     ) -> "NodeClassificationGraphSAINTTrainer":
         if model is None or not isinstance(model, BaseModel):
             model: BaseModel = self.model
@@ -410,6 +400,44 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
             lr_scheduler_type=self._lr_scheduler_type,
             **hp,
         )
+
+
+class _DeterministicNeighborSamplerStore:
+    def __init__(self):
+        self.__neighbor_sampler_mapping: _typing.List[
+            _typing.Tuple[torch.LongTensor, NeighborSampler]
+        ] = []
+
+    @classmethod
+    def __is_target_node_indexes_equal(cls, a: torch.LongTensor, b: torch.LongTensor) -> bool:
+        if not a.dtype == b.dtype == torch.int64:
+            return False
+        if a.size() != b.size():
+            return False
+        return torch.where(a != b)[0].size(0) == 0
+
+    def __setitem__(self, target_nodes: torch.Tensor, neighbor_sampler: NeighborSampler):
+        target_nodes: _typing.Any = target_nodes.cpu()
+        if type(target_nodes) != torch.Tensor or target_nodes.dtype != torch.int64:
+            raise TypeError
+        if type(neighbor_sampler) != NeighborSampler:
+            raise TypeError
+        for i in range(len(self.__neighbor_sampler_mapping)):
+            if self.__is_target_node_indexes_equal(
+                    target_nodes, self.__neighbor_sampler_mapping[i][0]
+            ):
+                self.__neighbor_sampler_mapping[i] = (target_nodes, neighbor_sampler)
+                return
+        self.__neighbor_sampler_mapping.append((target_nodes, neighbor_sampler))
+
+    def __getitem__(self, target_nodes: torch.Tensor) -> _typing.Optional[NeighborSampler]:
+        target_nodes: _typing.Any = target_nodes.cpu()
+        if type(target_nodes) != torch.Tensor or target_nodes.dtype != torch.int64:
+            raise TypeError
+        for __current_target_nodes, __neighbor_sampler in self.__neighbor_sampler_mapping:
+            if self.__is_target_node_indexes_equal(target_nodes, __current_target_nodes):
+                return __neighbor_sampler
+        return None
 
 
 @register_trainer("NodeClassificationLayerDependentImportanceSamplingTrainer")
@@ -471,6 +499,9 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         self._valid_result_prob: torch.Tensor = torch.zeros(0)
         self._valid_score: _typing.Sequence[float] = ()
 
+        """ Set hyper parameters """
+        self.__sampled_node_sizes: _typing.Sequence[int] = kwargs.get("sampled_node_sizes")
+
         self.__training_batch_size: int = kwargs.get("training_batch_size", 1024)
         if not self.__training_batch_size > 0:
             self.__training_batch_size: int = 1024
@@ -494,8 +525,9 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
             model, num_features, num_classes, device, init, feval, loss
         )
 
-        """ Set hyper parameters """
-        self.__sampled_node_sizes: _typing.Sequence[int] = kwargs.get("sampled_node_sizes")
+        self.__neighbor_sampler_store: _DeterministicNeighborSamplerStore = (
+            _DeterministicNeighborSamplerStore()
+        )
 
         self.__is_initialized: bool = False
         if init:
@@ -632,54 +664,150 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         :param mask_or_target_nodes_indexes: ...
         :return: the result of prediction on the given dataset
         """
-        if mask_or_target_nodes_indexes.dtype == torch.bool:
-            target_nodes_indexes: _typing.Any = (
-                torch.where(mask_or_target_nodes_indexes)[0]
-            )
-        else:
-            target_nodes_indexes: _typing.Any = mask_or_target_nodes_indexes.long()
-
-        neighbor_sampler: NeighborSampler = NeighborSampler(
-            torch_geometric.utils.add_remaining_self_loops(integral_data.edge_index)[0],
-            target_nodes_indexes, [-1 for _ in self.__sampled_node_sizes],
-            batch_size=self.__predicting_batch_size,
-            num_workers=self.__predicting_sampler_num_workers,
-            shuffle=False
-        )
-
-        prediction_batch_cumulative_builder = (
-            EvaluatorUtility.PredictionBatchCumulativeBuilder()
-        )
         self.model.model.eval()
-        for sampled_data in neighbor_sampler:
-            sampled_data: TargetDependantSampledData = sampled_data
-            sampled_graph: autogl.data.Data = autogl.data.Data(
-                integral_data.x[sampled_data.all_sampled_nodes_indexes],
-                integral_data.y[sampled_data.all_sampled_nodes_indexes]
-            )
-            sampled_graph.to(self.device)
-            sampled_graph.edge_indexes: _typing.Sequence[torch.LongTensor] = [
-                current_layer.edge_index_for_sampled_graph.to(self.device)
-                for current_layer in sampled_data.sampled_edges_for_layers
-            ]
-            sampled_graph.edge_weights: _typing.Sequence[torch.FloatTensor] = [
-                current_layer.edge_weight.to(self.device)
-                for current_layer in sampled_data.sampled_edges_for_layers
-            ]
+        integral_data = integral_data.to(torch.device("cpu"))
+        mask_or_target_nodes_indexes = mask_or_target_nodes_indexes.to(torch.device("cpu"))
+        if isinstance(self.model.model, SequentialGraphNeuralNetwork):
+            sequential_gnn_model: SequentialGraphNeuralNetwork = self.model.model
+            __num_layers: int = len(self.__sampled_node_sizes)
 
-            with torch.no_grad():
-                prediction_batch_cumulative_builder.add_batch(
-                    sampled_data.target_nodes_indexes.indexes_in_integral_graph.cpu().numpy(),
-                    self.model.model(sampled_graph)[
-                        sampled_data.target_nodes_indexes.indexes_in_sampled_graph
-                    ].cpu().numpy()
+            x: torch.Tensor = getattr(integral_data, "x")
+            for _current_layer_index in range(__num_layers - 1):
+                __next_x: _typing.Optional[torch.Tensor] = None
+
+                _optional_neighbor_sampler: _typing.Optional[NeighborSampler] = (
+                    self.__neighbor_sampler_store[torch.arange(x.size(0))]
                 )
+                if (
+                        _optional_neighbor_sampler is not None and
+                        type(_optional_neighbor_sampler) == NeighborSampler
+                ):
+                    current_neighbor_sampler: NeighborSampler = _optional_neighbor_sampler
+                else:
+                    current_neighbor_sampler: NeighborSampler = NeighborSampler(
+                        integral_data.edge_index, torch.arange(x.size(0)).unique(),
+                        [-1], batch_size=self.__predicting_batch_size,
+                        num_workers=self.__predicting_sampler_num_workers, shuffle=False
+                    )
+                    self.__neighbor_sampler_store[torch.arange(x.size(0))] = current_neighbor_sampler
 
-        return torch.from_numpy(prediction_batch_cumulative_builder.compose()[1])
+                for _target_dependant_sampled_data in current_neighbor_sampler:
+                    _target_dependant_sampled_data: TargetDependantSampledData = (
+                        _target_dependant_sampled_data
+                    )
+                    _sampled_graph: autogl.data.Data = autogl.data.Data(
+                        x=x[_target_dependant_sampled_data.all_sampled_nodes_indexes],
+                        edge_index=(
+                            _target_dependant_sampled_data.sampled_edges_for_layers[0].edge_index_for_sampled_graph
+                        )
+                    )
+                    _sampled_graph.edge_weight: torch.Tensor = (
+                        _target_dependant_sampled_data.sampled_edges_for_layers[0].edge_weight
+                    )
+                    _sampled_graph: autogl.data.Data = _sampled_graph.to(self.device)
+
+                    with torch.no_grad():
+                        __sampled_graph_inferences: torch.Tensor = (
+                            sequential_gnn_model.encoder_sequential_modules[_current_layer_index](_sampled_graph)
+                        )
+                        _sampled_target_nodes_inferences: torch.Tensor = __sampled_graph_inferences[
+                            _target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph
+                        ].cpu()
+                    if __next_x is None:
+                        __next_x: torch.Tensor = torch.zeros(x.size(0), __sampled_graph_inferences.size(1))
+                    __next_x[_target_dependant_sampled_data.target_nodes_indexes.indexes_in_integral_graph] = (
+                        _sampled_target_nodes_inferences
+                    )
+                x: torch.Tensor = __next_x
+            " The following procedures are for the top layer "
+            if mask_or_target_nodes_indexes.dtype == torch.bool:
+                target_nodes_indexes: _typing.Any = (
+                    torch.where(mask_or_target_nodes_indexes)[0]
+                )
+            else:
+                target_nodes_indexes: _typing.Any = mask_or_target_nodes_indexes.long()
+
+            _optional_neighbor_sampler: _typing.Optional[NeighborSampler] = (
+                self.__neighbor_sampler_store[target_nodes_indexes]
+            )
+            if (
+                    _optional_neighbor_sampler is not None and
+                    type(_optional_neighbor_sampler) == NeighborSampler
+            ):
+                current_neighbor_sampler: NeighborSampler = _optional_neighbor_sampler
+            else:
+                current_neighbor_sampler: NeighborSampler = NeighborSampler(
+                    integral_data.edge_index, target_nodes_indexes,
+                    [-1], batch_size=self.__predicting_batch_size,
+                    num_workers=self.__predicting_sampler_num_workers, shuffle=False
+                )
+                self.__neighbor_sampler_store[target_nodes_indexes] = current_neighbor_sampler
+
+            prediction_batch_cumulative_builder = (
+                EvaluatorUtility.PredictionBatchCumulativeBuilder()
+            )
+            for _target_dependant_sampled_data in current_neighbor_sampler:
+                _sampled_graph: autogl.data.Data = autogl.data.Data(
+                    x[_target_dependant_sampled_data.all_sampled_nodes_indexes],
+                    _target_dependant_sampled_data.sampled_edges_for_layers[0].edge_index_for_sampled_graph
+                )
+                _sampled_graph.edge_weight: torch.Tensor = (
+                    _target_dependant_sampled_data.sampled_edges_for_layers[0].edge_weight
+                )
+                _sampled_graph: autogl.data.Data = _sampled_graph.to(self.device)
+                with torch.no_grad():
+                    prediction_batch_cumulative_builder.add_batch(
+                        _target_dependant_sampled_data.target_nodes_indexes.indexes_in_integral_graph.cpu().numpy(),
+                        sequential_gnn_model.decode(
+                            sequential_gnn_model.encoder_sequential_modules[-1](_sampled_graph)
+                        )[_target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph].cpu().numpy()
+                    )
+            return torch.from_numpy(prediction_batch_cumulative_builder.compose()[1])
+        else:
+            if mask_or_target_nodes_indexes.dtype == torch.bool:
+                target_nodes_indexes: _typing.Any = (
+                    torch.where(mask_or_target_nodes_indexes)[0]
+                )
+            else:
+                target_nodes_indexes: _typing.Any = mask_or_target_nodes_indexes.long()
+            neighbor_sampler: NeighborSampler = NeighborSampler(
+                torch_geometric.utils.add_remaining_self_loops(integral_data.edge_index)[0],
+                target_nodes_indexes, [-1 for _ in self.__sampled_node_sizes],
+                batch_size=self.__predicting_batch_size,
+                num_workers=self.__predicting_sampler_num_workers,
+                shuffle=False
+            )
+            prediction_batch_cumulative_builder = (
+                EvaluatorUtility.PredictionBatchCumulativeBuilder()
+            )
+            self.model.model.eval()
+            for sampled_data in neighbor_sampler:
+                sampled_data: TargetDependantSampledData = sampled_data
+                sampled_graph: autogl.data.Data = autogl.data.Data(
+                    integral_data.x[sampled_data.all_sampled_nodes_indexes],
+                    integral_data.y[sampled_data.all_sampled_nodes_indexes]
+                )
+                sampled_graph.to(self.device)
+                sampled_graph.edge_indexes: _typing.Sequence[torch.LongTensor] = [
+                    current_layer.edge_index_for_sampled_graph.to(self.device)
+                    for current_layer in sampled_data.sampled_edges_for_layers
+                ]
+                sampled_graph.edge_weights: _typing.Sequence[torch.FloatTensor] = [
+                    current_layer.edge_weight.to(self.device)
+                    for current_layer in sampled_data.sampled_edges_for_layers
+                ]
+                with torch.no_grad():
+                    prediction_batch_cumulative_builder.add_batch(
+                        sampled_data.target_nodes_indexes.indexes_in_integral_graph.cpu().numpy(),
+                        self.model.model(sampled_graph)[
+                            sampled_data.target_nodes_indexes.indexes_in_sampled_graph
+                        ].cpu().numpy()
+                    )
+            return torch.from_numpy(prediction_batch_cumulative_builder.compose()[1])
 
     def predict_proba(
-            self, dataset, mask: _typing.Optional[str]=None,
-            in_log_format: bool=False
+            self, dataset, mask: _typing.Optional[str] = None,
+            in_log_format: bool = False
     ):
         """
         The function of predicting the probability on the given dataset.
@@ -688,7 +816,7 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         :param in_log_format:
         :return:
         """
-        data = dataset[0].to(self.device)
+        data = dataset[0].to(torch.device("cpu"))
         if mask is not None and type(mask) == str:
             if mask.lower() == "train":
                 _mask: torch.BoolTensor = data.train_mask
@@ -750,6 +878,7 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         data = dataset[0]
         self.__train_only(data)
         if keep_valid_result:
+            data = data.to(torch.device("cpu"))
             prediction: torch.Tensor = self.__predict_only(data, data.val_mask)
             self._valid_result: torch.Tensor = prediction.max(1)[1]
             self._valid_result_prob: torch.Tensor = prediction
@@ -784,28 +913,19 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
             raise TypeError
         self._hyper_parameter_space = hp_space
 
-    def get_name_with_hp(self) -> str:
-        name = "-".join(
-            [
-                str(self._optimizer_class),
-                str(self._learning_rate),
-                str(self._max_epoch),
-                str(self._early_stopping.patience),
-                str(self.model),
-                str(self.device),
-            ]
+    def __repr__(self) -> str:
+        import yaml
+        return yaml.dump(
+            {
+                "trainer_name": self.__class__.__name__,
+                "optimizer": self._optimizer_class,
+                "learning_rate": self._learning_rate,
+                "max_epoch": self._max_epoch,
+                "early_stopping_round": self._early_stopping.patience,
+                "sampling_sizes": self.__sampled_node_sizes,
+                "model": repr(self.model)
+            }
         )
-        name = (
-            name
-            + "|"
-            + "-".join(
-                [
-                    str(x[0]) + "-" + str(x[1])
-                    for x in self.model.get_hyper_parameter().items()
-                ]
-            )
-        )
-        return name
 
     def duplicate_from_hyper_parameter(
             self,
@@ -896,6 +1016,9 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         self._valid_result_prob: torch.Tensor = torch.zeros(0)
         self._valid_score: _typing.Sequence[float] = ()
 
+        """ Set hyper-parameter """
+        self.__sampling_sizes: _typing.Sequence[int] = kwargs.get("sampling_sizes")
+
         self.__training_batch_size: int = kwargs.get("training_batch_size", 1024)
         if not self.__training_batch_size > 0:
             self.__training_batch_size: int = 1024
@@ -919,8 +1042,9 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             model, num_features, num_classes, device, init, feval, loss
         )
 
-        """ Set hyper-parameter """
-        self.__sampling_sizes: _typing.Sequence[int] = kwargs.get("sampling_sizes")
+        self.__neighbor_sampler_store: _DeterministicNeighborSamplerStore = (
+            _DeterministicNeighborSamplerStore()
+        )
 
         self.__is_initialized: bool = False
         if init:
@@ -994,7 +1118,6 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             for sampled_data in neighbor_sampler:
                 optimizer.zero_grad()
                 sampled_data: TargetDependantSampledData = sampled_data
-                # 由于现在的Model设计是接受Data的，所以只能组装一个采样的Data作为参数
                 sampled_graph: autogl.data.Data = autogl.data.Data(
                     x=integral_data.x[sampled_data.all_sampled_nodes_indexes],
                     y=integral_data.y[sampled_data.all_sampled_nodes_indexes]
@@ -1057,6 +1180,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         """
         self.model.model.eval()
         integral_data = integral_data.to(torch.device("cpu"))
+        mask_or_target_nodes_indexes = mask_or_target_nodes_indexes.to(torch.device("cpu"))
         if isinstance(self.model.model, SequentialGraphNeuralNetwork):
             sequential_gnn_model: SequentialGraphNeuralNetwork = self.model.model
             __num_layers: int = len(self.__sampling_sizes)
@@ -1064,11 +1188,24 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             x: torch.Tensor = getattr(integral_data, "x")
             for _current_layer_index in range(__num_layers - 1):
                 __next_x: _typing.Optional[torch.Tensor] = None
-                current_neighbor_sampler: NeighborSampler = NeighborSampler(
-                    integral_data.edge_index, torch.arange(x.size(0)).unique(),
-                    [-1], batch_size=self.__predicting_batch_size,
-                    num_workers=self.__predicting_sampler_num_workers, shuffle=False
+
+                _optional_neighbor_sampler: _typing.Optional[NeighborSampler] = (
+                    self.__neighbor_sampler_store[torch.arange(x.size(0)).unique()]
                 )
+                if (
+                        _optional_neighbor_sampler is not None and
+                        type(_optional_neighbor_sampler) == NeighborSampler
+                ):
+                    current_neighbor_sampler: NeighborSampler = _optional_neighbor_sampler
+                else:
+                    current_neighbor_sampler: NeighborSampler = NeighborSampler(
+                        integral_data.edge_index, torch.arange(x.size(0)).unique(),
+                        [-1], batch_size=self.__predicting_batch_size,
+                        num_workers=self.__predicting_sampler_num_workers, shuffle=False
+                    )
+                    __temp: _typing.Any = torch.arange(x.size(0))
+                    self.__neighbor_sampler_store[__temp] = current_neighbor_sampler
+
                 for _target_dependant_sampled_data in current_neighbor_sampler:
                     _target_dependant_sampled_data: TargetDependantSampledData = (
                         _target_dependant_sampled_data
@@ -1085,13 +1222,13 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
                         __sampled_graph_inferences: torch.Tensor = (
                             sequential_gnn_model.encoder_sequential_modules[_current_layer_index](_sampled_graph)
                         )
-                    __sampled_graph_inferences: torch.Tensor = __sampled_graph_inferences.cpu()
+                        _sampled_target_nodes_inferences: torch.Tensor = __sampled_graph_inferences[
+                            _target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph
+                        ].cpu()
                     if __next_x is None:
                         __next_x: torch.Tensor = torch.zeros(x.size(0), __sampled_graph_inferences.size(1))
                     __next_x[_target_dependant_sampled_data.target_nodes_indexes.indexes_in_integral_graph] = (
-                        __sampled_graph_inferences[
-                            _target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph
-                        ]
+                        _sampled_target_nodes_inferences
                     )
                 x: torch.Tensor = __next_x
             # The following procedures are for the top layer
@@ -1102,11 +1239,22 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             else:
                 target_nodes_indexes: _typing.Any = mask_or_target_nodes_indexes.long()
 
-            current_neighbor_sampler: NeighborSampler = NeighborSampler(
-                integral_data.edge_index, target_nodes_indexes,
-                [-1], batch_size=self.__predicting_batch_size,
-                num_workers=self.__predicting_sampler_num_workers, shuffle=False
+            _optional_neighbor_sampler: _typing.Optional[NeighborSampler] = (
+                self.__neighbor_sampler_store[target_nodes_indexes]
             )
+            if (
+                    _optional_neighbor_sampler is not None and
+                    type(_optional_neighbor_sampler) == NeighborSampler
+            ):
+                current_neighbor_sampler: NeighborSampler = _optional_neighbor_sampler
+            else:
+                current_neighbor_sampler: NeighborSampler = NeighborSampler(
+                    integral_data.edge_index, target_nodes_indexes,
+                    [-1], batch_size=self.__predicting_batch_size,
+                    num_workers=self.__predicting_sampler_num_workers, shuffle=False
+                )
+                self.__neighbor_sampler_store[target_nodes_indexes] = current_neighbor_sampler
+
             prediction_batch_cumulative_builder = (
                 EvaluatorUtility.PredictionBatchCumulativeBuilder()
             )
@@ -1173,7 +1321,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         :param in_log_format:
         :return:
         """
-        data = dataset[0].to(self.device)
+        data = dataset[0].to(torch.device("cpu"))
         if mask is not None and type(mask) == str:
             if mask.lower() == "train":
                 _mask: torch.BoolTensor = data.train_mask
@@ -1238,6 +1386,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         data = dataset[0]
         self.__train_only(data)
         if keep_valid_result:
+            data = data.to(torch.device("cpu"))
             prediction: torch.Tensor = self.__predict_only(data, data.val_mask)
             self._valid_result: torch.Tensor = prediction.max(1)[1]
             self._valid_result_prob: torch.Tensor = prediction
@@ -1272,28 +1421,19 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             raise TypeError
         self._hyper_parameter_space = hp_space
 
-    def get_name_with_hp(self) -> str:
-        name = "-".join(
-            [
-                str(self._optimizer_class),
-                str(self._learning_rate),
-                str(self._max_epoch),
-                str(self._early_stopping.patience),
-                str(self.model),
-                str(self.device),
-            ]
+    def __repr__(self) -> str:
+        import yaml
+        return yaml.dump(
+            {
+                "trainer_name": self.__class__.__name__,
+                "optimizer": self._optimizer_class,
+                "learning_rate": self._learning_rate,
+                "max_epoch": self._max_epoch,
+                "early_stopping_round": self._early_stopping.patience,
+                "sampling_sizes": self.__sampling_sizes,
+                "model": repr(self.model)
+            }
         )
-        name = (
-            name
-            + "|"
-            + "-".join(
-                [
-                    str(x[0]) + "-" + str(x[1])
-                    for x in self.model.get_hyper_parameter().items()
-                ]
-            )
-        )
-        return name
 
     def duplicate_from_hyper_parameter(
             self,

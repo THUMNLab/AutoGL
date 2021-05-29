@@ -15,7 +15,7 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import BaseModel, MODEL_DICT
 from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space
-from ..utils import Leaderboard, set_seed
+from ..utils import LeaderBoard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
 
@@ -284,7 +284,7 @@ class AutoGraphClassifier(BaseClassifier):
         assert isinstance(evaluation_method, list)
         evaluator_list = get_feval(evaluation_method)
 
-        self.leaderboard = Leaderboard(
+        self.leaderboard = LeaderBoard(
             [e.get_eval_name() for e in evaluator_list],
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
@@ -365,14 +365,15 @@ class AutoGraphClassifier(BaseClassifier):
                     )
                 # to save memory, all the trainer derived will be mapped to cpu
                 optimized.to(torch.device("cpu"))
-                name = optimized.get_name_with_hp()
+                name = str(optimized)
                 names.append(name)
                 performance_on_valid, _ = optimized.get_valid_score(return_major=False)
                 result_valid.append(
                     optimized.get_valid_predict_proba().detach().cpu().numpy()
                 )
-                self.leaderboard.insert_model_performance(
+                self.leaderboard.add_performance(
                     name,
+                    repr(optimized),
                     dict(
                         zip(
                             [e.get_eval_name() for e in evaluator_list],
@@ -409,7 +410,7 @@ class AutoGraphClassifier(BaseClassifier):
                         )
                     # to save memory, all the trainer derived will be mapped to cpu
                     optimized.to(torch.device("cpu"))
-                    name = optimized.get_name_with_hp() + "_cv%d_idx%d" % (i, idx)
+                    name = str(optimized) + "_cv%d_idx%d" % (i, idx)
                     names.append(name)
                     # evaluate on val_split of input dataset
                     performance_on_valid = optimized.evaluate(dataset, mask="val")
@@ -419,8 +420,8 @@ class AutoGraphClassifier(BaseClassifier):
                         .cpu()
                         .numpy()
                     )
-                    self.leaderboard.insert_model_performance(
-                        name,
+                    self.leaderboard.add_performance(
+                        name, repr(optimized),
                         dict(
                             zip(
                                 [e.get_eval_name() for e in evaluator_list],
@@ -439,8 +440,8 @@ class AutoGraphClassifier(BaseClassifier):
                 evaluator_list,
                 n_classes=dataset.num_classes,
             )
-            self.leaderboard.insert_model_performance(
-                "ensemble",
+            self.leaderboard.add_performance(
+                "ensemble", "ensemble",
                 dict(zip([e.get_eval_name() for e in evaluator_list], performance)),
             )
 

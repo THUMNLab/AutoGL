@@ -12,7 +12,7 @@ from ..module.feature import FEATURE_DICT
 from ..module.hpo import HPO_DICT
 from ..module.model import MODEL_DICT
 from ..module import BaseFeatureAtom, BaseHPOptimizer, BaseTrainer
-from .utils import Leaderboard
+from .utils import LeaderBoard
 from ..utils import get_logger
 
 LOGGER = get_logger("BaseSolver")
@@ -307,7 +307,7 @@ class BaseSolver:
         """
         raise NotImplementedError()
 
-    def get_leaderboard(self) -> Leaderboard:
+    def get_leaderboard(self) -> LeaderBoard:
         r"""
         Get the current leaderboard of this solver.
 
