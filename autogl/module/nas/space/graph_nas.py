@@ -43,6 +43,9 @@ class LambdaModule(nn.Module):
 
     def forward(self, x):
         return self.lambd(x)
+    
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__,self.lambd)
 class StrModule(nn.Module):
     def __init__(self, lambd):
         super().__init__()
@@ -50,6 +53,9 @@ class StrModule(nn.Module):
 
     def forward(self, *args,**kwargs):
         return self.str  
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__,self.str)
 def act_map(act):
     if act == "linear":
         return lambda x: x
@@ -108,7 +114,11 @@ def gnn_map(gnn_name, in_dim, out_dim, concat=False, bias=True) -> nn.Module:
     elif gnn_name == "linear":
         return LinearConv(in_dim, out_dim, bias=bias)
     elif gnn_name == "zero":
-        return ZeroConv(in_dim, out_dim, bias=bias)
+        # return ZeroConv(in_dim, out_dim, bias=bias)
+        return Identity()
+class Identity(nn.Module):
+    def forward(self, x, edge_index, edge_weight=None):
+        return x
 class LinearConv(nn.Module):
     def __init__(self,
                  in_channels,
@@ -128,6 +138,15 @@ class LinearConv(nn.Module):
                                    self.out_channels)
 
 
+from torch.autograd import Function
+class ZeroConvFunc(Function):
+    @staticmethod
+    def forward(ctx,x):
+        return x
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return 0
 class ZeroConv(nn.Module):
     def __init__(self,
                  in_channels,
@@ -138,9 +157,8 @@ class ZeroConv(nn.Module):
         self.out_channels = out_channels
         self.out_dim = out_channels
 
-
     def forward(self, x, edge_index, edge_weight=None):
-        return torch.zeros([x.size(0), self.out_dim]).to(x.device)
+        return ZeroConvFunc.apply(torch.zeros([x.size(0), self.out_dim]).to(x.device))
 
     def __repr__(self):
         return '{}({}, {})'.format(self.__class__.__name__, self.in_channels,
@@ -193,6 +211,8 @@ class GraphNasNodeClassificationSpace(BaseSpace):
             setattr(self,f"act",self.setLayerChoice(2*layer,[act_map_nn(a)for a in act_list],key=f"act"))
             setattr(self,f"concat",self.setLayerChoice(2*layer+1,map_nn(["add", "product", "concat"]) ,key=f"concat"))
         self._initialized = True
+        self.classifier1 = nn.Linear(self.hidden_dim*self.layer_number, self.output_dim)
+        self.classifier2 = nn.Linear(self.hidden_dim, self.output_dim)
 
     def forward(self, data):
         x, edges = data.x, data.edge_index # x [2708,1433] ,[2, 10556]
@@ -202,10 +222,11 @@ class GraphNasNodeClassificationSpace(BaseSpace):
             node_in = getattr(self, f"in_{layer}")(prev_nodes_out)
             node_out= getattr(self, f"op_{layer}")(node_in,edges)
             prev_nodes_out.append(node_out)
-        if self.search_act_con:
+        if not self.search_act_con:
             x = torch.cat(prev_nodes_out[2:],dim=1)
             x = F.leaky_relu(x)
             x = F.dropout(x, p=self.dropout, training = self.training)
+            x = self.classifier1(x)
         else:
             act=getattr(self, f"act")
             con=getattr(self, f"concat")()
@@ -222,6 +243,10 @@ class GraphNasNodeClassificationSpace(BaseSpace):
                 x=tmp
             x = act(x)
             x = F.dropout(x, p=self.dropout, training = self.training)
+            if con=='concat':
+                x=self.classifier1(x)
+            else:
+                x=self.classifier2(x)
         return F.log_softmax(x, dim=1)
 
     def export(self, selection, device) -> BaseModel:

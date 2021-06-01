@@ -9,8 +9,11 @@ from autogl.module.nas import Darts, OneShotEstimator
 from autogl.module.nas.space.graph_nas import GraphNasNodeClassificationSpace
 from autogl.module.train import Acc
 from autogl.module.nas.algorithm.enas import Enas
-
+from autogl.module.nas.algorithm.rl import RL
+from autogl.module.nas.estimator.one_shot import TrainEstimator
+import logging
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.WARNING)
     dataset = build_dataset_from_name('cora')
     solver = AutoNodeClassifier(
         feature_module='PYGNormalizeFeatures',
@@ -28,10 +31,10 @@ if __name__ == '__main__':
             feval=['acc'],
             loss="nll_loss",
             lr_scheduler_type=None,),
-        nas_algorithms=[Enas(num_epochs=400,n_warmup=250)],
+        nas_algorithms=[RL(num_epochs=400)],
         #nas_algorithms=[Darts(num_epochs=200)],
-        nas_spaces=[GraphNasNodeClassificationSpace(hidden_dim=32,search_act_con=False,layer_number=2)],
-        nas_estimators=[OneShotEstimator()]
+        nas_spaces=[GraphNasNodeClassificationSpace(hidden_dim=16,search_act_con=True,layer_number=2)],
+        nas_estimators=[TrainEstimator()]
     )
     solver.fit(dataset)
     solver.get_leaderboard().show()
