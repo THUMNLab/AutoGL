@@ -321,6 +321,10 @@ class ClassificationModel(_BaseModel):
         else:
             self.__num_graph_features: int = 0
 
+    def __repr__(self) -> str:
+        import yaml
+        return yaml.dump(self.hyper_parameter)
+
     @property
     def num_classes(self) -> int:
         return self.__num_classes

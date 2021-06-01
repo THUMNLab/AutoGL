@@ -290,9 +290,6 @@ class BaseTrainer:
     def __repr__(self) -> str:
         raise NotImplementedError
 
-    def __str__(self) -> str:
-        return repr(self)
-
     def evaluate(self, dataset, mask=None, feval=None):
         """
 

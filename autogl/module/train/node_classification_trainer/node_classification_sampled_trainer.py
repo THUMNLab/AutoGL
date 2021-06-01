@@ -613,6 +613,10 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
                     current_layer.edge_index_for_sampled_graph.to(self.device)
                     for current_layer in sampled_data.sampled_edges_for_layers
                 ]
+                sampled_graph.edge_weights: _typing.Sequence[torch.Tensor] = [
+                    current_layer.edge_weight.to(self.device)
+                    for current_layer in sampled_data.sampled_edges_for_layers
+                ]
                 prediction: torch.Tensor = self.model.model(sampled_graph)
                 if not hasattr(torch.nn.functional, self.loss):
                     raise TypeError(

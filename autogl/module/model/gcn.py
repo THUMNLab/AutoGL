@@ -142,7 +142,7 @@ class GCN(SequentialGraphNeuralNetwork):
         if (
                 hasattr(data, "edge_weights") and
                 isinstance(getattr(data, "edge_weights"), _typing.Sequence) and
-                len(getattr(data, "edge_weights")) == len(self.__convolution_layers)
+                len(getattr(data, "edge_weights")) == len(self.__sequential_module_list)
         ):
             return [
                 __compose_edge_index_and_weight(_edge_index, _edge_weight)

@@ -134,12 +134,11 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
             shuffle: bool = True, **kwargs
     ):
         self._edge_index: torch.LongTensor = edge_index
-        self.__target_nodes_indexes: torch.LongTensor = target_nodes_indexes
         self.__layer_wise_arguments: _typing.Sequence = layer_wise_arguments
         if "collate_fn" in kwargs:
             del kwargs["collate_fn"]
         super(BasicLayerWiseTargetDependantSampler, self).__init__(
-            self.__target_nodes_indexes.unique().tolist(),
+            target_nodes_indexes.unique().tolist(),
             batch_size, shuffle, num_workers=num_workers,
             collate_fn=self._collate_fn, **kwargs
         )
@@ -169,12 +168,14 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
         )
 
     def _sample_edges_for_layer(
-            self, target_nodes_indexes: torch.LongTensor,
+            self, __current_layer_target_nodes_indexes: torch.LongTensor,
+            __top_layer_target_nodes_indexes: torch.LongTensor,
             layer_argument: _typing.Any, *args, **kwargs
     ) -> _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]:
         """
         Sample edges for one layer
-        :param target_nodes_indexes: indexes of target nodes
+        :param __current_layer_target_nodes_indexes: target nodes for current layer
+        :param __top_layer_target_nodes_indexes: target nodes for top layer
         :param layer_argument: argument for current layer
         :param args: remaining positional arguments
         :param kwargs: remaining keyword arguments
@@ -185,27 +186,28 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
     def _collate_fn(
             self, top_layer_target_nodes_indexes_list: _typing.List[int]
     ) -> TargetDependantSampledData:
-        return self.__sample_layers(top_layer_target_nodes_indexes_list)
+        return self.__sample_layers(torch.tensor(top_layer_target_nodes_indexes_list).unique())
 
     def __sample_layers(
-            self, top_layer_target_nodes_indexes_list: _typing.Sequence[int]
+            self, __top_layer_target_nodes_indexes: torch.LongTensor
     ) -> TargetDependantSampledData:
         sampled_edges_for_layers: _typing.List[
             _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
         ] = list()
-        top_layer_target_nodes_indexes: torch.LongTensor = (
-            torch.tensor(top_layer_target_nodes_indexes_list).unique()
-        )   # sorted
-        target_nodes_indexes: torch.LongTensor = top_layer_target_nodes_indexes
+        __current_layer_target_nodes_indexes: torch.LongTensor = __top_layer_target_nodes_indexes
         " Reverse self.__layer_wise_arguments from bottom-up to top-down "
         for layer_argument in self.__layer_wise_arguments[::-1]:
             current_layer_result: _typing.Tuple[
                 torch.LongTensor, _typing.Optional[torch.Tensor]
-            ] = self._sample_edges_for_layer(target_nodes_indexes, layer_argument)
+            ] = self._sample_edges_for_layer(
+                __current_layer_target_nodes_indexes,
+                __top_layer_target_nodes_indexes,
+                layer_argument
+            )
             __source_nodes_indexes_for_current_layer: torch.Tensor = (
                 self._edge_index[0, current_layer_result[0]]
             )
-            target_nodes_indexes: torch.LongTensor = (
+            __current_layer_target_nodes_indexes: torch.LongTensor = (
                 __source_nodes_indexes_for_current_layer.unique()
             )
             sampled_edges_for_layers.append(current_layer_result)
@@ -252,12 +254,17 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
                 torch.tensor(
                     [
                         __sampled_nodes_in_sub_graph_mapping.get(current_target_node_index_in_integral_data)
-                        for current_target_node_index_in_integral_data
-                        in top_layer_target_nodes_indexes.tolist()
+                        for current_target_node_index_in_integral_data in __top_layer_target_nodes_indexes.tolist()
                         if current_target_node_index_in_integral_data in __sampled_nodes_in_sub_graph_mapping
                     ]
                 ).long(),  # Remap
-                top_layer_target_nodes_indexes
+                torch.tensor(
+                    [
+                        current_target_node_index_in_integral_data
+                        for current_target_node_index_in_integral_data in __top_layer_target_nodes_indexes.tolist()
+                        if current_target_node_index_in_integral_data in __sampled_nodes_in_sub_graph_mapping
+                    ]
+                ).long()
             ),
             sampled_nodes_in_sub_graph
         )
