@@ -169,7 +169,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         self,
         hidden_dim: _typ.Optional[int] = 64,
         layer_number: _typ.Optional[int] = 2,
-        dropout: _typ.Optional[float] = 0.2,
+        dropout: _typ.Optional[float] = 0.9,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,
@@ -216,6 +216,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
 
     def forward(self, data):
         x, edges = data.x, data.edge_index # x [2708,1433] ,[2, 10556]
+        x = F.dropout(x, p=self.dropout, training = self.training)
         pprev_, prev_ = self.preproc0(x), self.preproc1(x)
         prev_nodes_out = [pprev_,prev_]
         for layer in range(2,self.layer_number+2):
@@ -225,7 +226,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         if not self.search_act_con:
             x = torch.cat(prev_nodes_out[2:],dim=1)
             x = F.leaky_relu(x)
-            x = F.dropout(x, p=self.dropout, training = self.training)
             x = self.classifier1(x)
         else:
             act=getattr(self, f"act")
@@ -242,7 +242,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
                         tmp = torch.mul(tmp, states[i])
                 x=tmp
             x = act(x)
-            x = F.dropout(x, p=self.dropout, training = self.training)
             if con=='concat':
                 x=self.classifier1(x)
             else:
