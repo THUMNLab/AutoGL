@@ -138,7 +138,7 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
         if "collate_fn" in kwargs:
             del kwargs["collate_fn"]
         super(BasicLayerWiseTargetDependantSampler, self).__init__(
-            target_nodes_indexes.unique().tolist(),
+            target_nodes_indexes.unique().numpy(),
             batch_size, shuffle, num_workers=num_workers,
             collate_fn=self._collate_fn, **kwargs
         )

@@ -319,6 +319,8 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         :param dataset:
         :param keep_valid_result: Whether to save the validation result after training
         """
+        import gc
+        gc.collect()
         data = dataset[0]
         self.__train_only(data)
         if keep_valid_result:
@@ -879,6 +881,8 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         :param dataset:
         :param keep_valid_result: Whether to save the validation result after training
         """
+        import gc
+        gc.collect()
         data = dataset[0]
         self.__train_only(data)
         if keep_valid_result:
@@ -1387,6 +1391,8 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         :param dataset:
         :param keep_valid_result: Whether to save the validation result after training
         """
+        import gc
+        gc.collect()
         data = dataset[0]
         self.__train_only(data)
         if keep_valid_result:

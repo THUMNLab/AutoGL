@@ -72,33 +72,66 @@ class GCN(SequentialGraphNeuralNetwork):
             num_features: int,
             num_classes: int,
             hidden_features: _typing.Sequence[int],
-            dropout: float,
+            dropout: _typing.Union[float, _typing.Sequence[_typing.Optional[float]]],
             activation_name: str,
             add_self_loops: bool = True,
             normalize: bool = True
     ):
+        if isinstance(dropout, _typing.Sequence):
+            if len(dropout) != len(hidden_features) + 1:
+                raise TypeError(
+                    "When the dropout argument is a sequence, "
+                    "The sequence length must equal to the number of layers to construct."
+                )
+            for _dropout in dropout:
+                if _dropout is not None and type(_dropout) != float:
+                    raise TypeError(
+                        "When the dropout argument is a sequence, "
+                        "every item in the sequence must be float or None"
+                    )
+            dropout_list: _typing.Sequence[_typing.Optional[float]] = dropout
+        elif type(dropout) == float:
+            if dropout < 0:
+                dropout = 0
+            if dropout > 1:
+                dropout = 1
+            dropout_list: _typing.Sequence[_typing.Optional[float]] = [
+                dropout for _ in range(len(hidden_features) + 1)
+            ]
+        else:
+            raise TypeError(
+                "The provided dropout argument must be a float "
+                "or a sequence in which each item is either float or None."
+            )
         super().__init__()
         if len(hidden_features) == 0:
             self.__sequential_module_list: torch.nn.ModuleList = torch.nn.ModuleList(
-                (self._GCNLayer(num_features, num_classes, add_self_loops, normalize),)
+                (
+                    self._GCNLayer(
+                        num_features, num_classes, add_self_loops, normalize,
+                        dropout_probability=dropout_list[0]
+                    ),
+                )
             )
         else:
             self.__sequential_module_list: torch.nn.ModuleList = torch.nn.ModuleList()
             self.__sequential_module_list.append(self._GCNLayer(
                 num_features, hidden_features[0], add_self_loops,
-                normalize, activation_name, dropout
+                normalize, activation_name, dropout_list[0]
             ))
             for hidden_feature_index in range(len(hidden_features)):
                 if hidden_feature_index + 1 < len(hidden_features):
                     self.__sequential_module_list.append(self._GCNLayer(
                         hidden_features[hidden_feature_index],
                         hidden_features[hidden_feature_index + 1],
-                        add_self_loops, normalize, activation_name, dropout
+                        add_self_loops, normalize, activation_name,
+                        dropout_list[hidden_feature_index + 1]
                     ))
                 else:
                     self.__sequential_module_list.append(self._GCNLayer(
                         hidden_features[hidden_feature_index], num_classes,
-                        add_self_loops, normalize
+                        add_self_loops, normalize,
+                        dropout_list[-1]
                     ))
 
     def decode(self, x: torch.Tensor) -> torch.Tensor:
