@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional
 import torch_geometric
+from torch_geometric.nn import GCNConv
 import typing as _typing
 from . import register_model
 from .base import BaseModel, activate_func, ClassificationModel
@@ -23,23 +24,19 @@ class GCN(torch.nn.Module):
         num_layers: int = len(hidden_features) + 1
         if num_layers == 1:
             self.__convolution_layers.append(
-                torch_geometric.nn.GCNConv(
-                    num_features, num_classes, add_self_loops=False
-                )
+                GCNConv(num_features, num_classes)
             )
         else:
             self.__convolution_layers.append(
-                torch_geometric.nn.GCNConv(
-                    num_features, hidden_features[0], add_self_loops=False
-                )
+                GCNConv(num_features, hidden_features[0])
             )
             for i in range(len(hidden_features)):
                 self.__convolution_layers.append(
-                    torch_geometric.nn.GCNConv(
+                    GCNConv(
                         hidden_features[i], hidden_features[i + 1]
                     )
                     if i + 1 < len(hidden_features)
-                    else torch_geometric.nn.GCNConv(hidden_features[i], num_classes)
+                    else GCNConv(hidden_features[i], num_classes)
                 )
         self.__dropout: float = dropout
         self.__activation_name: str = activation_name

@@ -217,8 +217,8 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             self.early_stopping(val_loss, self.model.model)
             if self.early_stopping.early_stop:
                 LOGGER.debug("Early stopping at %d", epoch)
-                self.early_stopping.load_checkpoint(self.model.model)
                 break
+        self.early_stopping.load_checkpoint(self.model.model)
 
     def predict_only(self, data, test_mask=None):
         """
