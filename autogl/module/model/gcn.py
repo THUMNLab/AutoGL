@@ -23,18 +23,12 @@ class GCN(torch.nn.Module):
         self.__convolution_layers: torch.nn.ModuleList = torch.nn.ModuleList()
         num_layers: int = len(hidden_features) + 1
         if num_layers == 1:
-            self.__convolution_layers.append(
-                GCNConv(num_features, num_classes)
-            )
+            self.__convolution_layers.append(GCNConv(num_features, num_classes))
         else:
-            self.__convolution_layers.append(
-                GCNConv(num_features, hidden_features[0])
-            )
+            self.__convolution_layers.append(GCNConv(num_features, hidden_features[0]))
             for i in range(len(hidden_features)):
                 self.__convolution_layers.append(
-                    GCNConv(
-                        hidden_features[i], hidden_features[i + 1]
-                    )
+                    GCNConv(hidden_features[i], hidden_features[i + 1])
                     if i + 1 < len(hidden_features)
                     else GCNConv(hidden_features[i], num_classes)
                 )
@@ -109,9 +103,8 @@ class GCN(torch.nn.Module):
         return (prob_adj > 0).nonzero(as_tuple=False).t()
 
 
-
-#@register_model("gcn")
-#class AutoGCN(ClassificationModel):
+# @register_model("gcn")
+# class AutoGCN(ClassificationModel):
 @register_model("gcn")
 class AutoGCN(BaseModel):
     r"""

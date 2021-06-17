@@ -195,8 +195,8 @@ class AutoLinkPredictor(BaseClassifier):
     def _to_prob(self, sig_prob: np.ndarray):
         nelements = len(sig_prob)
         prob = np.zeros([nelements, 2])
-        prob[:,0] = 1 - sig_prob
-        prob[:,1] = sig_prob
+        prob[:, 0] = 1 - sig_prob
+        prob[:, 1] = sig_prob
         return prob
 
     # pylint: disable=arguments-differ
@@ -277,14 +277,19 @@ class AutoLinkPredictor(BaseClassifier):
         if train_split is not None and val_split is not None:
             utils.split_edges(dataset, train_split, val_split)
         else:
-            assert all([hasattr(dataset.data, f'{name}') for name in [
-                'train_pos_edge_index', 
-                'train_neg_adj_mask', 
-                'val_pos_edge_index',
-                'val_neg_edge_index', 
-                'test_pos_edge_index', 
-                'test_neg_edge_index'
-            ]]), (
+            assert all(
+                [
+                    hasattr(dataset.data, f"{name}")
+                    for name in [
+                        "train_pos_edge_index",
+                        "train_neg_adj_mask",
+                        "val_pos_edge_index",
+                        "val_neg_edge_index",
+                        "test_pos_edge_index",
+                        "test_neg_edge_index",
+                    ]
+                ]
+            ), (
                 "The dataset has no default train/val split! Please manually pass "
                 "train and val ratio."
             )
@@ -307,7 +312,9 @@ class AutoLinkPredictor(BaseClassifier):
             num_features=self.dataset[0].x.shape[1],
             feval=evaluator_list,
             device=self.runtime_device,
-            loss="binary_cross_entropy_with_logits" if not hasattr(dataset, "loss") else dataset.loss,
+            loss="binary_cross_entropy_with_logits"
+            if not hasattr(dataset, "loss")
+            else dataset.loss,
         )
 
         # train the models and tune hpo
@@ -330,7 +337,9 @@ class AutoLinkPredictor(BaseClassifier):
             name = optimized.get_name_with_hp() + "_idx%d" % (idx)
             names.append(name)
             performance_on_valid, _ = optimized.get_valid_score(return_major=False)
-            result_valid.append(self._to_prob(optimized.get_valid_predict_proba().cpu().numpy()))
+            result_valid.append(
+                self._to_prob(optimized.get_valid_predict_proba().cpu().numpy())
+            )
             self.leaderboard.insert_model_performance(
                 name,
                 dict(
@@ -344,10 +353,13 @@ class AutoLinkPredictor(BaseClassifier):
 
         # fit the ensemble model
         if self.ensemble_module is not None:
-            pos_edge_index, neg_edge_index = self.dataset[0].val_pos_edge_index, self.dataset[0].val_neg_edge_index
+            pos_edge_index, neg_edge_index = (
+                self.dataset[0].val_pos_edge_index,
+                self.dataset[0].val_neg_edge_index,
+            )
             E = pos_edge_index.size(1) + neg_edge_index.size(1)
             link_labels = torch.zeros(E, dtype=torch.float)
-            link_labels[:pos_edge_index.size(1)] = 1.
+            link_labels[: pos_edge_index.size(1)] = 1.0
 
             performance = self.ensemble_module.fit(
                 result_valid,
@@ -519,10 +531,12 @@ class AutoLinkPredictor(BaseClassifier):
             names = []
             for model_name in self.trained_models:
                 predict_result.append(
-                    self._to_prob(self._predict_proba_by_name(dataset, model_name, mask))
+                    self._to_prob(
+                        self._predict_proba_by_name(dataset, model_name, mask)
+                    )
                 )
                 names.append(model_name)
-            return self.ensemble_module.ensemble(predict_result, names)[:,1]
+            return self.ensemble_module.ensemble(predict_result, names)[:, 1]
 
         if use_ensemble and self.ensemble_module is None:
             LOGGER.warning(

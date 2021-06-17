@@ -120,7 +120,9 @@ class Auc(Evaluation):
         if len(predict.shape) == 1:
             pos_predict = predict
         else:
-            assert predict.shape[1] == 2, "Cannot use auc on given data with %d classes!" % (predict.shape[1])
+            assert (
+                predict.shape[1] == 2
+            ), "Cannot use auc on given data with %d classes!" % (predict.shape[1])
             pos_predict = predict[:, 1]
         return roc_auc_score(label, pos_predict)
 
@@ -169,7 +171,9 @@ class Mrr(Evaluation):
         Should return: the evaluation result (float)
         """
         if len(predict.shape) == 2:
-            assert predict.shape[1] == 2, "Cannot use mrr on given data with %d classes!" % (predict.shape[1])
+            assert (
+                predict.shape[1] == 2
+            ), "Cannot use mrr on given data with %d classes!" % (predict.shape[1])
             pos_predict = predict[:, 1]
         else:
             pos_predict = predict

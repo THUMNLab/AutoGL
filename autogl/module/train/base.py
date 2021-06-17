@@ -403,6 +403,7 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
             model, num_features, num_classes, device, init, feval, loss
         )
 
+
 class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
     def __init__(
         self,

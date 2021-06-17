@@ -4,8 +4,9 @@ from .base import (
     Evaluation,
     BaseNodeClassificationTrainer,
     BaseGraphClassificationTrainer,
-    BaseLinkPredictionTrainer
+    BaseLinkPredictionTrainer,
 )
+
 
 def register_trainer(name):
     def register_trainer_cls(cls):
@@ -19,6 +20,7 @@ def register_trainer(name):
         return cls
 
     return register_trainer_cls
+
 
 from .graph_classification_full import GraphClassificationFullTrainer
 from .node_classification_full import NodeClassificationFullTrainer
@@ -39,5 +41,5 @@ __all__ = [
     "Auc",
     "Logloss",
     "Mrr",
-    "get_feval"
+    "get_feval",
 ]

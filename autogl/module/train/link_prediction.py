@@ -13,6 +13,7 @@ from ...utils import get_logger
 
 LOGGER = get_logger("link prediction trainer")
 
+
 def get_feval(feval):
     if isinstance(feval, str):
         return EVALUATE_DICT[feval]
@@ -65,12 +66,12 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         max_epoch=100,
         early_stopping_round=101,
         weight_decay=1e-4,
-        device='auto',
+        device="auto",
         init=True,
         feval=[Auc],
         loss="binary_cross_entropy_with_logits",
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(model, num_features, device, init, feval, loss)
 
@@ -189,19 +190,27 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             self.model.model.train()
 
             neg_edge_index = negative_sampling(
-                edge_index=data.train_pos_edge_index, num_nodes=data.num_nodes,
-                num_neg_samples=data.train_pos_edge_index.size(1))
+                edge_index=data.train_pos_edge_index,
+                num_nodes=data.num_nodes,
+                num_neg_samples=data.train_pos_edge_index.size(1),
+            )
 
             optimizer.zero_grad()
             # res = self.model.model.forward(data)
             z = self.model.model.encode(data)
-            link_logits = self.model.model.decode(z, data.train_pos_edge_index, neg_edge_index)
-            link_labels = self.get_link_labels(data.train_pos_edge_index, neg_edge_index)
+            link_logits = self.model.model.decode(
+                z, data.train_pos_edge_index, neg_edge_index
+            )
+            link_labels = self.get_link_labels(
+                data.train_pos_edge_index, neg_edge_index
+            )
             # loss = F.binary_cross_entropy_with_logits(link_logits, link_labels)
             if hasattr(F, self.loss):
                 loss = getattr(F, self.loss)(link_logits, link_labels)
             else:
-                raise TypeError("PyTorch does not support loss type {}".format(self.loss))
+                raise TypeError(
+                    "PyTorch does not support loss type {}".format(self.loss)
+                )
 
             loss.backward()
             optimizer.step()
@@ -211,7 +220,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 feval = self.feval[0]
             else:
                 feval = self.feval
-            val_loss = self.evaluate([data], mask='val', feval=feval)
+            val_loss = self.evaluate([data], mask="val", feval=feval)
             if feval.is_higher_better() is True:
                 val_loss = -val_loss
             self.early_stopping(val_loss, self.model.model)
@@ -261,10 +270,8 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         self.train_only(data)
         if keep_valid_result:
             self.valid_result = self.predict_only(data)
-            self.valid_result_prob = self.predict_proba(dataset, 'val')
-            self.valid_score = self.evaluate(
-                dataset, mask='val', feval=self.feval
-            )
+            self.valid_result_prob = self.predict_proba(dataset, "val")
+            self.valid_score = self.evaluate(dataset, mask="val", feval=self.feval)
 
     def predict(self, dataset, mask=None):
         """
@@ -304,11 +311,11 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         data = dataset[0]
         data = data.to(self.device)
         if mask in ["train", "val", "test"]:
-            pos_edge_index = data[f'{mask}_pos_edge_index']
-            neg_edge_index = data[f'{mask}_neg_edge_index']
+            pos_edge_index = data[f"{mask}_pos_edge_index"]
+            neg_edge_index = data[f"{mask}_neg_edge_index"]
         else:
-            pos_edge_index = data[f'test_pos_edge_index']
-            neg_edge_index = data[f'test_neg_edge_index']
+            pos_edge_index = data[f"test_pos_edge_index"]
+            neg_edge_index = data[f"test_neg_edge_index"]
 
         self.model.model.eval()
         with torch.no_grad():
@@ -400,11 +407,11 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             feval = get_feval(feval)
 
         if mask in ["train", "val", "test"]:
-            pos_edge_index = data[f'{mask}_pos_edge_index']
-            neg_edge_index = data[f'{mask}_neg_edge_index']
+            pos_edge_index = data[f"{mask}_pos_edge_index"]
+            neg_edge_index = data[f"{mask}_neg_edge_index"]
         else:
-            pos_edge_index = data[f'test_pos_edge_index']
-            neg_edge_index = data[f'test_neg_edge_index']
+            pos_edge_index = data[f"test_pos_edge_index"]
+            neg_edge_index = data[f"test_neg_edge_index"]
 
         self.model.model.eval()
         with torch.no_grad():
@@ -480,7 +487,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             feval=self.feval,
             init=True,
             *self.args,
-            **self.kwargs
+            **self.kwargs,
         )
 
         return ret
@@ -507,5 +514,5 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
     def get_link_labels(self, pos_edge_index, neg_edge_index):
         E = pos_edge_index.size(1) + neg_edge_index.size(1)
         link_labels = torch.zeros(E, dtype=torch.float, device=self.device)
-        link_labels[:pos_edge_index.size(1)] = 1.
+        link_labels[: pos_edge_index.size(1)] = 1.0
         return link_labels
