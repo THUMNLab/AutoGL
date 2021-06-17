@@ -192,6 +192,13 @@ class AutoLinkPredictor(BaseClassifier):
 
         return self
 
+    def _to_prob(self, sig_prob: np.ndarray):
+        nelements = len(sig_prob)
+        prob = np.zeros([nelements, 2])
+        prob[:,0] = 1 - sig_prob
+        prob[:,1] = sig_prob
+        return prob
+
     # pylint: disable=arguments-differ
     def fit(
         self,
@@ -323,7 +330,7 @@ class AutoLinkPredictor(BaseClassifier):
             name = optimized.get_name_with_hp() + "_idx%d" % (idx)
             names.append(name)
             performance_on_valid, _ = optimized.get_valid_score(return_major=False)
-            result_valid.append(optimized.get_valid_predict_proba().cpu().numpy())
+            result_valid.append(self._to_prob(optimized.get_valid_predict_proba().cpu().numpy()))
             self.leaderboard.insert_model_performance(
                 name,
                 dict(
@@ -512,10 +519,10 @@ class AutoLinkPredictor(BaseClassifier):
             names = []
             for model_name in self.trained_models:
                 predict_result.append(
-                    self._predict_proba_by_name(dataset, model_name, mask)
+                    self._to_prob(self._predict_proba_by_name(dataset, model_name, mask))
                 )
                 names.append(model_name)
-            return self.ensemble_module.ensemble(predict_result, names)
+            return self.ensemble_module.ensemble(predict_result, names)[:,1]
 
         if use_ensemble and self.ensemble_module is None:
             LOGGER.warning(
