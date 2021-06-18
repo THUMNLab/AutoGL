@@ -373,6 +373,7 @@ class RL(BaseNAS):
         result = self.controller.resample()
         self.arch=self.model.export(result,device=self.device)
         self.selection=result
+
     def export(self):
         self.controller.eval()
         with torch.no_grad():

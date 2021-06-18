@@ -56,6 +56,7 @@ class StrModule(nn.Module):
 
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__,self.str)
+
 def act_map(act):
     if act == "linear":
         return lambda x: x
@@ -75,8 +76,10 @@ def act_map(act):
         return torch.nn.functional.leaky_relu
     else:
         raise Exception("wrong activate function")
+
 def act_map_nn(act):
     return LambdaModule(act_map(act))
+
 def map_nn(l):
     return [StrModule(x) for x in l]
 
