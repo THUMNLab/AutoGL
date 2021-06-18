@@ -375,7 +375,6 @@ class RL(BaseNAS):
         metric, loss = self.estimator.infer(self.arch, self.dataset,mask=mask)
         return metric, loss
 
-
 class GraphNasRL(BaseNAS):
     """
     RL in GraphNas.
@@ -424,7 +423,7 @@ class GraphNasRL(BaseNAS):
 
     def __init__(self, device='cuda', workers=4,log_frequency=None,
                  grad_clip=5., entropy_weight=0.0001, skip_weight=0, baseline_decay=0.95,
-                 ctrl_lr=0.00035, ctrl_steps_aggregate=100, ctrl_kwargs=None,n_warmup=100,model_lr=5e-3,model_wd=5e-4,*args,**kwargs):
+                 ctrl_lr=0.00035, ctrl_steps_aggregate=100, ctrl_kwargs=None,n_warmup=100,model_lr=5e-3,model_wd=5e-4,topk=2,*args,**kwargs):
         super().__init__(device)
         self.device=device
         self.num_epochs = kwargs.get("num_epochs", 10)
@@ -443,6 +442,8 @@ class GraphNasRL(BaseNAS):
         self.model_wd = model_wd
         timestamp=datetime.now().strftime('%m%d-%H-%M-%S')
         self.log=open(f'../tmp/log-{timestamp}.txt','w')
+        self.hist=[]
+        self.topk=topk
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset#.to(self.device)
@@ -469,7 +470,9 @@ class GraphNasRL(BaseNAS):
                 l2=self._train_controller(i)
                 bar.set_postfix(reward_controller=l2)
         
-        selection=self.export()
+        # selection=self.export()
+        # diff: graphnas use top 5 models, can evaluate 20 times epoch and choose the best. we just choose the top1.
+        selection=self.hist[0][1] 
         arch=space.export(selection,self.device)
         print(selection,arch)
         return arch
@@ -480,15 +483,21 @@ class GraphNasRL(BaseNAS):
         self.ctrl_optim.zero_grad()
         rewards=[]
         baseline=None
+        # diff: graph nas train 100 and derive 100 for every epoch(10 epochs), we just train 100(20 epochs). totol num of samples are same (2000)
         with tqdm(range(self.ctrl_steps_aggregate)) as bar:
             for ctrl_step in bar:
                 self._resample()
                 metric,loss=self._infer(mask='val')
 
-                bar.set_postfix(acc=metric,loss=loss.item())
+                # bar.set_postfix(acc=metric,loss=loss.item())
                 self.log.write(f'{self.arch}\n{self.selection}\n{metric},{loss}\n')
                 self.log.flush()
-                reward =metric 
+                # diff: not do reward shaping as in graphnas code
+                reward =metric
+                self.hist.append([-metric,self.selection])
+                if len(self.hist)>=self.topk:
+                    self.hist.sort(key=lambda x:x[0])
+                    self.hist.pop()
                 rewards.append(reward)
                 
                 if self.entropy_weight:

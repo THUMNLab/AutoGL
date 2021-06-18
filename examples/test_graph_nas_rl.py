@@ -24,9 +24,9 @@ if __name__ == '__main__':
         ensemble_module=None,
         default_trainer=NodeClassificationFullTrainer(
             optimizer=torch.optim.Adam,
-            lr=0.01,
+            lr=0.005,
             max_epoch=300,
-            early_stopping_round=200,
+            early_stopping_round=30,
             weight_decay=5e-4,
             device="auto",
             init=False,
@@ -34,7 +34,7 @@ if __name__ == '__main__':
             loss="nll_loss",
             lr_scheduler_type=None,),
         # nas_algorithms=[RL(num_epochs=400)],
-        nas_algorithms=[GraphNasRL(num_epochs=100)],
+        nas_algorithms=[GraphNasRL(num_epochs=20)],
         #nas_algorithms=[Darts(num_epochs=200)],
         nas_spaces=[GraphNasMacroNodeClfSpace(hidden_dim=16,search_act_con=True,layer_number=2)],
         nas_estimators=[TrainEstimator()]
