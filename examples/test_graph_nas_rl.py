@@ -12,6 +12,7 @@ from autogl.module.train import Acc
 from autogl.module.nas.algorithm.enas import Enas
 from autogl.module.nas.algorithm.rl import RL
 from autogl.module.nas.estimator.one_shot import TrainEstimator
+from autogl.module.nas.algorithm.random_search import RandomSearch
 import logging
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.WARNING)
@@ -32,7 +33,8 @@ if __name__ == '__main__':
             feval=['acc'],
             loss="nll_loss",
             lr_scheduler_type=None,),
-        nas_algorithms=[RL(num_epochs=400)],
+        # nas_algorithms=[RL(num_epochs=400)],
+        nas_algorithms=[RandomSearch(num_epochs=400)],
         #nas_algorithms=[Darts(num_epochs=200)],
         nas_spaces=[GraphNasMacroNodeClfSpace(hidden_dim=16,search_act_con=True,layer_number=2)],
         nas_estimators=[TrainEstimator()]
