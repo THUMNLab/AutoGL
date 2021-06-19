@@ -26,7 +26,7 @@ if __name__ == '__main__':
             optimizer=torch.optim.Adam,
             lr=0.005,
             max_epoch=300,
-            early_stopping_round=30,
+            early_stopping_round=20,
             weight_decay=5e-4,
             device="auto",
             init=False,
