@@ -105,7 +105,7 @@ class AutoLinkPredictor(BaseClassifier):
     ) -> "AutoLinkPredictor":
         # load graph network module
         self.graph_model_list = []
-        if isinstance(graph_models, list):
+        if isinstance(graph_models, (list, tuple)):
             for model in graph_models:
                 if isinstance(model, str):
                     if model in MODEL_DICT:
@@ -577,6 +577,7 @@ class AutoLinkPredictor(BaseClassifier):
         use_best=True,
         name=None,
         mask="test",
+        threshold=0.5,
     ) -> np.ndarray:
         """
         Predict the node class number.
@@ -611,6 +612,9 @@ class AutoLinkPredictor(BaseClassifier):
         mask: str
             The data split to give prediction on. Default ``test``.
 
+        threshold: float
+            The threshold to judge whether the edges are positive or not.
+
         Returns
         -------
         result: np.ndarray
@@ -620,7 +624,7 @@ class AutoLinkPredictor(BaseClassifier):
         proba = self.predict_proba(
             dataset, inplaced, inplace, use_ensemble, use_best, name, mask
         )
-        return np.argmax(proba, axis=1)
+        return (proba > threshold).astype("int")
 
     @classmethod
     def from_config(cls, path_or_dict, filetype="auto") -> "AutoLinkPredictor":
