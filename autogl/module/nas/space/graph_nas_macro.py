@@ -392,7 +392,7 @@ class GraphNasMacroNodeClfSpace(BaseSpace):
         self,
         hidden_dim: _typ.Optional[int] = 64,
         layer_number: _typ.Optional[int] = 2,
-        dropout: _typ.Optional[float] = 0.9,
+        dropout: _typ.Optional[float] = 0.6,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,

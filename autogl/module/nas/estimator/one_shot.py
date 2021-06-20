@@ -31,9 +31,9 @@ class TrainEstimator(BaseEstimator):
         self.trainer=NodeClassificationFullTrainer(
                     model=model,
                     optimizer=torch.optim.Adam,
-                    lr=0.01,
-                    max_epoch=200,
-                    early_stopping_round=200,
+                    lr=0.005,
+                    max_epoch=300,
+                    early_stopping_round=30,
                     weight_decay=5e-4,
                     device="auto",
                     init=False,

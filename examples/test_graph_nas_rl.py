@@ -10,8 +10,9 @@ from autogl.module.nas.space.graph_nas import GraphNasNodeClassificationSpace
 from autogl.module.nas.space.graph_nas_macro import GraphNasMacroNodeClfSpace
 from autogl.module.train import Acc
 from autogl.module.nas.algorithm.enas import Enas
-from autogl.module.nas.algorithm.rl import RL
+from autogl.module.nas.algorithm.rl import RL,GraphNasRL
 from autogl.module.nas.estimator.one_shot import TrainEstimator
+from autogl.module.nas.algorithm.random_search import RandomSearch
 import logging
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.WARNING)
@@ -23,16 +24,17 @@ if __name__ == '__main__':
         ensemble_module=None,
         default_trainer=NodeClassificationFullTrainer(
             optimizer=torch.optim.Adam,
-            lr=0.01,
-            max_epoch=200,
-            early_stopping_round=200,
+            lr=0.005,
+            max_epoch=300,
+            early_stopping_round=20,
             weight_decay=5e-4,
             device="auto",
             init=False,
             feval=['acc'],
             loss="nll_loss",
             lr_scheduler_type=None,),
-        nas_algorithms=[RL(num_epochs=400)],
+        # nas_algorithms=[RL(num_epochs=400)],
+        nas_algorithms=[GraphNasRL(num_epochs=20)],
         #nas_algorithms=[Darts(num_epochs=200)],
         nas_spaces=[GraphNasMacroNodeClfSpace(hidden_dim=16,search_act_con=True,layer_number=2)],
         nas_estimators=[TrainEstimator()]
