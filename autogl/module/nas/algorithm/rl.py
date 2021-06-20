@@ -12,7 +12,7 @@ from ..utils import AverageMeterGroup, replace_layer_choice, replace_input_choic
 from nni.nas.pytorch.fixed import apply_fixed_architecture
 from tqdm import tqdm
 from datetime import datetime
-
+import numpy as np
 _logger = logging.getLogger(__name__)
 def _get_mask(sampled, total):
     multihot = [i == sampled or (isinstance(sampled, list) and i in sampled) for i in range(total)]
@@ -423,7 +423,7 @@ class GraphNasRL(BaseNAS):
 
     def __init__(self, device='cuda', workers=4,log_frequency=None,
                  grad_clip=5., entropy_weight=0.0001, skip_weight=0, baseline_decay=0.95,
-                 ctrl_lr=0.00035, ctrl_steps_aggregate=100, ctrl_kwargs=None,n_warmup=100,model_lr=5e-3,model_wd=5e-4,topk=2,*args,**kwargs):
+                 ctrl_lr=0.00035, ctrl_steps_aggregate=100, ctrl_kwargs=None,n_warmup=100,model_lr=5e-3,model_wd=5e-4,topk=5,*args,**kwargs):
         super().__init__(device)
         self.device=device
         self.num_epochs = kwargs.get("num_epochs", 10)
@@ -471,12 +471,29 @@ class GraphNasRL(BaseNAS):
                 bar.set_postfix(reward_controller=l2)
         
         # selection=self.export()
-        # diff: graphnas use top 5 models, can evaluate 20 times epoch and choose the best. we just choose the top1.
-        selection=self.hist[0][1] 
+        
+        selections=[x[1] for x in self.hist]
+        candidiate_accs=[-x[0] for x in self.hist]
+        print('candidiate accuracies',candidiate_accs)
+        selection=self._choose_best(selections)
         arch=space.export(selection,self.device)
         print(selection,arch)
         return arch
-    
+    def _choose_best(self,selections):
+        # graphnas use top 5 models, can evaluate 20 times epoch and choose the best.
+        results=[]
+        for selection in selections:
+            accs=[]
+            for i in tqdm(range(20)):
+                self.arch=self.model.export(selection,device=self.device)
+                metric,loss=self._infer(mask='val')
+                accs.append(metric)
+            result=np.mean(accs) 
+            print('selection {} \n acc {:.4f} +- {:.4f}'.format(selection,np.mean(accs),np.std(accs)/np.sqrt(20)))
+            results.append(result)
+        best_selection=selections[np.argmax(results)]
+        return best_selection
+            
     def _train_controller(self, epoch):
         self.model.eval()
         self.controller.train()
@@ -495,7 +512,7 @@ class GraphNasRL(BaseNAS):
                 # diff: not do reward shaping as in graphnas code
                 reward =metric
                 self.hist.append([-metric,self.selection])
-                if len(self.hist)>=self.topk:
+                if len(self.hist)>self.topk:
                     self.hist.sort(key=lambda x:x[0])
                     self.hist.pop()
                 rewards.append(reward)
