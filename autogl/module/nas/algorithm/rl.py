@@ -13,6 +13,7 @@ from nni.nas.pytorch.fixed import apply_fixed_architecture
 from tqdm import tqdm
 from datetime import datetime
 import numpy as np
+
 _logger = logging.getLogger(__name__)
 def _get_mask(sampled, total):
     multihot = [i == sampled or (isinstance(sampled, list) and i in sampled) for i in range(total)]
@@ -295,7 +296,6 @@ class RL(BaseNAS):
         self.n_warmup=n_warmup
         self.model_lr = model_lr
         self.model_wd = model_wd
-        self.log=open('../tmp/log.txt','w')
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset#.to(self.device)
@@ -337,8 +337,7 @@ class RL(BaseNAS):
                 self._resample()
                 metric,loss=self._infer(mask='val')
                 bar.set_postfix(acc=metric,loss=loss.item())
-                self.log.write(f'{self.arch}\n{self.selection}\n{metric},{loss}\n')
-                self.log.flush()
+                _logger.debug(f'{self.arch}\n{self.selection}\n{metric},{loss}')
                 reward =metric 
                 rewards.append(reward)
                 if self.entropy_weight:
@@ -440,8 +439,6 @@ class GraphNasRL(BaseNAS):
         self.n_warmup=n_warmup
         self.model_lr = model_lr
         self.model_wd = model_wd
-        timestamp=datetime.now().strftime('%m%d-%H-%M-%S')
-        self.log=open(f'../tmp/log-{timestamp}.txt','w')
         self.hist=[]
         self.topk=topk
     def search(self, space: BaseSpace, dset, estimator):
@@ -507,8 +504,7 @@ class GraphNasRL(BaseNAS):
                 metric,loss=self._infer(mask='val')
 
                 # bar.set_postfix(acc=metric,loss=loss.item())
-                self.log.write(f'{self.arch}\n{self.selection}\n{metric},{loss}\n')
-                self.log.flush()
+                _logger.debug(f'{self.arch}\n{self.selection}\n{metric},{loss}')
                 # diff: not do reward shaping as in graphnas code
                 reward =metric
                 self.hist.append([-metric,self.selection])
