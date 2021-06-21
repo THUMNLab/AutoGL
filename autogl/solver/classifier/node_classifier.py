@@ -72,12 +72,10 @@ class AutoNodeClassifier(BaseClassifier):
         Default ``auto``.
     """
 
-    # pylint: disable=W0102
-
     def __init__(
         self,
         feature_module=None,
-        graph_models=["gat", "gcn"],
+        graph_models=("gat", "gcn"),
         nas_algorithms=None,
         nas_spaces=None,
         nas_estimators=None,
@@ -115,7 +113,7 @@ class AutoNodeClassifier(BaseClassifier):
     ) -> "AutoNodeClassifier":
         # load graph network module
         self.graph_model_list = []
-        if isinstance(graph_models, list):
+        if isinstance(graph_models, (list, tuple)):
             for model in graph_models:
                 if isinstance(model, str):
                     if model in MODEL_DICT:

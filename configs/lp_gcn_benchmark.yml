@@ -15,23 +15,20 @@ models:
     - num_layers
     length: 2
     maxValue:
-    - 32
-    - 32
+    - 256
+    - 256
     minValue:
-    - 8
-    - 8
+    - 64
+    - 64
     numericalType: INTEGER
     parameterName: hidden
     scalingType: LOG
     type: NUMERICAL_LIST
-  - maxValue: 0.5
-    minValue: 0.2
+  - maxValue: 0.2
+    minValue: 0.0
     parameterName: dropout
     scalingType: LINEAR
     type: DOUBLE
-  - feasiblePoints: 8,10,12
-    parameterName: heads
-    type: DISCRETE
   - feasiblePoints:
     - leaky_relu
     - relu
@@ -39,11 +36,11 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: gat
+  name: gcn
 trainer:
   hp_space:
-  - maxValue: 400
-    minValue: 250
+  - maxValue: 150
+    minValue: 50
     parameterName: max_epoch
     scalingType: LINEAR
     type: INTEGER
@@ -53,12 +50,12 @@ trainer:
     scalingType: LINEAR
     type: INTEGER
   - maxValue: 0.05
-    minValue: 0.01
+    minValue: 0.005
     parameterName: lr
     scalingType: LOG
     type: DOUBLE
-  - maxValue: 0.0005
-    minValue: 0.0001
+  - maxValue: 1.0E-7
+    minValue: 1.0E-10
     parameterName: weight_decay
     scalingType: LOG
     type: DOUBLE
