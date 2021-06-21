@@ -10,6 +10,7 @@ from torch_geometric.datasets import (
     QM9,
     Amazon,
     Coauthor,
+    Flickr
 )
 from torch_geometric.utils import remove_self_loops
 from . import register_dataset
@@ -125,6 +126,18 @@ class RedditDataset(Reddit):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
         return super(RedditDataset, self).get(idx)
+
+
+@register_dataset("flickr")
+class FlickrDataset(Flickr):
+    def __init__(self, path):
+        Flickr(path)
+        super(FlickrDataset, self).__init__(path)
+
+    def get(self, idx):
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        return super(FlickrDataset, self).get(idx)
 
 
 @register_dataset("mutag")
