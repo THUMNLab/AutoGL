@@ -6,6 +6,7 @@ import time
 import json
 import math
 import numpy as np
+from tqdm import trange
 from . import register_hpo
 from .suggestion.models import Study
 from .base import BaseHPOptimizer, TimeTooLimitedError
@@ -115,7 +116,8 @@ class AutoNE(BaseHPOptimizer):
         K = utils.K(len(params.type_))
         gp = utils.GaussianProcessRegressor(K)
         sample_graphs = sample_subgraph(dataset)
-        for t in range(sampled_number):
+        print("Sample Phase:\n")
+        for t in trange(sampled_number):
             b_t = time.time()
             i = t
             subgraph = sample_graphs[t]
@@ -133,7 +135,8 @@ class AutoNE(BaseHPOptimizer):
         best_trainer = None
         best_para = None
         wne = get_wne(dataset)
-        for t in range(s):
+        print("HPO Search Phase:\n")
+        for t in trange(s):
             if time.time() - start_time > time_limit:
                 self.logger.info("Time out of limit, Epoch: {}".format(str(i)))
                 break
