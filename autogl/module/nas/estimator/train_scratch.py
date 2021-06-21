@@ -3,12 +3,14 @@ import torch.nn.functional as F
 
 from ..space import BaseSpace
 from .base import BaseEstimator
+from .one_shot import OneShotEstimator
 import torch
 
 from autogl.module.train import NodeClassificationFullTrainer
 class TrainEstimator(BaseEstimator):
     def __init__(self):
         self.estimator=OneShotEstimator()
+
     def infer(self,model: BaseSpace, dataset, mask="train"):
         # self.trainer.model=model
         # self.trainer.device=model.device

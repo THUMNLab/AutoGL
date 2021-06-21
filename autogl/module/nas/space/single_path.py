@@ -4,7 +4,7 @@ import torch
 
 import torch.nn.functional as F
 from nni.nas.pytorch import mutables
-from nni.nas.pytorch.fixed import apply_fixed_architecture
+from .base import apply_fixed_architecture
 from .base import BaseSpace
 from ...model import BaseModel
 from ....utils import get_logger
