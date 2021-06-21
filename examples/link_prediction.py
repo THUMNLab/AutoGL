@@ -1,53 +1,93 @@
-import os.path as osp
 import sys
-sys.path.insert(0, '../')
-import torch
+
+sys.path.append("../")
 from autogl.datasets import build_dataset_from_name
-from autogl.module.train import LinkPredictionTrainer
+from autogl.solver.classifier.link_predictor import AutoLinkPredictor
+from autogl.module.train.evaluation import Auc
+import yaml
+import random
+import torch
 import numpy as np
-from torch_geometric.utils import train_test_split_edges
-from sklearn.metrics import roc_auc_score
 
-dataset = build_dataset_from_name('cora')
+if __name__ == "__main__":
 
-print('len', len(dataset))
-print('num_class', dataset.num_classes)
-print('num_node_features', dataset.num_node_features)
+    from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
-a = []
-for _ in range(10):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    data = dataset[0]
-
-    data = data.to(device)
-    data.train_mask = data.val_mask = data.test_mask = data.y = None
-    data = train_test_split_edges(data)
-
-    clf = LinkPredictionTrainer(
-        'gcn',
-        num_features=dataset.num_node_features,
-        num_classes=dataset.num_classes,
-        max_epoch=100,
-        early_stopping_round=101,
-        feval=['auc'],
-        lr=0.01,
-        weight_decay=0,
-        lr_scheduler_type=None,
+    parser = ArgumentParser(
+        "auto link prediction", formatter_class=ArgumentDefaultsHelpFormatter
     )
-    clf.train([data], keep_valid_result=True)
-    print(clf.valid_score, end=',')
-    y = clf.predict([data], 'test')
-    y_ = y.cpu().numpy()
-    # acc_ = y.eq(data.y[data.test_mask]).sum().item() / data.test_mask.sum().item()
-    # print(acc_, end=',')
+    parser.add_argument(
+        "--dataset",
+        default="cora",
+        type=str,
+        help="dataset to use",
+        choices=[
+            "cora",
+            "pubmed",
+            "citeseer",
+            "coauthor_cs",
+            "coauthor_physics",
+            "amazon_computers",
+            "amazon_photo",
+        ],
+    )
+    parser.add_argument(
+        "--configs",
+        type=str,
+        default="../configs/lp_gcn_benchmark.yml",
+        help="config to use",
+    )
+    # following arguments will override parameters in the config file
+    parser.add_argument("--hpo", type=str, default="tpe", help="hpo methods")
+    parser.add_argument(
+        "--max_eval", type=int, default=50, help="max hpo evaluation times"
+    )
+    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    parser.add_argument("--device", default=0, type=int, help="GPU device")
 
-    pos_edge_index = data[f'test_pos_edge_index']
-    neg_edge_index = data[f'test_neg_edge_index']
-    link_labels = clf.get_link_labels(pos_edge_index, neg_edge_index)
-    label = link_labels.cpu().numpy()
-    ret = roc_auc_score(label, y_)
-    print(ret)
-    a.append(ret)
-print(np.mean(a), np.std(a))
+    args = parser.parse_args()
+    if torch.cuda.is_available():
+        torch.cuda.set_device(args.device)
+    seed = args.seed
+    # set random seed
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
+    dataset = build_dataset_from_name(args.dataset)
 
+    configs = yaml.load(open(args.configs, "r").read(), Loader=yaml.FullLoader)
+    configs["hpo"]["name"] = args.hpo
+    configs["hpo"]["max_evals"] = args.max_eval
+    autoClassifier = AutoLinkPredictor.from_config(configs)
+
+    # train
+    autoClassifier.fit(
+        dataset,
+        time_limit=3600,
+        evaluation_method=[Auc],
+        seed=seed,
+        train_split=0.85,
+        val_split=0.05,
+    )
+    autoClassifier.get_leaderboard().show()
+
+    # test
+    predict_result = autoClassifier.predict_proba()
+
+    pos_edge_index, neg_edge_index = (
+        dataset[0].test_pos_edge_index,
+        dataset[0].test_neg_edge_index,
+    )
+    E = pos_edge_index.size(1) + neg_edge_index.size(1)
+    link_labels = torch.zeros(E)
+    link_labels[: pos_edge_index.size(1)] = 1.0
+
+    print(
+        "test auc: %.4f"
+        % (Auc.evaluate(predict_result, link_labels.detach().cpu().numpy()))
+    )
