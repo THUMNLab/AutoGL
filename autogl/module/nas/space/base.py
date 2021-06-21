@@ -8,14 +8,16 @@ class OrderedMutable():
         self.order = order
 
 class OrderedLayerChoice(OrderedMutable, mutables.LayerChoice):
-    def __init__(self, order, *args, **kwargs):
+    def __init__(self, order, op_candidates, reduction="sum", return_mask=False, key=None):
         OrderedMutable.__init__(self, order)
-        mutables.LayerChoice.__init__(self, *args, **kwargs)
+        mutables.LayerChoice.__init__(self, op_candidates, reduction, return_mask, key)
 
 class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
-    def __init__(self, order, *args, **kwargs):
+    def __init__(self, order, n_candidates=None, choose_from=None, n_chosen=None,
+                 reduction="sum", return_mask=False, key=None):
         OrderedMutable.__init__(self, order)
-        mutables.InputChoice.__init__(self, *args, **kwargs)
+        mutables.InputChoice.__init__(self, n_candidates, choose_from, n_chosen,
+                 reduction, return_mask, key)
 
 class BaseSpace(nn.Module):
     """
@@ -73,24 +75,26 @@ class BaseSpace(nn.Module):
         if not self._initialized:
             self._initialized = True
 
-    def setLayerChoice(self, *args, **kwargs):
+    def setLayerChoice(self, order, op_candidates, reduction="sum", return_mask=False, orikey=None):
         """
         Give a unique key if not given
         """
-        if len(args) < 5 and not "key" in kwargs:
+        if orikey == None:
             key = f"default_key_{self._default_key}"
             self._default_key += 1
-            kwargs["key"] = key
-        layer = OrderedLayerChoice(*args, **kwargs)
+            orikry = key
+        layer = OrderedLayerChoice(order, op_candidates, reduction, return_mask, orikey)
         return layer
 
-    def setInputChoice(self, *args, **kwargs):
+    def setInputChoice(self, order, n_candidates=None, choose_from=None, n_chosen=None,
+                 reduction="sum", return_mask=False, orikey=None):
         """
         Give a unique key if not given
         """
-        if len(args) < 7 and not "key" in kwargs:
+        if orikey == None:
             key = f"default_key_{self._default_key}"
             self._default_key += 1
-            kwargs["key"] = key
-        layer = OrderedInputChoice(*args, **kwargs)
+            orikey = key
+        layer = OrderedInputChoice(order, n_candidates, choose_from, n_chosen,
+                 reduction, return_mask, orikey)
         return layer
