@@ -82,7 +82,7 @@ class GraphSAGE(torch.nn.Module):
             return self.__full_forward(data)
 
 
-@register_model("sage")
+# @register_model("sage")
 class AutoSAGE(BaseModel):
     def __init__(
         self,

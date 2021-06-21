@@ -1,9 +1,10 @@
 import torch
 import torch.nn.functional
 import torch_geometric
+from torch_geometric.nn import GCNConv
 import typing as _typing
 from . import register_model
-from .base import activate_func, ClassificationModel
+from .base import BaseModel, activate_func, ClassificationModel
 from ...utils import get_logger
 
 LOGGER = get_logger("GCNModel")
@@ -22,24 +23,14 @@ class GCN(torch.nn.Module):
         self.__convolution_layers: torch.nn.ModuleList = torch.nn.ModuleList()
         num_layers: int = len(hidden_features) + 1
         if num_layers == 1:
-            self.__convolution_layers.append(
-                torch_geometric.nn.GCNConv(
-                    num_features, num_classes, add_self_loops=False
-                )
-            )
+            self.__convolution_layers.append(GCNConv(num_features, num_classes))
         else:
-            self.__convolution_layers.append(
-                torch_geometric.nn.GCNConv(
-                    num_features, hidden_features[0], add_self_loops=False
-                )
-            )
+            self.__convolution_layers.append(GCNConv(num_features, hidden_features[0]))
             for i in range(len(hidden_features)):
                 self.__convolution_layers.append(
-                    torch_geometric.nn.GCNConv(
-                        hidden_features[i], hidden_features[i + 1]
-                    )
+                    GCNConv(hidden_features[i], hidden_features[i + 1])
                     if i + 1 < len(hidden_features)
-                    else torch_geometric.nn.GCNConv(hidden_features[i], num_classes)
+                    else GCNConv(hidden_features[i], num_classes)
                 )
         self.__dropout: float = dropout
         self.__activation_name: str = activation_name
@@ -92,9 +83,30 @@ class GCN(torch.nn.Module):
                 edge_weight: _typing.Optional[torch.Tensor] = None
             return self.__basic_forward(x, edge_index, edge_weight)
 
+    def encode(self, data):
+        x = data.x
+        num_layers = len(self.__convolution_layers)
+        for i in range(num_layers - 1):
+            x = self.__convolution_layers[i](x, data.train_pos_edge_index)
+            if i != num_layers - 2:
+                x = activate_func(x, self.__activation_name)
+                # x = F.dropout(x, p=self.args["dropout"], training=self.training)
+        return x
 
+    def decode(self, z, pos_edge_index, neg_edge_index):
+        edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)
+        logits = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=-1)
+        return logits
+
+    def decode_all(self, z):
+        prob_adj = z @ z.t()
+        return (prob_adj > 0).nonzero(as_tuple=False).t()
+
+
+# @register_model("gcn")
+# class AutoGCN(ClassificationModel):
 @register_model("gcn")
-class AutoGCN(ClassificationModel):
+class AutoGCN(BaseModel):
     r"""
     AutoGCN.
     The model used in this automodel is GCN, i.e., the graph convolutional network from the
@@ -133,15 +145,70 @@ class AutoGCN(ClassificationModel):
         init: bool = False,
         **kwargs
     ) -> None:
-        super(AutoGCN, self).__init__(
-            num_features, num_classes, device=device, init=init, **kwargs
-        )
+        super().__init__()
+        self.num_features = num_features
+        self.num_classes = num_classes
+        self.device = device
 
-    def _initialize(self):
+        self.params = {
+            "features_num": self.num_features,
+            "num_class": self.num_classes,
+        }
+        self.space = [
+            {
+                "parameterName": "num_layers",
+                "type": "DISCRETE",
+                "feasiblePoints": "2,3,4",
+            },
+            {
+                "parameterName": "hidden",
+                "type": "NUMERICAL_LIST",
+                "numericalType": "INTEGER",
+                "length": 3,
+                "minValue": [8, 8, 8],
+                "maxValue": [128, 128, 128],
+                "scalingType": "LOG",
+                "cutPara": ("num_layers",),
+                "cutFunc": lambda x: x[0] - 1,
+            },
+            {
+                "parameterName": "dropout",
+                "type": "DOUBLE",
+                "maxValue": 0.8,
+                "minValue": 0.2,
+                "scalingType": "LINEAR",
+            },
+            {
+                "parameterName": "act",
+                "type": "CATEGORICAL",
+                "feasiblePoints": ["leaky_relu", "relu", "elu", "tanh"],
+            },
+        ]
+
+        # initial point of hp search
+        # self.hyperparams = {
+        #     "num_layers": 2,
+        #     "hidden": [16],
+        #     "dropout": 0.2,
+        #     "act": "leaky_relu",
+        # }
+
+        self.hyperparams = {
+            "num_layers": 3,
+            "hidden": [128, 64],
+            "dropout": 0,
+            "act": "relu",
+        }
+
+        self.initialized = False
+        if init is True:
+            self.initialize()
+
+    def initialize(self):
         self.model = GCN(
             self.num_features,
             self.num_classes,
-            self.hyper_parameter.get("hidden"),
-            self.hyper_parameter.get("dropout"),
-            self.hyper_parameter.get("act"),
+            self.hyperparams.get("hidden"),
+            self.hyperparams.get("dropout"),
+            self.hyperparams.get("act"),
         ).to(self.device)

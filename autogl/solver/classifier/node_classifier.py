@@ -105,7 +105,7 @@ class AutoNodeClassifier(BaseClassifier):
     ) -> "AutoNodeClassifier":
         # load graph network module
         self.graph_model_list = []
-        if isinstance(graph_models, list):
+        if isinstance(graph_models, (list, tuple)):
             for model in graph_models:
                 if isinstance(model, str):
                     if model in MODEL_DICT:

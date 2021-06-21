@@ -1,5 +1,5 @@
 """
-Auto Classfier for Graph Node Classification
+Auto Classfier for Node Classification
 """
 import time
 import json
@@ -11,51 +11,53 @@ import numpy as np
 import yaml
 
 from .base import BaseClassifier
+from ..base import _parse_hp_space, _initialize_single_model
 from ...module.feature import FEATURE_DICT
-from ...module.model import BaseModel, MODEL_DICT
-from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
-from ..base import _initialize_single_model, _parse_hp_space
+from ...module.model import MODEL_DICT, BaseModel
+from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
+from ...module.train import get_feval
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
 
-LOGGER = get_logger("GraphClassifier")
+LOGGER = get_logger("LinkPredictor")
 
 
-class AutoGraphClassifier(BaseClassifier):
+class AutoLinkPredictor(BaseClassifier):
     """
-    Auto Multi-class Graph Classifier.
+    Auto Link Predictor.
 
-    Used to automatically solve the graph classification problems.
+    Used to automatically solve the link prediction problems.
 
     Parameters
     ----------
     feature_module: autogl.module.feature.BaseFeatureEngineer or str or None
-        The (name of) auto feature engineer used to process the given dataset.
-        Disable feature engineer by setting it to ``None``. Default ``deepgl``.
+        The (name of) auto feature engineer used to process the given dataset. Default ``deepgl``.
+        Disable feature engineer by setting it to ``None``.
 
     graph_models: list of autogl.module.model.BaseModel or list of str
         The (name of) models to be optimized as backbone. Default ``['gat', 'gcn']``.
 
     hpo_module: autogl.module.hpo.BaseHPOptimizer or str or None
-        The (name of) hpo module used to search for best hyper parameters.
-        Disable hpo by setting it to ``None``. Default ``anneal``.
+        The (name of) hpo module used to search for best hyper parameters. Default ``anneal``.
+        Disable hpo by setting it to ``None``.
 
     ensemble_module: autogl.module.ensemble.BaseEnsembler or str or None
-        The (name of) ensemble module used to ensemble the multi-models found.
-        Disable ensemble by setting it to ``None``. Default ``voting``.
+        The (name of) ensemble module used to ensemble the multi-models found. Default ``voting``.
+        Disable ensemble by setting it to ``None``.
 
     max_evals: int (Optional)
         If given, will set the number eval times the hpo module will use.
         Only be effective when hpo_module is ``str``. Default ``None``.
 
-    trainer_hp_space: Iterable[dict] (Optional)
+    trainer_hp_space: list of dict (Optional)
         trainer hp space or list of trainer hp spaces configuration.
-        If a single trainer hp is given, will specify the hp space of trainer for
-        every model. If a list of trainer hp is given, will specify every model
-        with corrsponding trainer hp space. Default ``None``.
+        If a single trainer hp is given, will specify the hp space of trainer for every model.
+        If a list of trainer hp is given, will specify every model with corrsponding
+        trainer hp space.
+        Default ``None``.
 
-    model_hp_spaces: Iterable[Iterable[dict]] (Optional)
+    model_hp_spaces: list of list of dict (Optional)
         model hp space configuration.
         If given, will specify every hp space of every passed model. Default ``None``.
 
@@ -63,17 +65,15 @@ class AutoGraphClassifier(BaseClassifier):
         The max models ensemble module will use. Default ``None``.
 
     device: torch.device or str
-        The device where model will be running on. If set to ``auto``, will use gpu
-        when available. You can also specify the device by directly giving ``gpu`` or
-        ``cuda:0``, etc. Default ``auto``.
+        The device where model will be running on. If set to ``auto``, will use gpu when available.
+        You can also specify the device by directly giving ``gpu`` or ``cuda:0``, etc.
+        Default ``auto``.
     """
-
-    # pylint: disable=W0102
 
     def __init__(
         self,
         feature_module=None,
-        graph_models=["gin", "topkpool"],
+        graph_models=("gat", "gcn"),
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
@@ -90,25 +90,19 @@ class AutoGraphClassifier(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "GraphClassificationFull",
+            default_trainer=default_trainer or "LinkPredictionFull",
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
             device=device,
         )
 
+        # data to be kept when fit
         self.dataset = None
 
     def _init_graph_module(
-        self,
-        graph_models,
-        num_classes,
-        num_features,
-        feval,
-        device,
-        loss,
-        num_graph_features,
-    ) -> "AutoGraphClassifier":
+        self, graph_models, num_features, feval, device, loss
+    ) -> "AutoLinkPredictor":
         # load graph network module
         self.graph_model_list = []
         if isinstance(graph_models, (list, tuple)):
@@ -117,9 +111,8 @@ class AutoGraphClassifier(BaseClassifier):
                     if model in MODEL_DICT:
                         self.graph_model_list.append(
                             MODEL_DICT[model](
-                                num_classes=num_classes,
+                                num_classes=1,
                                 num_features=num_features,
-                                num_graph_features=num_graph_features,
                                 device=device,
                                 init=False,
                             )
@@ -129,31 +122,27 @@ class AutoGraphClassifier(BaseClassifier):
                 elif isinstance(model, type) and issubclass(model, BaseModel):
                     self.graph_model_list.append(
                         model(
-                            num_classes=num_classes,
+                            num_classes=1,
                             num_features=num_features,
-                            num_graph_features=num_graph_features,
                             device=device,
                             init=False,
                         )
                     )
                 elif isinstance(model, BaseModel):
                     # setup the hp of num_classes and num_features
-                    model.set_num_classes(num_classes)
+                    model.set_num_classes(1)
                     model.set_num_features(num_features)
-                    model.set_num_graph_features(num_graph_features)
                     self.graph_model_list.append(model.to(device))
-                elif isinstance(model, BaseGraphClassificationTrainer):
+                elif isinstance(model, BaseLinkPredictionTrainer):
                     # receive a trainer list, put trainer to list
                     assert (
                         model.get_model() is not None
                     ), "Passed trainer should contain a model"
-                    model.model.set_num_classes(num_classes)
+                    model.model.set_num_classes(1)
                     model.model.set_num_features(num_features)
-                    model.model.set_num_graph_features(num_graph_features)
                     model.update_parameters(
-                        num_classes=num_classes,
+                        num_classes=1,
                         num_features=num_features,
-                        num_graph_features=num_graph_features,
                         loss=loss,
                         feval=feval,
                         device=device,
@@ -173,7 +162,7 @@ class AutoGraphClassifier(BaseClassifier):
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, BaseGraphClassificationTrainer):
+                    if isinstance(model, BaseLinkPredictionTrainer):
                         model.model.hyper_parameter_space = self._model_hp_spaces[i]
                     else:
                         model.hyper_parameter_space = self._model_hp_spaces[i]
@@ -187,11 +176,9 @@ class AutoGraphClassifier(BaseClassifier):
                 model = TRAINER_DICT[name](
                     model=model,
                     num_features=num_features,
-                    num_classes=num_classes,
                     loss=loss,
                     feval=feval,
                     device=device,
-                    num_graph_features=num_graph_features,
                     init=False,
                 )
             # set trainer hp space
@@ -205,6 +192,13 @@ class AutoGraphClassifier(BaseClassifier):
 
         return self
 
+    def _to_prob(self, sig_prob: np.ndarray):
+        nelements = len(sig_prob)
+        prob = np.zeros([nelements, 2])
+        prob[:, 0] = 1 - sig_prob
+        prob[:, 1] = sig_prob
+        return prob
+
     # pylint: disable=arguments-differ
     def fit(
         self,
@@ -213,45 +207,36 @@ class AutoGraphClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        cross_validation=False,
-        cv_split=10,
         evaluation_method="infer",
         seed=None,
-    ) -> "AutoGraphClassifier":
+    ) -> "AutoLinkPredictor":
         """
         Fit current solver on given dataset.
 
         Parameters
         ----------
         dataset: torch_geometric.data.dataset.Dataset
-            The multi-graph dataset needed to fit on.
+            The dataset needed to fit on. This dataset must have only one graph.
 
         time_limit: int
-            The time limit of the whole fit process (in seconds). If set below 0, will ignore
-            time limit. Default ``-1``.
+            The time limit of the whole fit process (in seconds). If set below 0,
+            will ignore time limit. Default ``-1``.
 
         inplace: bool
             Whether we process the given dataset in inplace manner. Default ``False``.
             Set it to True if you want to save memory by modifying the given dataset directly.
 
         train_split: float or int (Optional)
-            The train ratio (in ``float``) or number (in ``int``) of dataset. If you want to use
-            default train/val/test split in dataset, please set this to ``None``.
-            Default ``None``.
-
-        val_split: float or int (Optional)
-            The validation ratio (in ``float``) or number (in ``int``) of dataset. If you want to
+            The train ratio (in ``float``) or number (in ``int``) of dataset. If you want to
             use default train/val/test split in dataset, please set this to ``None``.
             Default ``None``.
 
-        cross_validation: bool
-            Whether to use cross validation to fit on train dataset. Default ``False``.
+        val_split: float or int (Optional)
+            The validation ratio (in ``float``) or number (in ``int``) of dataset. If you want
+            to use default train/val/test split in dataset, please set this to ``None``.
+            Default ``None``.
 
-        cv_split: int
-            The cross validation split number. Only be effective when ``cross_validation=True``.
-            Default ``10``.
-
-        evaluation_method: (list of) str autogl.module.train.evaluation
+        evaluation_method: (list of) str or autogl.module.train.evaluation
             A (list of) evaluation method for current solver. If ``infer``, will automatically
             determine. Default ``infer``.
 
@@ -261,10 +246,9 @@ class AutoGraphClassifier(BaseClassifier):
 
         Returns
         -------
-        self: autogl.solver.AutoGraphClassifier
+        self: autogl.solver.AutoNodeClassifier
             A reference of current solver.
         """
-
         set_seed(seed)
 
         if time_limit < 0:
@@ -290,42 +274,33 @@ class AutoGraphClassifier(BaseClassifier):
         )
 
         # set up the dataset
-        if train_split is None and val_split is None:
-            assert hasattr(dataset, "train_split") and hasattr(dataset, "val_split"), (
-                "The dataset has no default train/val split! "
-                "Please manually pass train and val ratio."
+        if train_split is not None and val_split is not None:
+            utils.split_edges(dataset, train_split, val_split)
+        else:
+            assert all(
+                [
+                    hasattr(dataset.data, f"{name}")
+                    for name in [
+                        "train_pos_edge_index",
+                        "train_neg_adj_mask",
+                        "val_pos_edge_index",
+                        "val_neg_edge_index",
+                        "test_pos_edge_index",
+                        "test_neg_edge_index",
+                    ]
+                ]
+            ), (
+                "The dataset has no default train/val split! Please manually pass "
+                "train and val ratio."
             )
             LOGGER.info("Use the default train/val/test ratio in given dataset")
-            # if hasattr(dataset.train_split, "n_splits"):
-            #    cross_validation = True
-
-        elif train_split is not None and val_split is not None:
-            utils.graph_random_splits(dataset, train_split, val_split, seed=seed)
-            if cross_validation:
-                assert (
-                    val_split > 0
-                ), "You should set val_split > 0 to use cross_validation"
-                utils.graph_cross_validation(
-                    dataset.train_split, cv_split, random_seed=seed
-                )
-        else:
-            LOGGER.error(
-                "Please set both train_split and val_split explicitly. Detect %s is None.",
-                "train_split" if train_split is None else "val_split",
-            )
-            raise ValueError(
-                "In consistent setting of train/val split. Detect {} is None.".format(
-                    "train_split" if train_split is None else "val_split"
-                )
-            )
 
         # feature engineering
         if self.feature_module is not None:
-            self.feature_module.fit(dataset.train_split)
-            dataset = self.feature_module.transform(dataset, inplace=inplace)
+            dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
 
         self.dataset = dataset
-        assert dataset[0].x is not None, (
+        assert self.dataset[0].x is not None, (
             "Does not support fit on non node-feature dataset!"
             " Please add node features to dataset or specify feature engineers that generate"
             " node features."
@@ -334,107 +309,61 @@ class AutoGraphClassifier(BaseClassifier):
         # initialize graph networks
         self._init_graph_module(
             self.gml,
-            num_features=dataset.num_node_features,
-            num_classes=dataset.num_classes,
+            num_features=self.dataset[0].x.shape[1],
             feval=evaluator_list,
             device=self.runtime_device,
-            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
-            num_graph_features=0
-            if not hasattr(dataset.data, "gf")
-            else dataset.data.gf.size(1),
+            loss="binary_cross_entropy_with_logits"
+            if not hasattr(dataset, "loss")
+            else dataset.loss,
         )
 
         # train the models and tune hpo
         result_valid = []
         names = []
-        if not cross_validation:
-            for idx, model in enumerate(self.graph_model_list):
-                if time_limit < 0:
-                    time_for_each_model = None
-                else:
-                    time_for_each_model = (time_limit - time.time() + time_begin) / (
-                        len(self.graph_model_list) - idx
-                    )
-                if self.hpo_module is None:
-                    model.initialize()
-                    model.train(dataset, True)
-                    optimized = model
-                else:
-                    optimized, _ = self.hpo_module.optimize(
-                        trainer=model, dataset=dataset, time_limit=time_for_each_model
-                    )
-                # to save memory, all the trainer derived will be mapped to cpu
-                optimized.to(torch.device("cpu"))
-                name = optimized.get_name_with_hp()
-                names.append(name)
-                performance_on_valid, _ = optimized.get_valid_score(return_major=False)
-                result_valid.append(
-                    optimized.get_valid_predict_proba().detach().cpu().numpy()
+        for idx, model in enumerate(self.graph_model_list):
+            time_for_each_model = (time_limit - time.time() + time_begin) / (
+                len(self.graph_model_list) - idx
+            )
+            if self.hpo_module is None:
+                model.initialize()
+                model.train(self.dataset, True)
+                optimized = model
+            else:
+                optimized, _ = self.hpo_module.optimize(
+                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model
                 )
-                self.leaderboard.insert_model_performance(
-                    name,
-                    dict(
-                        zip(
-                            [e.get_eval_name() for e in evaluator_list],
-                            performance_on_valid,
-                        )
-                    ),
-                )
-                self.trained_models[name] = optimized
-        else:
-            for i in range(dataset.train_split.n_splits):
-                utils.graph_set_fold_id(dataset.train_split, i)
-                if time_limit < 0:
-                    time_for_each_cv = None
-                else:
-                    time_for_each_cv = (time_limit - time.time() + time_begin) / (
-                        dataset.train_split.n_splits - i
+            # to save memory, all the trainer derived will be mapped to cpu
+            optimized.to(torch.device("cpu"))
+            name = optimized.get_name_with_hp() + "_idx%d" % (idx)
+            names.append(name)
+            performance_on_valid, _ = optimized.get_valid_score(return_major=False)
+            result_valid.append(
+                self._to_prob(optimized.get_valid_predict_proba().cpu().numpy())
+            )
+            self.leaderboard.insert_model_performance(
+                name,
+                dict(
+                    zip(
+                        [e.get_eval_name() for e in evaluator_list],
+                        performance_on_valid,
                     )
-                time_cv_begin = time.time()
-                for idx, model in enumerate(self.graph_model_list):
-                    if time_for_each_cv is None:
-                        time_for_each_model = None
-                    else:
-                        time_for_each_model = (
-                            time_for_each_cv - time.time() + time_cv_begin
-                        ) / (len(self.graph_model_list) - idx)
-                    if self.hpo_module is None:
-                        model.train(dataset.train_split, False)
-                        optimized = model
-                    else:
-                        optimized, _ = self.hpo_module.optimize(
-                            trainer=model,
-                            dataset=dataset.train_split,
-                            time_limit=time_for_each_model,
-                        )
-                    # to save memory, all the trainer derived will be mapped to cpu
-                    optimized.to(torch.device("cpu"))
-                    name = optimized.get_name_with_hp() + "_cv%d_idx%d" % (i, idx)
-                    names.append(name)
-                    # evaluate on val_split of input dataset
-                    performance_on_valid = optimized.evaluate(dataset, mask="val")
-                    result_valid.append(
-                        optimized.predict_proba(dataset, mask="val")
-                        .detach()
-                        .cpu()
-                        .numpy()
-                    )
-                    self.leaderboard.insert_model_performance(
-                        name,
-                        dict(
-                            zip(
-                                [e.get_eval_name() for e in evaluator_list],
-                                performance_on_valid,
-                            )
-                        ),
-                    )
-                    self.trained_models[name] = optimized
+                ),
+            )
+            self.trained_models[name] = optimized
 
         # fit the ensemble model
         if self.ensemble_module is not None:
+            pos_edge_index, neg_edge_index = (
+                self.dataset[0].val_pos_edge_index,
+                self.dataset[0].val_neg_edge_index,
+            )
+            E = pos_edge_index.size(1) + neg_edge_index.size(1)
+            link_labels = torch.zeros(E, dtype=torch.float)
+            link_labels[: pos_edge_index.size(1)] = 1.0
+
             performance = self.ensemble_module.fit(
                 result_valid,
-                dataset.data.y[dataset.val_index].cpu().detach().numpy(),
+                link_labels.detach().cpu().numpy(),
                 names,
                 evaluator_list,
                 n_classes=dataset.num_classes,
@@ -453,10 +382,7 @@ class AutoGraphClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        cross_validation=True,
-        cv_split=10,
         evaluation_method="infer",
-        seed=None,
         use_ensemble=True,
         use_best=True,
         name=None,
@@ -470,8 +396,8 @@ class AutoGraphClassifier(BaseClassifier):
             The dataset needed to fit on. This dataset must have only one graph.
 
         time_limit: int
-            The time limit of the whole fit process (in seconds). If set below 0, will
-            ignore time limit. Default ``-1``.
+            The time limit of the whole fit process (in seconds).
+            If set below 0, will ignore time limit. Default ``-1``.
 
         inplace: bool
             Whether we process the given dataset in inplace manner. Default ``False``.
@@ -487,31 +413,27 @@ class AutoGraphClassifier(BaseClassifier):
             to use default train/val/test split in dataset, please set this to ``None``.
             Default ``None``.
 
-        cross_validation: bool
-            Whether to use cross validation to fit on train dataset. Default ``True``.
-
-        cv_split: int
-            The cross validation split number. Only be effective when ``cross_validation=True``.
-            Default ``10``.
+        balanced: bool
+            Wether to create the train/valid/test split in a balanced way.
+            If set to ``True``, the train/valid will have the same number of different classes.
+            Default ``False``.
 
         evaluation_method: (list of) str or autogl.module.train.evaluation
             A (list of) evaluation method for current solver. If ``infer``, will automatically
             determine. Default ``infer``.
-
-        seed: int (Optional)
-            The random seed. If set to ``None``, will run everything at random.
-            Default ``None``.
 
         use_ensemble: bool
             Whether to use ensemble to do the predict. Default ``True``.
 
         use_best: bool
             Whether to use the best single model to do the predict. Will only be effective when
-            ``use_ensemble`` is ``False``. Default ``True``.
+            ``use_ensemble`` is ``False``.
+            Default ``True``.
 
         name: str or None
             The name of model used to predict. Will only be effective when ``use_ensemble`` and
-            ``use_best`` both are ``False``. Default ``None``.
+            ``use_best`` both are ``False``.
+            Default ``None``.
 
         Returns
         -------
@@ -525,10 +447,7 @@ class AutoGraphClassifier(BaseClassifier):
             inplace=inplace,
             train_split=train_split,
             val_split=val_split,
-            cross_validation=cross_validation,
-            cv_split=cv_split,
             evaluation_method=evaluation_method,
-            seed=seed,
         )
         return self.predict(
             dataset=dataset,
@@ -555,18 +474,18 @@ class AutoGraphClassifier(BaseClassifier):
         Parameters
         ----------
         dataset: torch_geometric.data.dataset.Dataset or None
-            The dataset needed to predict. If ``None``, will use the processed dataset
-            passed to ``fit()`` instead. Default ``None``.
+            The dataset needed to predict. If ``None``, will use the processed dataset passed
+            to ``fit()`` instead. Default ``None``.
 
         inplaced: bool
             Whether the given dataset is processed. Only be effective when ``dataset``
-            is not ``None``. If you pass the dataset to ``fit()`` with ``inplace=True``,
-            and you pass the dataset again to this method, you should set this argument
-            to ``True``. Otherwise ``False``. Default ``False``.
+            is not ``None``. If you pass the dataset to ``fit()`` with ``inplace=True``, and
+            you pass the dataset again to this method, you should set this argument to ``True``.
+            Otherwise ``False``. Default ``False``.
 
         inplace: bool
-            Whether we process the given dataset in inplace manner. Default ``False``.
-            Set it to True if you want to save memory by modifying the given dataset directly.
+            Whether we process the given dataset in inplace manner. Default ``False``. Set it to
+            True if you want to save memory by modifying the given dataset directly.
 
         use_ensemble: bool
             Whether to use ensemble to do the predict. Default ``True``.
@@ -590,9 +509,11 @@ class AutoGraphClassifier(BaseClassifier):
         """
         if dataset is None:
             dataset = self.dataset
-        elif not inplaced:
-            if self.feature_module is not None:
-                dataset = self.feature_module.transform(dataset, inplace=inplace)
+            assert dataset is not None, (
+                "Please execute fit() first before" " predicting on remembered dataset"
+            )
+        elif not inplaced and self.feature_module is not None:
+            dataset = self.feature_module.transform(dataset, inplace=inplace)
 
         if use_ensemble:
             LOGGER.info("Ensemble argument on, will try using ensemble model.")
@@ -610,10 +531,12 @@ class AutoGraphClassifier(BaseClassifier):
             names = []
             for model_name in self.trained_models:
                 predict_result.append(
-                    self._predict_proba_by_name(dataset, model_name, mask)
+                    self._to_prob(
+                        self._predict_proba_by_name(dataset, model_name, mask)
+                    )
                 )
                 names.append(model_name)
-            return self.ensemble_module.ensemble(predict_result, names)
+            return self.ensemble_module.ensemble(predict_result, names)[:, 1]
 
         if use_ensemble and self.ensemble_module is None:
             LOGGER.warning(
@@ -623,8 +546,8 @@ class AutoGraphClassifier(BaseClassifier):
 
         if use_best or (use_ensemble and self.ensemble_module is None):
             # just return the best model we have found
-            best_model_name = self.leaderboard.get_best_model()
-            return self._predict_proba_by_name(dataset, best_model_name, mask)
+            name = self.leaderboard.get_best_model()
+            return self._predict_proba_by_name(dataset, name, mask)
 
         if name is not None:
             # return model performance by name
@@ -637,14 +560,10 @@ class AutoGraphClassifier(BaseClassifier):
             "You need to specify a model name if you do not want use ensemble and best model."
         )
 
-    def _predict_proba_by_name(self, dataset, name, mask):
+    def _predict_proba_by_name(self, dataset, name, mask="test"):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
-            self.trained_models[name]
-            .predict_proba(dataset, mask=mask)
-            .detach()
-            .cpu()
-            .numpy()
+            self.trained_models[name].predict_proba(dataset, mask=mask).cpu().numpy()
         )
         self.trained_models[name].to(torch.device("cpu"))
         return predicted
@@ -658,6 +577,7 @@ class AutoGraphClassifier(BaseClassifier):
         use_best=True,
         name=None,
         mask="test",
+        threshold=0.5,
     ) -> np.ndarray:
         """
         Predict the node class number.
@@ -670,9 +590,9 @@ class AutoGraphClassifier(BaseClassifier):
 
         inplaced: bool
             Whether the given dataset is processed. Only be effective when ``dataset``
-            is not ``None``. If you pass the dataset to ``fit()`` with ``inplace=True``, and
-            you pass the dataset again to this method, you should set this argument to ``True``.
-            Otherwise ``False``. Default ``False``.
+            is not ``None``. If you pass the dataset to ``fit()`` with ``inplace=True``,
+            and you pass the dataset again to this method, you should set this argument
+            to ``True``. Otherwise ``False``. Default ``False``.
 
         inplace: bool
             Whether we process the given dataset in inplace manner. Default ``False``.
@@ -689,6 +609,12 @@ class AutoGraphClassifier(BaseClassifier):
             The name of model used to predict. Will only be effective when ``use_ensemble``
             and ``use_best`` both are ``False``. Default ``None``.
 
+        mask: str
+            The data split to give prediction on. Default ``test``.
+
+        threshold: float
+            The threshold to judge whether the edges are positive or not.
+
         Returns
         -------
         result: np.ndarray
@@ -698,10 +624,10 @@ class AutoGraphClassifier(BaseClassifier):
         proba = self.predict_proba(
             dataset, inplaced, inplace, use_ensemble, use_best, name, mask
         )
-        return np.argmax(proba, axis=1)
+        return (proba > threshold).astype("int")
 
     @classmethod
-    def from_config(cls, path_or_dict, filetype="auto") -> "AutoGraphClassifier":
+    def from_config(cls, path_or_dict, filetype="auto") -> "AutoLinkPredictor":
         """
         Load solver from config file.
 
@@ -750,7 +676,6 @@ class AutoGraphClassifier(BaseClassifier):
             else:
                 path_or_dict = json.load(open(path_or_dict, "r"))
 
-        # load the dictionary
         path_or_dict = deepcopy(path_or_dict)
         solver = cls(None, [], None, None)
         fe_list = path_or_dict.pop("feature", None)
@@ -763,7 +688,7 @@ class AutoGraphClassifier(BaseClassifier):
             if fe_list_ele != []:
                 solver.set_feature_module(fe_list_ele)
 
-        models = path_or_dict.pop("models", [{"name": "gin"}, {"name": "topkpool"}])
+        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}])
         model_hp_space = [
             _parse_hp_space(model.pop("hp_space", None)) for model in models
         ]
@@ -772,21 +697,21 @@ class AutoGraphClassifier(BaseClassifier):
         ]
 
         trainer = path_or_dict.pop("trainer", None)
-        default_trainer = "GraphClassificationFull"
+        default_trainer = "LinkPredictionFull"
         trainer_space = None
         if isinstance(trainer, dict):
             # global default
-            default_trainer = trainer.pop("name", "GraphClassificationFull")
+            default_trainer = trainer.pop("name", "LinkPredictionFull")
             trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
-            default_kwargs = {"num_features": None, "num_classes": None}
+            default_kwargs = {"num_features": None}
             default_kwargs.update(trainer)
             default_kwargs["init"] = False
             for i in range(len(model_list)):
                 model = model_list[i]
-                trainer_wrapper = TRAINER_DICT[default_trainer](
+                trainer_wrap = TRAINER_DICT[default_trainer](
                     model=model, **default_kwargs
                 )
-                model_list[i] = trainer_wrapper
+                model_list[i] = trainer_wrap
         elif isinstance(trainer, list):
             # sequential trainer definition
             assert len(trainer) == len(
@@ -795,9 +720,9 @@ class AutoGraphClassifier(BaseClassifier):
             trainer_space = []
             for i in range(len(model_list)):
                 train, model = trainer[i], model_list[i]
-                default_trainer = train.pop("name", "GraphClassificationFull")
+                default_trainer = train.pop("name", "LinkPredictionFull")
                 trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
-                default_kwargs = {"num_features": None, "num_classes": None}
+                default_kwargs = {"num_features": None}
                 default_kwargs.update(train)
                 default_kwargs["init"] = False
                 trainer_wrap = TRAINER_DICT[default_trainer](
