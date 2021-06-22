@@ -11,7 +11,6 @@ from ...model import BaseModel
 from ....utils import get_logger
 
 from ...model import AutoGCN
-from .single_path import FixedNodeClassificationModel
 from torch import nn
 from .operation import gnn_list, act_list, act_map, gnn_map
 from torch.autograd import Function
@@ -140,4 +139,4 @@ class GraphNasNodeClassificationSpace(BaseSpace):
 
     def parse_model(self, selection, device) -> BaseModel:
         #return AutoGCN(self.input_dim, self.output_dim, device)
-        return FixedNodeClassificationModel(self, selection, device)
+        return self.wrap(device).fix(selection)

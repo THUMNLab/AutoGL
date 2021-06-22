@@ -14,11 +14,12 @@ class TrainEstimator(BaseEstimator):
     def __init__(self):
         self.estimator=OneShotEstimator()
 
-    def infer(self,model: BaseSpace, dataset, mask="train"):
+    def infer(self, model: BaseSpace, dataset, mask="train"):
         # self.trainer.model=model
         # self.trainer.device=model.device
+        boxmodel = model.wrap()
         self.trainer=NodeClassificationFullTrainer(
-                    model=model,
+                    model=boxmodel,
                     optimizer=torch.optim.Adam,
                     lr=0.005,
                     max_epoch=300,
@@ -31,4 +32,4 @@ class TrainEstimator(BaseEstimator):
                     lr_scheduler_type=None)
         self.trainer.train(dataset)
         with torch.no_grad():
-            return self.estimator.infer(model,dataset,mask)
+            return self.estimator.infer(boxmodel.model, dataset, mask)

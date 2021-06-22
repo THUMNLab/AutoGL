@@ -4,8 +4,8 @@ from .base import (
     Evaluation,
     BaseNodeClassificationTrainer,
     BaseGraphClassificationTrainer,
+    BaseLinkPredictionTrainer,
 )
-from .evaluation import get_feval
 
 
 def register_trainer(name):
@@ -24,5 +24,22 @@ def register_trainer(name):
 
 from .graph_classification_full import GraphClassificationFullTrainer
 from .node_classification_full import NodeClassificationFullTrainer
+from .link_prediction import LinkPredictionTrainer
 from .node_classification_trainer import *
-from .evaluation import get_feval, Acc, Auc, Logloss
+from .evaluation import get_feval, Acc, Auc, Logloss, Mrr
+
+__all__ = [
+    "BaseTrainer",
+    "Evaluation",
+    "BaseGraphClassificationTrainer",
+    "BaseNodeClassificationTrainer",
+    "BaseLinkPredictionTrainer",
+    "GraphClassificationFullTrainer",
+    "NodeClassificationFullTrainer",
+    "LinkPredictionTrainer",
+    "Acc",
+    "Auc",
+    "Logloss",
+    "Mrr",
+    "get_feval",
+]

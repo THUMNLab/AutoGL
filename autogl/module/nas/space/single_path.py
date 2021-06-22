@@ -1,9 +1,7 @@
-from copy import deepcopy
 import typing as _typ
 import torch
 
 import torch.nn.functional as F
-from nni.nas.pytorch import mutables
 
 from . import register_nas_space
 from .base import apply_fixed_architecture
@@ -12,46 +10,6 @@ from ...model import BaseModel
 from ....utils import get_logger
 
 from ...model import AutoGCN
-
-class FixedNodeClassificationModel(BaseModel):
-    _logger = get_logger("space model")
-
-    def __init__(self, space_model: BaseSpace, selection, device=torch.device("cuda")):
-        super().__init__(init=True)
-        space_model.instantiate()
-        self.init = True
-        self.space = []
-        self.hyperparams = {}
-        self._model = space_model.to(device)
-        self.num_features = self._model.input_dim
-        self.num_classes = self._model.output_dim
-        self.selection = selection
-        apply_fixed_architecture(self._model, selection, verbose=False)
-        self.params = {"num_class": self.num_classes, "features_num": self.num_features}
-        self.device = device
-
-    def to(self, device):
-        if isinstance(device, (str, torch.device)):
-            self.device = device
-        return super().to(device)
-
-    def forward(self, *args, **kwargs):
-        return self._model(*args, **kwargs)
-
-    def from_hyper_parameter(self, hp):
-        """
-        receive no hp, just copy self and reset the learnable parameters.
-        """
-
-        ret_self = deepcopy(self)
-        ret_self._model.instantiate()
-        apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
-        ret_self.to(self.device)
-        return ret_self
-
-    @property
-    def model(self):
-        return self._model
 
 @register_nas_space("singlepath")
 class SinglePathNodeClassificationSpace(BaseSpace):
@@ -118,4 +76,4 @@ class SinglePathNodeClassificationSpace(BaseSpace):
 
     def parse_model(self, selection, device) -> BaseModel:
         #return AutoGCN(self.input_dim, self.output_dim, device)
-        return FixedNodeClassificationModel(self, selection, device)
+        return self.wrap(device).fix(selection)

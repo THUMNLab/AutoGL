@@ -2,6 +2,7 @@
 from torch_geometric.nn.conv import *
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 gnn_list = [
     "gat_8",  # GAT with 8 heads

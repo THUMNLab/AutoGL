@@ -82,7 +82,7 @@ class GraphSAGE(torch.nn.Module):
             return self.__full_forward(data)
 
 
-@register_model("sage")
+# @register_model("sage")
 class AutoSAGE(BaseModel):
     def __init__(
         self,
@@ -132,5 +132,5 @@ class AutoSAGE(BaseModel):
                 hidden_features=self.hyperparams["hidden"],
                 activation_name=self.hyperparams["act"],
                 **self.hyperparams
-            )
+            ).to(self.__device)
             self._initialized = True

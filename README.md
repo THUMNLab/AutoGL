@@ -8,6 +8,11 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Documentation Status](https://readthedocs.org/projects/autogl/badge/?version=latest)](https://autogl.readthedocs.io/en/latest/?badge=latest)
+
+## News!
+
+- 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987) are accepted in _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
+
 ## Introduction
 
 AutoGL is developed for researchers and developers to quickly conduct autoML on the graph datasets & tasks. See our documentation for detailed information!
@@ -103,6 +108,20 @@ make clean && make html
 ```
 
 The documentation will be automatically generated under `docs/_build/html`
+
+## Cite
+
+You can cite [our paper](https://arxiv.org/abs/2104.04987) as follows if you use this code in your own work:
+```
+@inproceedings{
+guan2021autogl,
+title={Auto{GL}: A Library for Automated Graph Learning},
+author={Chaoyu Guan and Ziwei Zhang and Haoyang Li and Heng Chang and Zeyang Zhang and Yijian Qin and Jiyan Jiang and Xin Wang and Wenwu Zhu},
+booktitle={ICLR 2021 Workshop on Geometrical and Topological Representation Learning},
+year={2021},
+url={https://openreview.net/forum?id=0yHwpLeInDn}
+}
+```
 
 ## License
 

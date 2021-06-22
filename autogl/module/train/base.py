@@ -216,7 +216,7 @@ class BaseTrainer:
         pass
 
     def duplicate_from_hyper_parameter(
-        self, hp, model: _typing.Union[BaseModel, str, None] = None
+        self, hp, model: _typing.Optional[BaseModel] = ...
     ) -> "BaseTrainer":
         """Create a new trainer with the given hyper parameter."""
         raise NotImplementedError()
@@ -403,4 +403,21 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
         self.num_graph_features: int = num_graph_features
         super(BaseGraphClassificationTrainer, self).__init__(
             model, num_features, num_classes, device, init, feval, loss
+        )
+
+
+class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
+    def __init__(
+        self,
+        model: _typing.Union[BaseModel, str],
+        num_features: int,
+        device: _typing.Union[torch.device, str, None] = None,
+        init: bool = True,
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
+    ):
+        super(BaseLinkPredictionTrainer, self).__init__(
+            model, num_features, 2, device, init, feval, loss
         )

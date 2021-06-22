@@ -454,46 +454,10 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
                 sel_list.append([4, 8, 16, 32, 64, 128, 256][selection[f"out_channels_{i}"]])
         sel_list.append(self.output_dim)
         #sel_list = ['const', 'sum', 'relu6', 2, 128, 'gat', 'sum', 'linear', 2, 7]
-        model = ModelBox(device, sel_list, self.input_dim, self.output_dim, self.dropout, multi_label=False, batch_normal=False, layers = self.layer_number)
+        model = GraphNet(sel_list, self.input_dim, self.output_dim, self.dropout, multi_label=False, batch_normal=False, layers = self.layer_number).wrap(device)
         return model
 
-class ModelBox(BaseModel):
-    def __init__(self, device, *args, **kwargs):
-        super().__init__(init=True)
-        self.init = True
-        self.space = []
-        self.hyperparams = {}
-        space_model = GraphNet(*args, **kwargs)
-        self._model = space_model.to(device)
-        self.num_features = self._model.num_feat
-        self.num_classes = self._model.num_label
-        self.params = {"num_class": self.num_classes, "features_num": self.num_features}
-        self.device = device
-
-    def to(self, device):
-        if isinstance(device, (str, torch.device)):
-            self.device = device
-        return super().to(device)
-
-    def forward(self, *args, **kwargs):
-        return self._model(*args, **kwargs)
-
-    def from_hyper_parameter(self, hp):
-        """
-        receive no hp, just copy self and reset the learnable parameters.
-        """
-
-        ret_self = deepcopy(self)
-        ret_self._model.instantiate()
-        apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
-        ret_self.to(self.device)
-        return ret_self
-
-    @property
-    def model(self):
-        return self._model
-
-class GraphNet(BaseModel):
+class GraphNet(BaseSpace):
 
     def __init__(self, actions, num_feat, num_label, drop_out=0.6, multi_label=False, batch_normal=True, state_num=5,
                  residual=False, layers = 2):
@@ -503,6 +467,8 @@ class GraphNet(BaseModel):
         self.multi_label = multi_label
         self.num_feat = num_feat
         self.num_label = num_label
+        self.input_dim = num_feat
+        self.output_dim = num_label
         self.dropout = drop_out
         
         super().__init__()

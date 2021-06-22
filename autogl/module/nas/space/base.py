@@ -1,9 +1,15 @@
 from abc import abstractmethod
-from autogl.module.model import BaseModel
 import torch.nn as nn
 from nni.nas.pytorch import mutables
 from nni.nas.pytorch.fixed import FixedArchitecture
 import json
+from copy import deepcopy
+import typing as _typ
+import torch
+from ...model import BaseModel
+from ....utils import get_logger
+
+from ...model import AutoGCN
 
 class OrderedMutable():
     def __init__(self, order):
@@ -20,6 +26,49 @@ class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
         OrderedMutable.__init__(self, order)
         mutables.InputChoice.__init__(self, n_candidates, choose_from, n_chosen,
                  reduction, return_mask, key)
+
+class BoxModel(BaseModel):
+    _logger = get_logger("space model")
+
+    def __init__(self, space_model, device=torch.device("cuda")):
+        super().__init__(init=True)
+        self.init = True
+        self.space = []
+        self.hyperparams = {}
+        self._model = space_model.to(device)
+        self.num_features = self._model.input_dim
+        self.num_classes = self._model.output_dim
+        self.params = {"num_class": self.num_classes, "features_num": self.num_features}
+        self.device = device
+
+    def fix(self, selection):
+        self.selection = selection
+        self._model.instantiate()
+        apply_fixed_architecture(self._model, selection, verbose=False)
+        return self
+
+    def to(self, device):
+        if isinstance(device, (str, torch.device)):
+            self.device = device
+        return super().to(device)
+
+    def forward(self, *args, **kwargs):
+        return self._model(*args, **kwargs)
+
+    def from_hyper_parameter(self, hp):
+        """
+        receive no hp, just copy self and reset the learnable parameters.
+        """
+
+        ret_self = deepcopy(self)
+        ret_self._model.instantiate()
+        apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
+        ret_self.to(self.device)
+        return ret_self
+
+    @property
+    def model(self):
+        return self._model
 
 class BaseSpace(nn.Module):
     """
@@ -102,6 +151,14 @@ class BaseSpace(nn.Module):
         layer = OrderedInputChoice(order, n_candidates, choose_from, n_chosen,
                  reduction, return_mask, orikey)
         return layer
+
+    def wrap(self, device="cuda"):
+        """
+        Return a BoxModel which wrap self as a model
+        Used to pass to trainer
+        To use this function, must contain `input_dim` and `output_dim`
+        """ 
+        return BoxModel(self, device) 
 
 class FixedInputChoice(nn.Module):
     def __init__(self, mask):

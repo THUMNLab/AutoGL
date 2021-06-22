@@ -283,8 +283,6 @@ class RL(BaseNAS):
         self.n_warmup=n_warmup
         self.model_lr = model_lr
         self.model_wd = model_wd
-        self.disable_progress = disable_progress
-        self.log=open('../tmp/log.txt','w')
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -327,8 +325,7 @@ class RL(BaseNAS):
                 self._resample()
                 metric,loss=self._infer(mask='val')
                 bar.set_postfix(acc=metric,loss=loss.item())
-                self.log.write(f'{self.arch}\n{self.selection}\n{metric},{loss}\n')
-                self.log.flush()
+                LOGGER.info(f'{self.arch}\n{self.selection}\n{metric},{loss}')
                 reward =metric 
                 rewards.append(reward)
                 if self.entropy_weight:
@@ -347,7 +344,7 @@ class RL(BaseNAS):
                     self.ctrl_optim.zero_grad()
 
                 if self.log_frequency is not None and ctrl_step % self.log_frequency == 0:
-                    _logger.info('RL Epoch [%d/%d] Step [%d/%d]  %s', epoch + 1, self.num_epochs,
+                    LOGGER.info('RL Epoch [%d/%d] Step [%d/%d]  %s', epoch + 1, self.num_epochs,
                                     ctrl_step + 1, self.ctrl_steps_aggregate)
         return sum(rewards)/len(rewards)
 
@@ -423,8 +420,6 @@ class GraphNasRL(BaseNAS):
         self.n_warmup=n_warmup
         self.model_lr = model_lr
         self.model_wd = model_wd
-        timestamp=datetime.now().strftime('%m%d-%H-%M-%S')
-        self.log=open(f'../tmp/log-{timestamp}.txt','w')
         self.hist=[]
         self.topk=topk
         self.disable_progress=disable_progress
@@ -493,8 +488,7 @@ class GraphNasRL(BaseNAS):
                 metric,loss=self._infer(mask='val')
 
                 # bar.set_postfix(acc=metric,loss=loss.item())
-                self.log.write(f'{self.arch}\n{self.selection}\n{metric},{loss}\n')
-                self.log.flush()
+                LOGGER.debug(f'{self.arch}\n{self.selection}\n{metric},{loss}')
                 # diff: not do reward shaping as in graphnas code
                 reward =metric
                 self.hist.append([-metric,self.selection])
