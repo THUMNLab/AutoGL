@@ -16,6 +16,9 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT, BaseModel
 from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
 from ...module.train import get_feval
+from ...module.nas.space import NAS_SPACE_DICT
+from ...module.nas.algorithm import NAS_ALGO_DICT
+from ...module.nas.estimator import NAS_ESTIMATOR_DICT
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
@@ -799,5 +802,25 @@ class AutoNodeClassifier(BaseClassifier):
         if ensemble_dict is not None:
             name = ensemble_dict.pop("name")
             solver.set_ensemble_module(name, **ensemble_dict)
+        
+        nas_dict = path_or_dict.pop("nas", None)
+        if nas_dict is not None:
+            keys: set = set(nas_dict.keys())
+            needed = {'space', 'algorithm', 'estimator'}
+            if keys != needed:
+                LOGGER.error('Key mismatch, we need %s, you give %s' % (needed, keys))
+                raise KeyError('Key mismatch, we need %s, you give %s' % (needed, keys))
+
+            spaces, algorithms, estimators = [], [], []
+
+            for container, indexer, k in zip([spaces, algorithms, estimators], [NAS_SPACE_DICT, NAS_ALGO_DICT, NAS_ESTIMATOR_DICT], ['space', 'algorithm', 'estimator']):
+                configs = nas_dict[k]
+                if isinstance(configs, list):
+                    for item in configs:
+                        container.append(indexer[item.pop('name')](**item, init=False))
+                else:
+                    container.append(indexer[configs.pop('name')](**configs, init=False))
+            
+            solver.set_nas_module(algorithms, spaces, estimators)
 
         return solver
