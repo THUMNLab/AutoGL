@@ -1,10 +1,12 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+from . import register_nas_estimator
 from ..space import BaseSpace
 from .base import BaseEstimator
 import torch
 
+@register_nas_estimator("oneshot")
 class OneShotEstimator(BaseEstimator):
     """
     One shot estimator.

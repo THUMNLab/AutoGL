@@ -17,7 +17,7 @@ def register_nas_space(name):
 
     return register_nas_space_cls
 
-from .graph_nas_macro import GraphNasMacroNodeClfSpace
+from .graph_nas_macro import GraphNasMacroNodeClassificationSpace
 from .graph_nas import GraphNasNodeClassificationSpace
 from .single_path import SinglePathNodeClassificationSpace
 
@@ -41,4 +41,4 @@ def build_nas_space_from_name(name: str) -> BaseSpace:
     assert name in NAS_SPACE_DICT, "HPO module do not have name " + name
     return NAS_SPACE_DICT[name]()
 
-__all__ = ["BaseSpace", "GraphNasMacroNodeClfSpace", "GraphNasNodeClassificationSpace", "SinglePathNodeClassificationSpace"]
+__all__ = ["BaseSpace", "GraphNasMacroNodeClassificationSpace", "GraphNasNodeClassificationSpace", "SinglePathNodeClassificationSpace"]

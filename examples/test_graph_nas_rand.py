@@ -17,6 +17,22 @@ import numpy as np
 import logging
 def one_run():
     logging.getLogger().setLevel(logging.WARNING)
+    cora = build_dataset_from_name('cora')
+
+    clf = AutoNodeClassifier(
+        feature_module='PYGNormalizeFeatures',
+        graph_models=[],
+        nas_algorithms=[Enas(num_epochs=10)],
+        nas_spaces=[GraphNasNodeClassificationSpace()],
+        nas_estimators=[OneShotEstimator()],
+        max_evals=2
+    )
+
+    clf.fit(cora)
+    clf.predict(cora)
+
+    return
+
     dataset = build_dataset_from_name('cora')
     solver = AutoNodeClassifier(
         feature_module='PYGNormalizeFeatures',
@@ -50,6 +66,6 @@ def one_run():
 
 if __name__ == '__main__':
     acc_li = []
-    for i in range(100):
+    for i in range(2):
         acc_li.append(one_run())
     print("results:", np.mean(acc_li), np.std(acc_li))

@@ -53,7 +53,7 @@ class BaseSpace(nn.Module):
         raise NotImplementedError()
 
     @abstractmethod
-    def export(self, selection: dict, device) -> BaseModel:
+    def parse_model(self, selection: dict, device) -> BaseModel:
         """
         Export the searched model from space.
 

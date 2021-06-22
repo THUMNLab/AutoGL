@@ -1,11 +1,9 @@
 # codes in this file are reproduced from https://github.com/microsoft/nni with some changes.
-import copy
-import logging
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from . import register_nas_algo
 from .base import BaseNAS
 from ..space import BaseSpace
 from ..utils import AverageMeterGroup, replace_layer_choice, replace_input_choice, get_module_order, sort_replaced_module
@@ -13,7 +11,9 @@ from nni.nas.pytorch.fixed import apply_fixed_architecture
 from tqdm import tqdm
 from datetime import datetime
 import numpy as np
-_logger = logging.getLogger(__name__)
+from ....utils import get_logger
+
+LOGGER = get_logger("random_search_NAS")
 def _get_mask(sampled, total):
     multihot = [i == sampled or (isinstance(sampled, list) and i in sampled) for i in range(total)]
     return torch.tensor(multihot, dtype=torch.bool)  # pylint: disable=not-callable
@@ -108,7 +108,6 @@ class StackedLSTMCell(nn.Module):
             inputs = curr_h[-1].view(1, -1)
         return next_h, next_c
 
-
 class ReinforceField:
     """
     A field with ``name``, with ``total`` choices. ``choose_one`` is true if one and only one is meant to be
@@ -122,7 +121,6 @@ class ReinforceField:
 
     def __repr__(self):
         return f'ReinforceField(name={self.name}, total={self.total}, choose_one={self.choose_one})'
-
 
 class ReinforceController(nn.Module):
     """
@@ -228,31 +226,15 @@ class ReinforceController(nn.Module):
             sampled = sampled[0]
         return sampled
 
-
+@register_nas_algo("rl")
 class RL(BaseNAS):
     """
     RL in GraphNas.
 
     Parameters
     ----------
-    model : nn.Module
-        PyTorch model to be trained.
-    loss : callable
-        Receives logits and ground truth label, return a loss tensor.
-    metrics : callable
-        Receives logits and ground truth label, return a dict of metrics.
-    reward_function : callable
-        Receives logits and ground truth label, return a tensor, which will be feeded to RL controller as reward.
-    optimizer : Optimizer
-        The optimizer used for optimizing the model.
     num_epochs : int
         Number of epochs planned for training.
-    dataset : Dataset
-        Dataset for training. Will be split for training weights and architecture weights.
-    batch_size : int
-        Batch size.
-    workers : int
-        Workers for data loading.
     device : torch.device
         ``torch.device("cpu")`` or ``torch.device("cuda")``.
     log_frequency : int
@@ -273,15 +255,22 @@ class RL(BaseNAS):
         Number of mini-batches for each epoch of RL controller learning.
     ctrl_kwargs : dict
         Optional kwargs that will be passed to :class:`ReinforceController`.
+    n_warmup : int
+        Number of epochs for training super network.
+    model_lr : float
+        Learning rate for super network.
+    model_wd : float
+        Weight decay for super network.
+    disable_progeress: boolean
+        Control whether show the progress bar.
     """
 
-    def __init__(self, device='cuda', workers=4,log_frequency=None,
+    def __init__(self, num_epochs = 5, device='cuda', log_frequency=None,
                  grad_clip=5., entropy_weight=0.0001, skip_weight=0.8, baseline_decay=0.999,
-                 ctrl_lr=0.00035, ctrl_steps_aggregate=20, ctrl_kwargs=None,n_warmup=100,model_lr=5e-3,model_wd=5e-4,*args,**kwargs):
+                 ctrl_lr=0.00035, ctrl_steps_aggregate=20, ctrl_kwargs=None,n_warmup=100,model_lr=5e-3,model_wd=5e-4, disable_progress=True):
         super().__init__(device)
         self.device=device
-        self.num_epochs = kwargs.get("num_epochs", 5)
-        self.workers = workers
+        self.num_epochs = num_epochs
         self.log_frequency = log_frequency
         self.entropy_weight = entropy_weight
         self.skip_weight = skip_weight
@@ -289,13 +278,14 @@ class RL(BaseNAS):
         self.baseline = 0.
         self.ctrl_steps_aggregate = ctrl_steps_aggregate
         self.grad_clip = grad_clip
-        self.workers = workers
         self.ctrl_kwargs=ctrl_kwargs
         self.ctrl_lr=ctrl_lr
         self.n_warmup=n_warmup
         self.model_lr = model_lr
         self.model_wd = model_wd
+        self.disable_progress = disable_progress
         self.log=open('../tmp/log.txt','w')
+
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset#.to(self.device)
@@ -317,14 +307,14 @@ class RL(BaseNAS):
         self.controller = ReinforceController(self.nas_fields, **(self.ctrl_kwargs or {}))
         self.ctrl_optim = torch.optim.Adam(self.controller.parameters(), lr=self.ctrl_lr)
         # train
-        with tqdm(range(self.num_epochs)) as bar:
+        with tqdm(range(self.num_epochs), disable = self.disable_progress) as bar:
             for i in bar:
                 l2=self._train_controller(i)
                 bar.set_postfix(reward_controller=l2)
         
         selection=self.export()
         arch=space.export(selection,self.device)
-        print(selection,arch)
+        #print(selection,arch)
         return arch
     
     def _train_controller(self, epoch):
@@ -332,7 +322,7 @@ class RL(BaseNAS):
         self.controller.train()
         self.ctrl_optim.zero_grad()
         rewards=[]
-        with tqdm(range(self.ctrl_steps_aggregate)) as bar:
+        with tqdm(range(self.ctrl_steps_aggregate), disable=self.disable_progress) as bar:
             for ctrl_step in bar:
                 self._resample()
                 metric,loss=self._infer(mask='val')
@@ -375,32 +365,17 @@ class RL(BaseNAS):
         metric, loss = self.estimator.infer(self.arch, self.dataset,mask=mask)
         return metric, loss
 
+@register_nas_algo("graphnas")
 class GraphNasRL(BaseNAS):
     """
     RL in GraphNas.
 
     Parameters
     ----------
-    model : nn.Module
-        PyTorch model to be trained.
-    loss : callable
-        Receives logits and ground truth label, return a loss tensor.
-    metrics : callable
-        Receives logits and ground truth label, return a dict of metrics.
-    reward_function : callable
-        Receives logits and ground truth label, return a tensor, which will be feeded to RL controller as reward.
-    optimizer : Optimizer
-        The optimizer used for optimizing the model.
-    num_epochs : int
-        Number of epochs planned for training.
-    dataset : Dataset
-        Dataset for training. Will be split for training weights and architecture weights.
-    batch_size : int
-        Batch size.
-    workers : int
-        Workers for data loading.
     device : torch.device
         ``torch.device("cpu")`` or ``torch.device("cuda")``.
+    num_epochs : int
+        Number of epochs planned for training.
     log_frequency : int
         Step count per logging.
     grad_clip : float
@@ -419,22 +394,30 @@ class GraphNasRL(BaseNAS):
         Number of mini-batches for each epoch of RL controller learning.
     ctrl_kwargs : dict
         Optional kwargs that will be passed to :class:`ReinforceController`.
+    n_warmup : int
+        Number of epochs for training super network.
+    model_lr : float
+        Learning rate for super network.
+    model_wd : float
+        Weight decay for super network.
+    topk : int
+        Number of architectures kept in training process.
+    disable_progeress: boolean
+        Control whether show the progress bar.
     """
 
-    def __init__(self, device='cuda', workers=4,log_frequency=None,
+    def __init__(self, device='cuda', num_epochs=10, log_frequency=None,
                  grad_clip=5., entropy_weight=0.0001, skip_weight=0, baseline_decay=0.95,
-                 ctrl_lr=0.00035, ctrl_steps_aggregate=100, ctrl_kwargs=None,n_warmup=100,model_lr=5e-3,model_wd=5e-4,topk=5,*args,**kwargs):
+                 ctrl_lr=0.00035, ctrl_steps_aggregate=100, ctrl_kwargs=None, n_warmup=100, model_lr=5e-3, model_wd=5e-4, topk=5, disable_progress = True):
         super().__init__(device)
         self.device=device
-        self.num_epochs = kwargs.get("num_epochs", 10)
-        self.workers = workers
+        self.num_epochs = num_epochs
         self.log_frequency = log_frequency
         self.entropy_weight = entropy_weight
         self.skip_weight = skip_weight
         self.baseline_decay = baseline_decay
         self.ctrl_steps_aggregate = ctrl_steps_aggregate
         self.grad_clip = grad_clip
-        self.workers = workers
         self.ctrl_kwargs=ctrl_kwargs
         self.ctrl_lr=ctrl_lr
         self.n_warmup=n_warmup
@@ -444,6 +427,8 @@ class GraphNasRL(BaseNAS):
         self.log=open(f'../tmp/log-{timestamp}.txt','w')
         self.hist=[]
         self.topk=topk
+        self.disable_progress=disable_progress
+
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset#.to(self.device)
@@ -465,7 +450,7 @@ class GraphNasRL(BaseNAS):
         self.controller = ReinforceController(self.nas_fields,lstm_size=100,temperature=5.0,tanh_constant=2.5, **(self.ctrl_kwargs or {}))
         self.ctrl_optim = torch.optim.Adam(self.controller.parameters(), lr=self.ctrl_lr)
         # train
-        with tqdm(range(self.num_epochs)) as bar:
+        with tqdm(range(self.num_epochs), disable=self.disable_progress) as bar:
             for i in bar:
                 l2=self._train_controller(i)
                 bar.set_postfix(reward_controller=l2)
@@ -474,22 +459,23 @@ class GraphNasRL(BaseNAS):
         
         selections=[x[1] for x in self.hist]
         candidiate_accs=[-x[0] for x in self.hist]
-        print('candidiate accuracies',candidiate_accs)
+        #print('candidiate accuracies',candidiate_accs)
         selection=self._choose_best(selections)
-        arch=space.export(selection,self.device)
-        print(selection,arch)
+        arch=space.parse_model(selection,self.device)
+        #print(selection,arch)
         return arch
+
     def _choose_best(self,selections):
         # graphnas use top 5 models, can evaluate 20 times epoch and choose the best.
         results=[]
         for selection in selections:
             accs=[]
-            for i in tqdm(range(20)):
-                self.arch=self.model.export(selection,device=self.device)
+            for i in tqdm(range(20), disable=self.disable_progress):
+                self.arch=self.model.parse_model(selection,device=self.device)
                 metric,loss=self._infer(mask='val')
                 accs.append(metric)
             result=np.mean(accs) 
-            print('selection {} \n acc {:.4f} +- {:.4f}'.format(selection,np.mean(accs),np.std(accs)/np.sqrt(20)))
+            LOGGER.info('selection {} \n acc {:.4f} +- {:.4f}'.format(selection,np.mean(accs),np.std(accs)/np.sqrt(20)))
             results.append(result)
         best_selection=selections[np.argmax(results)]
         return best_selection
@@ -501,7 +487,7 @@ class GraphNasRL(BaseNAS):
         rewards=[]
         baseline=None
         # diff: graph nas train 100 and derive 100 for every epoch(10 epochs), we just train 100(20 epochs). totol num of samples are same (2000)
-        with tqdm(range(self.ctrl_steps_aggregate)) as bar:
+        with tqdm(range(self.ctrl_steps_aggregate), disable=self.disable_progress) as bar:
             for ctrl_step in bar:
                 self._resample()
                 metric,loss=self._infer(mask='val')
@@ -536,7 +522,7 @@ class GraphNasRL(BaseNAS):
 
     def _resample(self):
         result = self.controller.resample()
-        self.arch=self.model.export(result,device=self.device)
+        self.arch=self.model.parse_model(result,device=self.device)
         self.selection=result
 
     def export(self):
@@ -545,5 +531,5 @@ class GraphNasRL(BaseNAS):
             return self.controller.resample()
 
     def _infer(self,mask='train'):
-        metric, loss = self.estimator.infer(self.arch, self.dataset,mask=mask)
+        metric, loss = self.estimator.infer(self.arch._model, self.dataset,mask=mask)
         return metric, loss

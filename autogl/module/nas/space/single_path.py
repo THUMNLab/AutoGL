@@ -4,6 +4,8 @@ import torch
 
 import torch.nn.functional as F
 from nni.nas.pytorch import mutables
+
+from . import register_nas_space
 from .base import apply_fixed_architecture
 from .base import BaseSpace
 from ...model import BaseModel
@@ -51,7 +53,7 @@ class FixedNodeClassificationModel(BaseModel):
     def model(self):
         return self._model
 
-
+@register_nas_space("singlepath")
 class SinglePathNodeClassificationSpace(BaseSpace):
     def __init__(
         self,
@@ -114,6 +116,6 @@ class SinglePathNodeClassificationSpace(BaseSpace):
                 x = F.dropout(x, p=self.dropout, training = self.training)
         return F.log_softmax(x, dim=1)
 
-    def export(self, selection, device) -> BaseModel:
+    def parse_model(self, selection, device) -> BaseModel:
         #return AutoGCN(self.input_dim, self.output_dim, device)
         return FixedNodeClassificationModel(self, selection, device)

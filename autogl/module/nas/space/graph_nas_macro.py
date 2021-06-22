@@ -3,9 +3,10 @@ import typing as _typ
 import torch.nn as nn
 import torch.nn.functional as F
 
+from . import register_nas_space
 from .base import BaseSpace
 from ...model import BaseModel
-from .graph_nas import act_map
+from .operation import act_map
 
 from torch.nn import Parameter
 from torch_geometric.nn.inits import glorot, zeros
@@ -387,7 +388,8 @@ class StrModule(nn.Module):
 def map_nn(l):
     return [StrModule(x) for x in l]
 
-class GraphNasMacroNodeClfSpace(BaseSpace):
+@register_nas_space("graphnasmacro")
+class GraphNasMacroNodeClassificationSpace(BaseSpace):
     def __init__(
         self,
         hidden_dim: _typ.Optional[int] = 64,
@@ -441,7 +443,7 @@ class GraphNasMacroNodeClfSpace(BaseSpace):
             if i < layer_nums - 1:
                 setattr(self,f"out_channels_{i}",self.setLayerChoice(i * state_num + 0, map_nn([4, 8, 16, 32, 64, 128, 256]), key=f"out_channels_{i}"))
 
-    def export(self, selection, device) -> BaseModel:
+    def parse_model(self, selection, device) -> BaseModel:
         sel_list = []
         for i in range(self.layer_number):
             sel_list.append(["gat", "gcn", "cos", "const", "gat_sym", 'linear', 'generalized_linear'][selection[f"attention_{i}"]])
@@ -451,6 +453,7 @@ class GraphNasMacroNodeClfSpace(BaseSpace):
             if i < self.layer_number - 1:
                 sel_list.append([4, 8, 16, 32, 64, 128, 256][selection[f"out_channels_{i}"]])
         sel_list.append(self.output_dim)
+        #sel_list = ['const', 'sum', 'relu6', 2, 128, 'gat', 'sum', 'linear', 2, 7]
         model = ModelBox(device, sel_list, self.input_dim, self.output_dim, self.dropout, multi_label=False, batch_normal=False, layers = self.layer_number)
         return model
 

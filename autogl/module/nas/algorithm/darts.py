@@ -7,6 +7,7 @@ import torch.optim
 import torch.nn as nn
 import torch.nn.functional as F
 
+from . import register_nas_algo
 from .base import BaseNAS
 from ..estimator.base import BaseEstimator
 from ..space import BaseSpace
@@ -16,55 +17,42 @@ from nni.retiarii.oneshot.pytorch.darts import DartsLayerChoice, DartsInputChoic
 
 _logger = logging.getLogger(__name__)
 
-
+@register_nas_algo("darts")
 class Darts(BaseNAS):
     """
     DARTS trainer.
 
     Parameters
     ----------
-    model : nn.Module
-        PyTorch model to be trained.
-    loss : callable
-        Receives logits and ground truth label, return a loss tensor.
-    metrics : callable
-        Receives logits and ground truth label, return a dict of metrics.
-    optimizer : Optimizer
-        The optimizer used for optimizing the model.
     num_epochs : int
         Number of epochs planned for training.
-    dataset : Dataset
-        Dataset for training. Will be split for training weights and architecture weights.
-    grad_clip : float
-        Gradient clipping. Set to 0 to disable. Default: 5.
-    learning_rate : float
-        Learning rate to optimize the model.
-    batch_size : int
-        Batch size.
     workers : int
         Workers for data loading.
+    gradient_clip : float
+        Gradient clipping. Set to 0 to disable. Default: 5.
+    model_lr : float
+        Learning rate to optimize the model.
+    model_wd : float
+        Weight decay to optimize the model.
+    arch_lr : float
+        Learning rate to optimize the architecture.
+    arch_wd : float
+        Weight decay to optimize the architecture.
     device : str or torch.device
         The device of the whole process
-    log_frequency : int
-        Step count per logging.
-    arc_learning_rate : float
-        Learning rate of architecture parameters.
-    unrolled : float
-        ``True`` if using second order optimization, else first order optimization.
     """
 
-    def __init__(self, num_epochs=5, device="cuda"):
+    def __init__(self, num_epochs=5, workers = 4, gradient_clip = 5.0, model_lr = 1e-3, model_wd = 5e-4, arch_lr = 3e-4, arch_wd = 1e-3, device="cuda"):
         super().__init__(device=device)
         self.num_epochs = num_epochs
-        self.workers = 4
-        self.log_frequency = None
-        self.gradient_clip = 5.0
+        self.workers = workers
+        self.gradient_clip = gradient_clip
         self.model_optimizer = torch.optim.Adam
         self.arch_optimizer = torch.optim.Adam
-        self.model_lr = 0.001
-        self.model_wd = 5e-4
-        self.arch_lr = 3e-4
-        self.arch_wd = 1e-3
+        self.model_lr = model_lr
+        self.model_wd = model_wd
+        self.arch_lr = arch_lr
+        self.arch_wd = arch_wd
 
     def search(self, space: BaseSpace, dataset, estimator):
         model_optim = self.model_optimizer(
@@ -95,7 +83,7 @@ class Darts(BaseNAS):
             )
 
         selection = self.export(nas_modules)
-        return space.export(selection, self.device)
+        return space.parse_model(selection, self.device)
 
     def _train_one_epoch(
         self,
@@ -124,7 +112,7 @@ class Darts(BaseNAS):
             nn.utils.clip_grad_norm_(model.parameters(), self.gradient_clip)
         model_optim.step()
 
-    def _infer(self, model: BaseModel, dataset, estimator: BaseEstimator, mask="train"):
+    def _infer(self, model: BaseSpace, dataset, estimator: BaseEstimator, mask="train"):
         metric, loss = estimator.infer(model, dataset, mask=mask)
         return metric, loss
 
@@ -133,5 +121,5 @@ class Darts(BaseNAS):
         result = dict()
         for name, module in nas_modules:
             if name not in result:
-                result[name] = module.export()
+                result[name] = module.parse_model()
         return result

@@ -1,12 +1,15 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+from . import register_nas_estimator
 from ..space import BaseSpace
 from .base import BaseEstimator
 from .one_shot import OneShotEstimator
 import torch
 
 from autogl.module.train import NodeClassificationFullTrainer
+
+@register_nas_estimator("scratch")
 class TrainEstimator(BaseEstimator):
     def __init__(self):
         self.estimator=OneShotEstimator()
