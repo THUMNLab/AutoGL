@@ -7,6 +7,8 @@ AutoGL project use ``trainer`` to handle the auto-training of tasks. Currently, 
 
 * ``NodeClassificationTrainer`` for semi-supervised node classification
 * ``GraphClassificationTrainer`` for supervised graph classification
+* ``LinkPredictionTrainer`` for link prediction
+
 
 Initialization
 --------------
@@ -41,7 +43,7 @@ Train and Predict
 -----------------
 After initializing a trainer, you can train it on the given datasets.
 
-We have given the training and testing functions for the tasks of node classification and graph classification up to now. You can also create your tasks following the similar patterns with ours. For training, you need to define ``train_only()`` and use it in ``train()``. For testing, you need to define ``predict_proba()`` and use it in ``predict()``.
+We have given the training and testing functions for the tasks of node classification, graph classification, and link prediction up to now. You can also create your tasks following the similar patterns with ours. For training, you need to define ``train_only()`` and use it in ``train()``. For testing, you need to define ``predict_proba()`` and use it in ``predict()``.
 
 The evaluation funtion is defined in ``evaluate()``, you can use your our evaluation metrics and methods.
 
