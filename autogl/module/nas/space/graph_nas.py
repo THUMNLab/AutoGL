@@ -62,7 +62,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,
-        init: bool = False,
         search_act_con=False
     ):
         super().__init__()

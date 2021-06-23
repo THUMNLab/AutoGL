@@ -261,7 +261,7 @@ class RL(BaseNAS):
         Learning rate for super network.
     model_wd : float
         Weight decay for super network.
-    disable_progeress: boolean
+    disable_progress: boolean
         Control whether show the progress bar.
     """
 
@@ -283,6 +283,7 @@ class RL(BaseNAS):
         self.n_warmup=n_warmup
         self.model_lr = model_lr
         self.model_wd = model_wd
+        self.disable_progress=disable_progress
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -350,7 +351,7 @@ class RL(BaseNAS):
 
     def _resample(self):
         result = self.controller.resample()
-        self.arch=self.model.export(result,device=self.device)
+        self.arch=self.model.parse_model(result,device=self.device)
         self.selection=result
 
     def export(self):
@@ -359,7 +360,7 @@ class RL(BaseNAS):
             return self.controller.resample()
 
     def _infer(self,mask='train'):
-        metric, loss = self.estimator.infer(self.arch, self.dataset,mask=mask)
+        metric, loss = self.estimator.infer(self.arch._model, self.dataset,mask=mask)
         return metric, loss
 
 @register_nas_algo("graphnas")

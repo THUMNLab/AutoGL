@@ -1,4 +1,3 @@
-import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,43 +6,12 @@ from . import register_nas_algo
 from .base import BaseNAS
 from ..space import BaseSpace
 from ..utils import AverageMeterGroup, replace_layer_choice, replace_input_choice, get_module_order, sort_replaced_module
-from nni.nas.pytorch.fixed import apply_fixed_architecture
 from tqdm import tqdm
 from .rl import PathSamplingLayerChoice,PathSamplingInputChoice
 import numpy as np
 from ....utils import get_logger
 
 LOGGER = get_logger("random_search_NAS")
-class RSBox:
-    '''get selection space for model `space` '''
-    def __init__(self,space):
-        self.model = space
-        self.nas_modules = []
-        k2o = get_module_order(self.model)
-        replace_layer_choice(self.model, PathSamplingLayerChoice, self.nas_modules)
-        replace_input_choice(self.model, PathSamplingInputChoice, self.nas_modules)
-        self.nas_modules = sort_replaced_module(k2o, self.nas_modules) 
-        nm=self.nas_modules
-        selection_range={}
-        for k,v in nm:
-            selection_range[k]=len(v)
-        self.selection_dict=selection_range
-        
-        
-        space_size=np.prod(list(selection_range.values()))
-        #print(f'Using random search Box. Total space size: {space_size}')
-        #print('Searching Space:',selection_range)
-         
-    def export(self):
-        return self.selection_dict #{k:v}, means action ranges 0 to v-1 for layer named k
-
-    def sample(self):
-        # uniformly sample
-        selection={}
-        sdict=self.export()
-        for k,v in sdict.items():
-            selection[k]=np.random.choice(range(v))
-        return selection
 
 @register_nas_algo("random")
 class RandomSearch(BaseNAS):
@@ -68,12 +36,24 @@ class RandomSearch(BaseNAS):
         self.estimator=estimator
         self.dataset=dset
         self.space=space
-        self.box=RSBox(self.space)
+        
+        self.nas_modules = []
+        k2o = get_module_order(self.space)
+        replace_layer_choice(self.space, PathSamplingLayerChoice, self.nas_modules)
+        replace_input_choice(self.space, PathSamplingInputChoice, self.nas_modules)
+        self.nas_modules = sort_replaced_module(k2o, self.nas_modules) 
+        selection_range={}
+        for k,v in self.nas_modules:
+            selection_range[k]=len(v)
+        self.selection_dict=selection_range
+        
+        #space_size=np.prod(list(selection_range.values()))
+
         arch_perfs=[]
         cache={}
         with tqdm(range(self.num_epochs),disable=self.disable_progress) as bar:
             for i in bar:
-                selection=self.export() 
+                selection=self.sample() 
                 vec=tuple(list(selection.values()))
                 if vec not in cache:
                     self.arch=space.parse_model(selection,self.device)
@@ -85,10 +65,13 @@ class RandomSearch(BaseNAS):
         arch=space.parse_model(selection,self.device)
         return arch 
     
-    def export(self):
-        arch=self.box.sample()
-        return arch
+    def sample(self):
+        # uniformly sample
+        selection={}
+        for k,v in self.selection_dict.items():
+            selection[k]=np.random.choice(range(v))
+        return selection
 
     def _infer(self,mask='train'):
-        metric, loss = self.estimator.infer(self.arch, self.dataset,mask=mask)
+        metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
         return metric, loss

@@ -83,7 +83,7 @@ class BaseSpace(nn.Module):
         Whether to initialize the whole space. Default: `False`
     """
 
-    def __init__(self, init=False):
+    def __init__(self):
         super().__init__()
         self._initialized = False
 
@@ -134,7 +134,7 @@ class BaseSpace(nn.Module):
         if orikey == None:
             key = f"default_key_{self._default_key}"
             self._default_key += 1
-            orikry = key
+            orikey = key
         layer = OrderedLayerChoice(order, op_candidates, reduction, return_mask, orikey)
         return layer
 

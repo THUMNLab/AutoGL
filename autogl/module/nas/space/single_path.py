@@ -21,7 +21,6 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,
-        init: bool = False,
     ):
         super().__init__()
         self.layer_number = layer_number
