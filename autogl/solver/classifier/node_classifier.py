@@ -42,6 +42,15 @@ class AutoNodeClassifier(BaseClassifier):
 
     graph_models: list of autogl.module.model.BaseModel or list of str
         The (name of) models to be optimized as backbone. Default ``['gat', 'gcn']``.
+    
+    nas_algorithms: (list of) autogl.module.nas.algorithm.BaseNAS or str (Optional)
+        The (name of) nas algorithms used. Default ``None``.
+    
+    nas_spaces: (list of) autogl.module.nas.space.BaseSpace or str (Optional)
+        The (name of) nas spaces used. Default ``None``.
+    
+    nas_estimators: (list of) autogl.module.nas.estimator.BaseEstimator or str (Optional)
+        The (name of) nas estimators used. Default ``None``.
 
     hpo_module: autogl.module.hpo.BaseHPOptimizer or str or None
         The (name of) hpo module used to search for best hyper parameters. Default ``anneal``.
@@ -808,7 +817,7 @@ class AutoNodeClassifier(BaseClassifier):
             keys: set = set(nas_dict.keys())
             needed = {'space', 'algorithm', 'estimator'}
             if keys != needed:
-                LOGGER.error('Key mismatch, we need %s, you give %s' % (needed, keys))
+                LOGGER.error('Key mismatch, we need %s, you give %s', needed, keys)
                 raise KeyError('Key mismatch, we need %s, you give %s' % (needed, keys))
 
             spaces, algorithms, estimators = [], [], []
