@@ -121,5 +121,5 @@ class Darts(BaseNAS):
         result = dict()
         for name, module in nas_modules:
             if name not in result:
-                result[name] = module.parse_model()
+                result[name] = module.export()
         return result

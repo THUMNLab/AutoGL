@@ -409,7 +409,7 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
         self.dropout = dropout
         self.search_act_con=search_act_con
 
-    def _instantiate(
+    def instantiate(
         self,
         hidden_dim: _typ.Optional[int] = None,
         layer_number: _typ.Optional[int] = None,
@@ -418,6 +418,7 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
         ops: _typ.Tuple = None,
         dropout = None
     ):
+        super().instantiate()
         self.hidden_dim = hidden_dim or self.hidden_dim
         self.layer_number = layer_number or self.layer_number
         self.input_dim = input_dim or self.input_dim

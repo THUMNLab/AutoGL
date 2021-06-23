@@ -82,7 +82,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         self.act_ops = act_ops
         self.dropout = dropout
         
-    def _instantiate(
+    def instantiate(
         self,
         hidden_dim: _typ.Optional[int] = None,
         layer_number: _typ.Optional[int] = None,
@@ -92,6 +92,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         gnn_ops: _typ.Sequence[_typ.Union[str, _typ.Any]] = None,
         act_ops: _typ.Sequence[_typ.Union[str, _typ.Any]] = None
     ):
+        super().instantiate()
         self.dropout = dropout or self.dropout
         self.hidden_dim = hidden_dim or self.hidden_dim
         self.layer_number = layer_number or self.layer_number

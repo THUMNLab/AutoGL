@@ -12,6 +12,14 @@ from ....utils import get_logger
 from ...model import AutoGCN
 
 class OrderedMutable():
+    """
+    An abstract class with order, enabling to sort mutables with a certain rank.
+
+    Parameters
+    ----------
+    order : int
+        The order of the mutable
+    """
     def __init__(self, order):
         self.order = order
 
@@ -28,6 +36,16 @@ class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
                  reduction, return_mask, key)
 
 class BoxModel(BaseModel):
+    """
+    The box wrapping a space, can be passed to later procedure or trainer
+
+    Parameters
+    ----------
+    space_model : BaseSpace
+        The space which should be wrapped
+    device : str or torch.device
+        The device to place the model
+    """
     _logger = get_logger("space model")
 
     def __init__(self, space_model, device=torch.device("cuda")):
@@ -42,6 +60,14 @@ class BoxModel(BaseModel):
         self.device = device
 
     def fix(self, selection):
+        """
+        To fix self._model with a selection 
+
+        Parameters
+        ----------
+        selection : dict
+            A seletion indicating the choices of mutables
+        """
         self.selection = selection
         self._model.instantiate()
         apply_fixed_architecture(self._model, selection, verbose=False)
@@ -120,9 +146,11 @@ class BaseSpace(nn.Module):
         """
         raise NotImplementedError()
 
-    def instantiate(self, *args, **kwargs):
+    def instantiate(self):
+        """
+        Instantiate the space, reset default key for the mutables here/
+        """
         self._default_key = 0
-        self._instantiate(*args, **kwargs)
         if not self._initialized:
             self._initialized = True
 
@@ -161,6 +189,14 @@ class BaseSpace(nn.Module):
         return BoxModel(self, device) 
 
 class FixedInputChoice(nn.Module):
+    """
+    Use to replace `InputChoice` Mutable in fix process
+
+    Parameters
+    ----------
+    mask : list
+        The mask indicating which input to choose
+    """
     def __init__(self, mask):
         self.mask_len = len(mask)
         for i in range(self.mask_len):

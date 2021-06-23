@@ -11,6 +11,9 @@ from autogl.module.train import NodeClassificationFullTrainer
 
 @register_nas_estimator("scratch")
 class TrainEstimator(BaseEstimator):
+    """
+    An estimator which trans from scratch
+    """
     def __init__(self):
         self.estimator=OneShotEstimator()
 
