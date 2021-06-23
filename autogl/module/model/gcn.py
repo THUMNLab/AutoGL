@@ -356,7 +356,7 @@ class AutoGCN(BaseModel):
             self.num_classes,
             self.hyperparams.get("hidden"),
             self.hyperparams.get("act"),
-            self.hyperparams.get("dropout"),
+            self.hyperparams.get("dropout", None),
             bool(self.hyperparams.get("add_self_loops", True)),
             bool(self.hyperparams.get("normalize", True))
         ).to(self.device)
