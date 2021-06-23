@@ -397,19 +397,16 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         else:
             return self.valid_score, self.feval.is_higher_better()
 
-    def __repr__(self) -> dict:
-        return {
+    def __repr__(self) -> str:
+        import yaml
+        return yaml.dump({
             "trainer_name": self.__class__.__name__,
             "optimizer": self.optimizer,
             "learning_rate": self.lr,
             "max_epoch": self.max_epoch,
             "early_stopping_round": self.early_stopping_round,
             "model": repr(self.model)
-        }
-
-    def __str__(self) -> str:
-        import yaml
-        return yaml.dump(repr(self))
+        })
 
     def evaluate(self, dataset, mask="val", feval=None):
         """

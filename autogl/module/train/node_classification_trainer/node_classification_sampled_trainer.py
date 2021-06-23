@@ -16,7 +16,7 @@ from ..sampling.sampler.layer_dependent_importance_sampler import (
     LayerDependentImportanceSampler
 )
 from ...model import BaseModel
-from ...model.base import SequentialGraphNeuralNetwork
+from ...model.base import ClassificationSupportedSequentialModel
 
 LOGGER: logging.Logger = logging.getLogger("Node classification sampling trainer")
 
@@ -266,9 +266,11 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
                 )
             )
         else:
-            _sampler: torch_geometric.data.GraphSAINTEdgeSampler = (
-                GraphSAINTSamplerFactory.create_edge_sampler(
-                    integral_data, self.__num_graphs_per_epoch, self.__sampled_budget,
+            _sampler: torch_geometric.data.GraphSAINTRandomWalkSampler = (
+                GraphSAINTSamplerFactory.create_random_walk_sampler(
+                    integral_data, self.__num_graphs_per_epoch,
+                    self.__sampled_budget, self.__walk_length,
+                    self.__sample_coverage_factor,
                     num_workers=self.__training_sampler_num_workers
                 )
             )
@@ -284,7 +286,10 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
                     getattr(sampled_data, "edge_norm") * getattr(sampled_data, "edge_weight")
                 )
                 optimizer.zero_grad()
-                prediction: torch.Tensor = self.model.model(sampled_data)
+                if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+                    prediction: torch.Tensor = self.model.model.cls_forward(sampled_data)
+                else:
+                    prediction: torch.Tensor = self.model.model(sampled_data)
                 if not hasattr(torch.nn.functional, self.loss):
                     raise TypeError(
                         f"PyTorch does not support loss type {self.loss}"
@@ -342,7 +347,10 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         )
         integral_data = integral_data.to(self.device)
         with torch.no_grad():
-            prediction = self.model.model(integral_data)
+            if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+                prediction: torch.Tensor = self.model.model.cls_forward(integral_data)
+            else:
+                prediction: torch.Tensor = self.model.model(integral_data)
         return prediction[mask_or_target_nodes_indexes]
 
     def predict_proba(
@@ -703,7 +711,10 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
                     current_layer.edge_weight.to(self.device)
                     for current_layer in sampled_data.sampled_edges_for_layers
                 ]
-                prediction: torch.Tensor = self.model.model(sampled_graph)
+                if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+                    prediction: torch.Tensor = self.model.model.cls_forward(sampled_graph)
+                else:
+                    prediction: torch.Tensor = self.model.model(sampled_graph)
                 if not hasattr(torch.nn.functional, self.loss):
                     raise TypeError(
                         f"PyTorch does not support loss type {self.loss}"
@@ -757,8 +768,8 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         self.model.model.eval()
         integral_data = integral_data.to(torch.device("cpu"))
         mask_or_target_nodes_indexes = mask_or_target_nodes_indexes.to(torch.device("cpu"))
-        if isinstance(self.model.model, SequentialGraphNeuralNetwork):
-            sequential_gnn_model: SequentialGraphNeuralNetwork = self.model.model
+        if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+            sequential_gnn_model: ClassificationSupportedSequentialModel = self.model.model
             __num_layers: int = len(self.__sampled_node_sizes)
 
             x: torch.Tensor = getattr(integral_data, "x")
@@ -798,7 +809,7 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
 
                     with torch.no_grad():
                         __sampled_graph_inferences: torch.Tensor = (
-                            sequential_gnn_model.encoder_sequential_modules[_current_layer_index](_sampled_graph)
+                            sequential_gnn_model.sequential_encoding_layers[_current_layer_index](_sampled_graph)
                         )
                         _sampled_target_nodes_inferences: torch.Tensor = __sampled_graph_inferences[
                             _target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph
@@ -848,8 +859,8 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
                 with torch.no_grad():
                     prediction_batch_cumulative_builder.add_batch(
                         _target_dependant_sampled_data.target_nodes_indexes.indexes_in_integral_graph.cpu().numpy(),
-                        sequential_gnn_model.decode(
-                            sequential_gnn_model.encoder_sequential_modules[-1](_sampled_graph)
+                        sequential_gnn_model.cls_decode(
+                            sequential_gnn_model.sequential_encoding_layers[-1](_sampled_graph)
                         )[_target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph].cpu().numpy()
                     )
             return torch.from_numpy(prediction_batch_cumulative_builder.compose()[1])
@@ -1219,7 +1230,10 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
                     current_layer.edge_index_for_sampled_graph.to(self.device)
                     for current_layer in sampled_data.sampled_edges_for_layers
                 ]
-                prediction: torch.Tensor = self.model.model(sampled_graph)
+                if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+                    prediction: torch.Tensor = self.model.model.cls_forward(sampled_graph)
+                else:
+                    prediction: torch.Tensor = self.model.model(sampled_graph)
                 if not hasattr(torch.nn.functional, self.loss):
                     raise TypeError(
                         f"PyTorch does not support loss type {self.loss}"
@@ -1273,8 +1287,8 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         self.model.model.eval()
         integral_data = integral_data.to(torch.device("cpu"))
         mask_or_target_nodes_indexes = mask_or_target_nodes_indexes.to(torch.device("cpu"))
-        if isinstance(self.model.model, SequentialGraphNeuralNetwork):
-            sequential_gnn_model: SequentialGraphNeuralNetwork = self.model.model
+        if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+            sequential_gnn_model: ClassificationSupportedSequentialModel = self.model.model
             __num_layers: int = len(self.__sampling_sizes)
 
             x: torch.Tensor = getattr(integral_data, "x")
@@ -1312,7 +1326,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
 
                     with torch.no_grad():
                         __sampled_graph_inferences: torch.Tensor = (
-                            sequential_gnn_model.encoder_sequential_modules[_current_layer_index](_sampled_graph)
+                            sequential_gnn_model.sequential_encoding_layers[_current_layer_index](_sampled_graph)
                         )
                         _sampled_target_nodes_inferences: torch.Tensor = __sampled_graph_inferences[
                             _target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph
@@ -1359,8 +1373,8 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
                 with torch.no_grad():
                     prediction_batch_cumulative_builder.add_batch(
                         _target_dependant_sampled_data.target_nodes_indexes.indexes_in_integral_graph.cpu().numpy(),
-                        sequential_gnn_model.decode(
-                            sequential_gnn_model.encoder_sequential_modules[-1](_sampled_graph)
+                        sequential_gnn_model.cls_decode(
+                            sequential_gnn_model.sequential_encoding_layers[-1](_sampled_graph)
                         )[_target_dependant_sampled_data.target_nodes_indexes.indexes_in_sampled_graph].cpu().numpy()
                     )
             return torch.from_numpy(prediction_batch_cumulative_builder.compose()[1])

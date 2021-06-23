@@ -27,8 +27,16 @@ class Evaluation:
 
 
 class EvaluatorUtility:
+    """ Auxiliary utilities for evaluation """
     class PredictionBatchCumulativeBuilder:
-        """ Batch-cumulative builder for prediction """
+        """
+        Batch-cumulative builder for prediction
+        For large graph, as it is infeasible to predict all the nodes
+        in validation set and test set in single batch,
+        and layer-wise prediction mechanism is a practical evaluation approach,
+        a batch-cumulative prediction collector `PredictionBatchCumulativeBuilder`
+        is implemented for prediction in mini-batch manner.
+        """
         def __init__(self):
             self.__indexes_in_integral_data: _typing.Optional[np.ndarray] = None
             self.__prediction: _typing.Optional[np.ndarray] = None
@@ -177,7 +185,13 @@ class Auc(Evaluation):
         """
         Should return: the evaluation result (float)
         """
-        pos_predict = predict[:, 1]
+        if len(predict.shape) == 1:
+            pos_predict = predict
+        else:
+            assert (
+                predict.shape[1] == 2
+            ), "Cannot use auc on given data with %d classes!" % (predict.shape[1])
+            pos_predict = predict[:, 1]
         return roc_auc_score(label, pos_predict)
 
 
@@ -199,7 +213,11 @@ class Acc(Evaluation):
         """
         Should return: the evaluation result (float)
         """
-        return accuracy_score(label, np.argmax(predict, axis=1))
+        if len(predict.shape) == 2:
+            predict = np.argmax(predict, axis=1)
+        else:
+            predict = [1 if p > 0.5 else 0 for p in predict]
+        return accuracy_score(label, predict)
 
 
 @register_evaluate("mrr")
@@ -220,7 +238,13 @@ class Mrr(Evaluation):
         """
         Should return: the evaluation result (float)
         """
-        pos_predict = predict[:, 1]
+        if len(predict.shape) == 2:
+            assert (
+                predict.shape[1] == 2
+            ), "Cannot use mrr on given data with %d classes!" % (predict.shape[1])
+            pos_predict = predict[:, 1]
+        else:
+            pos_predict = predict
         return label_ranking_average_precision_score(label, pos_predict)
 
 

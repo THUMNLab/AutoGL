@@ -14,20 +14,20 @@ from .base import BaseClassifier
 from ..base import _parse_hp_space, _initialize_single_model
 from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT, BaseModel
-from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
+from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
 from ...module.train import get_feval
 from ..utils import LeaderBoard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
 
-LOGGER = get_logger("NodeClassifier")
+LOGGER = get_logger("LinkPredictor")
 
 
-class AutoNodeClassifier(BaseClassifier):
+class AutoLinkPredictor(BaseClassifier):
     """
-    Auto Multi-class Graph Node Classifier.
+    Auto Link Predictor.
 
-    Used to automatically solve the node classification problems.
+    Used to automatically solve the link prediction problems.
 
     Parameters
     ----------
@@ -90,7 +90,7 @@ class AutoNodeClassifier(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "NodeClassificationFull",
+            default_trainer=default_trainer or "LinkPredictionFull",
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -98,11 +98,11 @@ class AutoNodeClassifier(BaseClassifier):
         )
 
         # data to be kept when fit
-        self.data = None
+        self.dataset = None
 
     def _init_graph_module(
-        self, graph_models, num_classes, num_features, feval, device, loss
-    ) -> "AutoNodeClassifier":
+        self, graph_models, num_features, feval, device, loss
+    ) -> "AutoLinkPredictor":
         # load graph network module
         self.graph_model_list = []
         if isinstance(graph_models, (list, tuple)):
@@ -111,7 +111,7 @@ class AutoNodeClassifier(BaseClassifier):
                     if model in MODEL_DICT:
                         self.graph_model_list.append(
                             MODEL_DICT[model](
-                                num_classes=num_classes,
+                                num_classes=1,
                                 num_features=num_features,
                                 device=device,
                                 init=False,
@@ -122,7 +122,7 @@ class AutoNodeClassifier(BaseClassifier):
                 elif isinstance(model, type) and issubclass(model, BaseModel):
                     self.graph_model_list.append(
                         model(
-                            num_classes=num_classes,
+                            num_classes=1,
                             num_features=num_features,
                             device=device,
                             init=False,
@@ -130,18 +130,18 @@ class AutoNodeClassifier(BaseClassifier):
                     )
                 elif isinstance(model, BaseModel):
                     # setup the hp of num_classes and num_features
-                    model.set_num_classes(num_classes)
+                    model.set_num_classes(1)
                     model.set_num_features(num_features)
                     self.graph_model_list.append(model.to(device))
-                elif isinstance(model, BaseNodeClassificationTrainer):
+                elif isinstance(model, BaseLinkPredictionTrainer):
                     # receive a trainer list, put trainer to list
                     assert (
                         model.get_model() is not None
                     ), "Passed trainer should contain a model"
-                    model.model.set_num_classes(num_classes)
+                    model.model.set_num_classes(1)
                     model.model.set_num_features(num_features)
                     model.update_parameters(
-                        num_classes=num_classes,
+                        num_classes=1,
                         num_features=num_features,
                         loss=loss,
                         feval=feval,
@@ -162,7 +162,7 @@ class AutoNodeClassifier(BaseClassifier):
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, BaseNodeClassificationTrainer):
+                    if isinstance(model, BaseLinkPredictionTrainer):
                         model.model.hyper_parameter_space = self._model_hp_spaces[i]
                     else:
                         model.hyper_parameter_space = self._model_hp_spaces[i]
@@ -176,7 +176,6 @@ class AutoNodeClassifier(BaseClassifier):
                 model = TRAINER_DICT[name](
                     model=model,
                     num_features=num_features,
-                    num_classes=num_classes,
                     loss=loss,
                     feval=feval,
                     device=device,
@@ -193,6 +192,13 @@ class AutoNodeClassifier(BaseClassifier):
 
         return self
 
+    def _to_prob(self, sig_prob: np.ndarray):
+        nelements = len(sig_prob)
+        prob = np.zeros([nelements, 2])
+        prob[:, 0] = 1 - sig_prob
+        prob[:, 1] = sig_prob
+        return prob
+
     # pylint: disable=arguments-differ
     def fit(
         self,
@@ -201,10 +207,9 @@ class AutoNodeClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        balanced=True,
         evaluation_method="infer",
         seed=None,
-    ) -> "AutoNodeClassifier":
+    ) -> "AutoLinkPredictor":
         """
         Fit current solver on given dataset.
 
@@ -230,11 +235,6 @@ class AutoNodeClassifier(BaseClassifier):
             The validation ratio (in ``float``) or number (in ``int``) of dataset. If you want
             to use default train/val/test split in dataset, please set this to ``None``.
             Default ``None``.
-
-        balanced: bool
-            Wether to create the train/valid/test split in a balanced way.
-            If set to ``True``, the train/valid will have the same number of different classes.
-            Default ``True``.
 
         evaluation_method: (list of) str or autogl.module.train.evaluation
             A (list of) evaluation method for current solver. If ``infer``, will automatically
@@ -275,27 +275,20 @@ class AutoNodeClassifier(BaseClassifier):
 
         # set up the dataset
         if train_split is not None and val_split is not None:
-            size = dataset.data.x.shape[0]
-            if balanced:
-                train_split = (
-                    train_split if train_split > 1 else int(train_split * size)
-                )
-                val_split = val_split if val_split > 1 else int(val_split * size)
-                utils.random_splits_mask_class(
-                    dataset,
-                    num_train_per_class=train_split // dataset.num_classes,
-                    num_val_per_class=val_split // dataset.num_classes,
-                    seed=seed,
-                )
-            else:
-                train_split = train_split if train_split < 1 else train_split / size
-                val_split = val_split if val_split < 1 else val_split / size
-                utils.random_splits_mask(
-                    dataset, train_ratio=train_split, val_ratio=val_split
-                )
+            utils.split_edges(dataset, train_split, val_split)
         else:
-            assert hasattr(dataset.data, "train_mask") and hasattr(
-                dataset.data, "val_mask"
+            assert all(
+                [
+                    hasattr(dataset.data, f"{name}")
+                    for name in [
+                        "train_pos_edge_index",
+                        "train_neg_adj_mask",
+                        "val_pos_edge_index",
+                        "val_neg_edge_index",
+                        "test_pos_edge_index",
+                        "test_neg_edge_index",
+                    ]
+                ]
             ), (
                 "The dataset has no default train/val split! Please manually pass "
                 "train and val ratio."
@@ -317,10 +310,11 @@ class AutoNodeClassifier(BaseClassifier):
         self._init_graph_module(
             self.gml,
             num_features=self.dataset[0].x.shape[1],
-            num_classes=dataset.num_classes,
             feval=evaluator_list,
             device=self.runtime_device,
-            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+            loss="binary_cross_entropy_with_logits"
+            if not hasattr(dataset, "loss")
+            else dataset.loss,
         )
 
         # train the models and tune hpo
@@ -340,10 +334,12 @@ class AutoNodeClassifier(BaseClassifier):
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
-            name = str(optimized) + "_idx%d" % (idx)
+            name = optimized.get_name_with_hp() + "_idx%d" % (idx)
             names.append(name)
             performance_on_valid, _ = optimized.get_valid_score(return_major=False)
-            result_valid.append(optimized.get_valid_predict_proba().cpu().numpy())
+            result_valid.append(
+                self._to_prob(optimized.get_valid_predict_proba().cpu().numpy())
+            )
             self.leaderboard.insert_model_performance(
                 name,
                 dict(
@@ -357,9 +353,17 @@ class AutoNodeClassifier(BaseClassifier):
 
         # fit the ensemble model
         if self.ensemble_module is not None:
+            pos_edge_index, neg_edge_index = (
+                self.dataset[0].val_pos_edge_index,
+                self.dataset[0].val_neg_edge_index,
+            )
+            E = pos_edge_index.size(1) + neg_edge_index.size(1)
+            link_labels = torch.zeros(E, dtype=torch.float)
+            link_labels[: pos_edge_index.size(1)] = 1.0
+
             performance = self.ensemble_module.fit(
                 result_valid,
-                self.dataset[0].y[self.dataset[0].val_mask].cpu().numpy(),
+                link_labels.detach().cpu().numpy(),
                 names,
                 evaluator_list,
                 n_classes=dataset.num_classes,
@@ -378,7 +382,6 @@ class AutoNodeClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        balanced=True,
         evaluation_method="infer",
         use_ensemble=True,
         use_best=True,
@@ -444,7 +447,6 @@ class AutoNodeClassifier(BaseClassifier):
             inplace=inplace,
             train_split=train_split,
             val_split=val_split,
-            balanced=balanced,
             evaluation_method=evaluation_method,
         )
         return self.predict(
@@ -529,14 +531,16 @@ class AutoNodeClassifier(BaseClassifier):
             names = []
             for model_name in self.trained_models:
                 predict_result.append(
-                    self._predict_proba_by_name(dataset, model_name, mask)
+                    self._to_prob(
+                        self._predict_proba_by_name(dataset, model_name, mask)
+                    )
                 )
                 names.append(model_name)
-            return self.ensemble_module.ensemble(predict_result, names)
+            return self.ensemble_module.ensemble(predict_result, names)[:, 1]
 
         if use_ensemble and self.ensemble_module is None:
             LOGGER.warning(
-                "Cannot use ensemble because no ensebmle module is given."
+                "Cannot use ensemble because no ensebmle module is given. "
                 "Will use best model instead."
             )
 
@@ -573,6 +577,7 @@ class AutoNodeClassifier(BaseClassifier):
         use_best=True,
         name=None,
         mask="test",
+        threshold=0.5,
     ) -> np.ndarray:
         """
         Predict the node class number.
@@ -607,6 +612,9 @@ class AutoNodeClassifier(BaseClassifier):
         mask: str
             The data split to give prediction on. Default ``test``.
 
+        threshold: float
+            The threshold to judge whether the edges are positive or not.
+
         Returns
         -------
         result: np.ndarray
@@ -616,10 +624,10 @@ class AutoNodeClassifier(BaseClassifier):
         proba = self.predict_proba(
             dataset, inplaced, inplace, use_ensemble, use_best, name, mask
         )
-        return np.argmax(proba, axis=1)
+        return (proba > threshold).astype("int")
 
     @classmethod
-    def from_config(cls, path_or_dict, filetype="auto") -> "AutoNodeClassifier":
+    def from_config(cls, path_or_dict, filetype="auto") -> "AutoLinkPredictor":
         """
         Load solver from config file.
 
@@ -689,13 +697,13 @@ class AutoNodeClassifier(BaseClassifier):
         ]
 
         trainer = path_or_dict.pop("trainer", None)
-        default_trainer = "NodeClassificationFull"
+        default_trainer = "LinkPredictionFull"
         trainer_space = None
         if isinstance(trainer, dict):
             # global default
-            default_trainer = trainer.pop("name", "NodeClassificationFull")
+            default_trainer = trainer.pop("name", "LinkPredictionFull")
             trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
-            default_kwargs = {"num_features": None, "num_classes": None}
+            default_kwargs = {"num_features": None}
             default_kwargs.update(trainer)
             default_kwargs["init"] = False
             for i in range(len(model_list)):
@@ -712,9 +720,9 @@ class AutoNodeClassifier(BaseClassifier):
             trainer_space = []
             for i in range(len(model_list)):
                 train, model = trainer[i], model_list[i]
-                default_trainer = train.pop("name", "NodeClassificationFull")
+                default_trainer = train.pop("name", "LinkPredictionFull")
                 trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
-                default_kwargs = {"num_features": None, "num_classes": None}
+                default_kwargs = {"num_features": None}
                 default_kwargs.update(train)
                 default_kwargs["init"] = False
                 trainer_wrap = TRAINER_DICT[default_trainer](

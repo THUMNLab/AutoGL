@@ -111,7 +111,7 @@ class AutoGraphClassifier(BaseClassifier):
     ) -> "AutoGraphClassifier":
         # load graph network module
         self.graph_model_list = []
-        if isinstance(graph_models, list):
+        if isinstance(graph_models, (list, tuple)):
             for model in graph_models:
                 if isinstance(model, str):
                     if model in MODEL_DICT:
@@ -371,9 +371,8 @@ class AutoGraphClassifier(BaseClassifier):
                 result_valid.append(
                     optimized.get_valid_predict_proba().detach().cpu().numpy()
                 )
-                self.leaderboard.add_performance(
+                self.leaderboard.insert_model_performance(
                     name,
-                    repr(optimized),
                     dict(
                         zip(
                             [e.get_eval_name() for e in evaluator_list],
@@ -420,8 +419,8 @@ class AutoGraphClassifier(BaseClassifier):
                         .cpu()
                         .numpy()
                     )
-                    self.leaderboard.add_performance(
-                        name, repr(optimized),
+                    self.leaderboard.insert_model_performance(
+                        name,
                         dict(
                             zip(
                                 [e.get_eval_name() for e in evaluator_list],
@@ -440,8 +439,8 @@ class AutoGraphClassifier(BaseClassifier):
                 evaluator_list,
                 n_classes=dataset.num_classes,
             )
-            self.leaderboard.add_performance(
-                "ensemble", "ensemble",
+            self.leaderboard.insert_model_performance(
+                "ensemble",
                 dict(zip([e.get_eval_name() for e in evaluator_list], performance)),
             )
 

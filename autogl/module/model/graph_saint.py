@@ -4,7 +4,7 @@ from torch_geometric.nn.conv import MessagePassing
 from torch_sparse import SparseTensor, matmul
 
 from . import register_model
-from .base import ClassificationModel, SequentialGraphNeuralNetwork
+from .base import ClassificationModel, ClassificationSupportedSequentialModel
 
 
 class _GraphSAINTAggregationLayers:
@@ -227,7 +227,7 @@ class _GraphSAINTAggregationLayers:
                 raise TypeError
 
 
-class GraphSAINTMultiOrderAggregationModel(SequentialGraphNeuralNetwork):
+class GraphSAINTMultiOrderAggregationModel(ClassificationSupportedSequentialModel):
     def __init__(
             self, num_features: int, num_classes: int,
             _output_dimension_for_each_order: int,
@@ -289,13 +289,14 @@ class GraphSAINTMultiOrderAggregationModel(SequentialGraphNeuralNetwork):
         self.__linear_transform: torch.nn.Linear = torch.nn.Linear(
             self.__sequential_encoding_layers[-1].integral_output_dimension, num_classes, bias
         )
+        self.__linear_transform.reset_parameters()
 
-    def decode(self, x: torch.Tensor) -> torch.Tensor:
+    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
         if self.__apply_normalize:
             x: torch.Tensor = torch.nn.functional.normalize(x, p=2, dim=1)
         return torch.nn.functional.log_softmax(self.__linear_transform(x), dim=1)
 
-    def encode(self, data) -> torch.Tensor:
+    def cls_encode(self, data) -> torch.Tensor:
         if type(getattr(data, "x")) != torch.Tensor:
             raise TypeError
         if type(getattr(data, "edge_index")) != torch.Tensor:
@@ -310,7 +311,7 @@ class GraphSAINTMultiOrderAggregationModel(SequentialGraphNeuralNetwork):
         return getattr(data, "x")
 
     @property
-    def encoder_sequential_modules(self) -> torch.nn.ModuleList:
+    def sequential_encoding_layers(self) -> torch.nn.ModuleList:
         return self.__sequential_encoding_layers
 
 

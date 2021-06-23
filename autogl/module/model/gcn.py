@@ -1,16 +1,17 @@
 import torch
 import torch.nn.functional
-from torch_geometric.nn.conv import GCNConv
 import typing as _typing
+
+from torch_geometric.nn.conv import GCNConv
 import autogl.data
 from . import register_model
-from .base import activate_func, ClassificationModel, SequentialGraphNeuralNetwork
+from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
 from ...utils import get_logger
 
 LOGGER = get_logger("GCNModel")
 
 
-class GCN(SequentialGraphNeuralNetwork):
+class GCN(ClassificationSupportedSequentialModel):
     class _GCNLayer(torch.nn.Module):
         def __init__(
                 self, input_channels: int, output_channels: int,
@@ -72,10 +73,11 @@ class GCN(SequentialGraphNeuralNetwork):
             num_features: int,
             num_classes: int,
             hidden_features: _typing.Sequence[int],
-            dropout: _typing.Union[float, _typing.Sequence[_typing.Optional[float]]],
             activation_name: str,
-            add_self_loops: bool = True,
-            normalize: bool = True
+            dropout: _typing.Union[
+                _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
+            ] = None,
+            add_self_loops: bool = True, normalize: bool = True
     ):
         if isinstance(dropout, _typing.Sequence):
             if len(dropout) != len(hidden_features) + 1:
@@ -98,14 +100,18 @@ class GCN(SequentialGraphNeuralNetwork):
             dropout_list: _typing.Sequence[_typing.Optional[float]] = [
                 dropout for _ in range(len(hidden_features) + 1)
             ]
+        elif dropout in (None, Ellipsis, ...):
+            dropout_list: _typing.Sequence[_typing.Optional[float]] = [
+                None for _ in range(len(hidden_features) + 1)
+            ]
         else:
             raise TypeError(
-                "The provided dropout argument must be a float "
-                "or a sequence in which each item is either float or None."
+                "The provided dropout argument must be a float number or None or "
+                "a sequence in which each item is either a float Number or None."
             )
         super().__init__()
         if len(hidden_features) == 0:
-            self.__sequential_module_list: torch.nn.ModuleList = torch.nn.ModuleList(
+            self.__sequential_encoding_layers: torch.nn.ModuleList = torch.nn.ModuleList(
                 (
                     self._GCNLayer(
                         num_features, num_classes, add_self_loops, normalize,
@@ -114,32 +120,29 @@ class GCN(SequentialGraphNeuralNetwork):
                 )
             )
         else:
-            self.__sequential_module_list: torch.nn.ModuleList = torch.nn.ModuleList()
-            self.__sequential_module_list.append(self._GCNLayer(
+            self.__sequential_encoding_layers: torch.nn.ModuleList = torch.nn.ModuleList()
+            self.__sequential_encoding_layers.append(self._GCNLayer(
                 num_features, hidden_features[0], add_self_loops,
                 normalize, activation_name, dropout_list[0]
             ))
             for hidden_feature_index in range(len(hidden_features)):
                 if hidden_feature_index + 1 < len(hidden_features):
-                    self.__sequential_module_list.append(self._GCNLayer(
+                    self.__sequential_encoding_layers.append(self._GCNLayer(
                         hidden_features[hidden_feature_index],
                         hidden_features[hidden_feature_index + 1],
                         add_self_loops, normalize, activation_name,
                         dropout_list[hidden_feature_index + 1]
                     ))
                 else:
-                    self.__sequential_module_list.append(self._GCNLayer(
+                    self.__sequential_encoding_layers.append(self._GCNLayer(
                         hidden_features[hidden_feature_index], num_classes,
                         add_self_loops, normalize,
                         dropout_list[-1]
                     ))
 
-    def decode(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.nn.functional.log_softmax(x, dim=1)
-
     @property
-    def encoder_sequential_modules(self) -> torch.nn.ModuleList:
-        return self.__sequential_module_list
+    def sequential_encoding_layers(self) -> torch.nn.ModuleList:
+        return self.__sequential_encoding_layers
 
     def __extract_edge_indexes_and_weights(self, data) -> _typing.Union[
         _typing.Sequence[_typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]],
@@ -161,7 +164,7 @@ class GCN(SequentialGraphNeuralNetwork):
         if not (
                 hasattr(data, "edge_indexes") and
                 isinstance(getattr(data, "edge_indexes"), _typing.Sequence) and
-                len(getattr(data, "edge_indexes")) == len(self.__sequential_module_list)
+                len(getattr(data, "edge_indexes")) == len(self.__sequential_encoding_layers)
         ):
             return __compose_edge_index_and_weight(
                 getattr(data, "edge_index"), getattr(data, "edge_weight", None)
@@ -175,7 +178,7 @@ class GCN(SequentialGraphNeuralNetwork):
         if (
                 hasattr(data, "edge_weights") and
                 isinstance(getattr(data, "edge_weights"), _typing.Sequence) and
-                len(getattr(data, "edge_weights")) == len(self.__sequential_module_list)
+                len(getattr(data, "edge_weights")) == len(self.__sequential_encoding_layers)
         ):
             return [
                 __compose_edge_index_and_weight(_edge_index, _edge_weight)
@@ -188,7 +191,7 @@ class GCN(SequentialGraphNeuralNetwork):
                 for __edge_index in getattr(data, "edge_indexes")
             ]
 
-    def encode(self, data) -> torch.Tensor:
+    def cls_encode(self, data) -> torch.Tensor:
         edge_indexes_and_weights: _typing.Union[
             _typing.Sequence[_typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]],
             _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
@@ -199,10 +202,10 @@ class GCN(SequentialGraphNeuralNetwork):
                 and isinstance(edge_indexes_and_weights[0], tuple)
         ):
             """ edge_indexes_and_weights is sequence of (edge_index, edge_weight) """
-            assert len(edge_indexes_and_weights) == len(self.__sequential_module_list)
+            assert len(edge_indexes_and_weights) == len(self.__sequential_encoding_layers)
             x: torch.Tensor = getattr(data, "x")
             for _edge_index_and_weight, gcn in zip(
-                    edge_indexes_and_weights, self.__sequential_module_list
+                    edge_indexes_and_weights, self.__sequential_encoding_layers
             ):
                 _temp_data = autogl.data.Data(x=x, edge_index=_edge_index_and_weight[0])
                 _temp_data.edge_weight = _edge_index_and_weight[1]
@@ -211,15 +214,32 @@ class GCN(SequentialGraphNeuralNetwork):
         else:
             """ edge_indexes_and_weights is (edge_index, edge_weight) """
             x = getattr(data, "x")
-            for gcn in self.__sequential_module_list:
+            for gcn in self.__sequential_encoding_layers:
                 _temp_data = autogl.data.Data(x=x, edge_index=edge_indexes_and_weights[0])
                 _temp_data.edge_weight = edge_indexes_and_weights[1]
                 x = gcn(_temp_data)
             return x
 
+    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.log_softmax(x, dim=1)
+
+    def lp_encode(self, data):
+        for i in range(len(self.__sequential_encoding_layers) - 1):
+            data.x = self.__sequential_encoding_layers[i](data)
+        return getattr(data, "x")
+
+    def lp_decode(self, z, pos_edge_index, neg_edge_index):
+        edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)
+        logits = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=-1)
+        return logits
+
+    def lp_decode_all(self, z):
+        prob_adj = z @ z.t()
+        return (prob_adj > 0).nonzero(as_tuple=False).t()
+
 
 @register_model("gcn")
-class AutoGCN(ClassificationModel):
+class AutoGCN(BaseModel):
     r"""
     AutoGCN.
     The model used in this automodel is GCN, i.e., the graph convolutional network from the
@@ -258,7 +278,16 @@ class AutoGCN(ClassificationModel):
         init: bool = False,
         **kwargs
     ) -> None:
-        default_hp_space: _typing.Sequence[_typing.Dict[str, _typing.Any]] = [
+        super().__init__()
+        self.num_features = num_features
+        self.num_classes = num_classes
+        self.device = device
+
+        self.params = {
+            "features_num": self.num_features,
+            "num_class": self.num_classes,
+        }
+        self.space = [
             {
                 "parameterName": "add_self_loops",
                 "type": "CATEGORICAL",
@@ -298,29 +327,36 @@ class AutoGCN(ClassificationModel):
                 "feasiblePoints": ["leaky_relu", "relu", "elu", "tanh"],
             },
         ]
-        default_hp = {
-            "add_self_loops": 1,
-            "normalize": 1,
-            "num_layers": 2,
-            "hidden": [16],
-            "dropout": 0.2,
-            "act": "leaky_relu",
+
+        # initial point of hp search
+        # self.hyperparams = {
+        #     "num_layers": 2,
+        #     "hidden": [16],
+        #     "dropout": 0.2,
+        #     "act": "leaky_relu",
+        # }
+
+        self.hyperparams = {
+            "num_layers": 3,
+            "hidden": [128, 64],
+            "dropout": 0,
+            "act": "relu",
         }
 
-        super(AutoGCN, self).__init__(
-            num_features, num_classes, device=device,
-            hyper_parameter_space=default_hp_space,
-            hyper_parameter=default_hp, init=init,
-            **kwargs
-        )
+        self.initialized = False
+        if init is True:
+            self.initialize()
 
-    def _initialize(self):
+    def initialize(self):
+        if self.initialized:
+            return
+        self.initialized = True
         self.model = GCN(
             self.num_features,
             self.num_classes,
-            self.hyper_parameter.get("hidden"),
-            self.hyper_parameter.get("dropout"),
-            self.hyper_parameter.get("act"),
-            add_self_loops=bool(self.hyper_parameter.get("add_self_loops", True)),
-            normalize=bool(self.hyper_parameter.get("normalize", True))
+            self.hyperparams.get("hidden"),
+            self.hyperparams.get("act"),
+            self.hyperparams.get("dropout"),
+            bool(self.hyperparams.get("add_self_loops", True)),
+            bool(self.hyperparams.get("normalize", True))
         ).to(self.device)

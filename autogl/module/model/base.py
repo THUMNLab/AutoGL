@@ -380,19 +380,30 @@ class ClassificationModel(_BaseModel):
                 self.__num_graph_features = 0
 
 
-class SequentialGraphNeuralNetwork(torch.nn.Module):
+class _ClassificationModel(torch.nn.Module):
     def __init__(self):
-        super(SequentialGraphNeuralNetwork, self).__init__()
+        super(_ClassificationModel, self).__init__()
 
-    def decode(self, x: torch.Tensor) -> torch.Tensor:
+    def cls_encode(self, data) -> torch.Tensor:
         raise NotImplementedError
 
-    def encode(self, data) -> torch.Tensor:
+    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
+
+    def cls_forward(self, data) -> torch.Tensor:
+        return self.cls_decode(self.cls_encode(data))
+
+
+class ClassificationSupportedSequentialModel(_ClassificationModel):
+    def __init__(self):
+        super(ClassificationSupportedSequentialModel, self).__init__()
 
     @property
-    def encoder_sequential_modules(self) -> torch.nn.ModuleList:
+    def sequential_encoding_layers(self) -> torch.nn.ModuleList:
         raise NotImplementedError
 
-    def forward(self, data) -> torch.Tensor:
-        return self.decode(self.encode(data))
+    def cls_encode(self, data) -> torch.Tensor:
+        raise NotImplementedError
+
+    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError

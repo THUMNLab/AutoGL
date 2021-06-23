@@ -6,7 +6,8 @@ hpo:
   max_evals: 10
   name: random
 models:
-- hp_space:
+- name: gat
+  hp_space:
   - feasiblePoints: 2,3
     parameterName: num_layers
     type: DISCRETE
@@ -15,26 +16,20 @@ models:
     - num_layers
     length: 2
     maxValue:
-    - 16
-    - 64
+    - 256
+    - 256
     minValue:
-    - 16
+    - 64
     - 64
     numericalType: INTEGER
     parameterName: hidden
     scalingType: LOG
     type: NUMERICAL_LIST
-  - maxValue: 0.8
-    minValue: 0.2
+  - maxValue: 0.2
+    minValue: 0.0
     parameterName: dropout
     scalingType: LINEAR
     type: DOUBLE
-  - feasiblePoints:
-    - mean
-    - add
-    - max
-    parameterName: agg
-    type: CATEGORICAL
   - feasiblePoints:
     - leaky_relu
     - relu
@@ -42,26 +37,25 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: gcn
 trainer:
   hp_space:
-  - maxValue: 300
-    minValue: 100
+  - maxValue: 150
+    minValue: 50
     parameterName: max_epoch
     scalingType: LINEAR
     type: INTEGER
-  - maxValue: 30
-    minValue: 10
+  - maxValue: 40
+    minValue: 25
     parameterName: early_stopping_round
     scalingType: LINEAR
     type: INTEGER
   - maxValue: 0.05
-    minValue: 0.01
+    minValue: 0.005
     parameterName: lr
     scalingType: LOG
     type: DOUBLE
-  - maxValue: 0.001
-    minValue: 0.0001
+  - maxValue: 1.0E-7
+    minValue: 1.0E-10
     parameterName: weight_decay
     scalingType: LOG
     type: DOUBLE
