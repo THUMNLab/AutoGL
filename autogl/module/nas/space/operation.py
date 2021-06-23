@@ -1,28 +1,49 @@
 # codes in this file are reproduced from https://github.com/GraphNAS/GraphNAS with some changes.
-from torch_geometric.nn.conv import *
+
+from torch_geometric.nn import (
+    GATConv,
+    GCNConv,
+    ChebConv,
+    SAGEConv,
+    GatedGraphConv,
+    ARMAConv,
+    SGConv,
+)
+import torch_geometric.nn
 import torch
 from torch import nn
 import torch.nn.functional as F
 
-gnn_list = [
-    "gat_8",  # GAT with 8 heads
-    "gat_6",  # GAT with 6 heads
-    "gat_4",  # GAT with 4 heads
-    "gat_2",  # GAT with 2 heads
-    "gat_1",  # GAT with 1 heads
-    "gcn",  # GCN
-    "cheb",  # chebnet
-    "sage",  # sage
-    "arma",
-    "sg",  # simplifying gcn
-    "linear",  # skip connection
-    "zero",  # skip connection
-]
-act_list = [
-    # "sigmoid", "tanh", "relu", "linear",
-    #  "softplus", "leaky_relu", "relu6", "elu"
-    "sigmoid", "tanh", "relu", "linear", "elu"
-]
+class LinearConv(nn.Module):
+    def __init__(self, in_channels, out_channels, bias=True):
+        super(LinearConv, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.linear = torch.nn.Linear(in_channels, out_channels, bias)
+
+    def forward(self, x, edge_index, edge_weight=None):
+        return self.linear(x)
+
+    def __repr__(self):
+        return '{}({}, {})'.format(self.__class__.__name__, self.in_channels,
+                                   self.out_channels)
+
+class ZeroConv(nn.Module):
+
+    def forward(self, x, edge_index, edge_weight=None):
+        out = torch.zeros_like(x)
+        out.requires_grad = True
+        return out
+
+    def __repr__(self):
+        return 'ZeroConv()'
+
+class Identity(nn.Module):
+    def forward(self, x, edge_index, edge_weight=None):
+        return x
+    def __repr__(self):
+        return 'Identity()'
 
 def act_map(act):
     if act == "linear":
@@ -78,44 +99,13 @@ def gnn_map(gnn_name, in_dim, out_dim, concat=False, bias=True) -> nn.Module:
     elif gnn_name == "linear":
         return LinearConv(in_dim, out_dim, bias=bias)
     elif gnn_name == "zero":
-        # return ZeroConv(in_dim, out_dim, bias=bias)
+        return ZeroConv()
+    elif gnn_name == 'identity':
         return Identity()
-
-class Identity(nn.Module):
-    def forward(self, x, edge_index, edge_weight=None):
-        return x
-
-class LinearConv(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 bias=True):
-        super(LinearConv, self).__init__()
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.linear = torch.nn.Linear(in_channels, out_channels, bias)
-
-    def forward(self, x, edge_index, edge_weight=None):
-        return self.linear(x)
-
-    def __repr__(self):
-        return '{}({}, {})'.format(self.__class__.__name__, self.in_channels,
-                                   self.out_channels)
-
-class ZeroConv(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 bias=True):
-        super(ZeroConv, self).__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.out_dim = out_channels
-
-    def forward(self, x, edge_index, edge_weight=None):
-        return ZeroConvFunc.apply(torch.zeros([x.size(0), self.out_dim]).to(x.device))
-
-    def __repr__(self):
-        return '{}({}, {})'.format(self.__class__.__name__, self.in_channels,
-                                   self.out_channels)
+    elif hasattr(torch_geometric.nn, gnn_name):
+        cls = getattr(torch_geometric.nn, gnn_name)
+        assert isinstance(cls, type), "Only support modules, get %s" % (gnn_name)
+        kwargs = {'in_channels': in_dim, 'out_channels': out_dim, 'concat': concat, 'bias': bias}
+        kwargs = {key: kwargs[key] for key in cls.__init__.__code__.co_varnames if key in kwargs}
+        return cls(**kwargs)
+    raise KeyError("Cannot parse key %s" % (gnn_name))

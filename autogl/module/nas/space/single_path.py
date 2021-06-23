@@ -1,3 +1,4 @@
+from autogl.module.nas.space.operation import gnn_map
 import typing as _typ
 import torch
 
@@ -20,7 +21,7 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         dropout: _typ.Optional[float] = 0.2,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
-        ops: _typ.Tuple = None,
+        ops: _typ.Tuple = ['GCNConv', 'GATConv'],
     ):
         super().__init__()
         self.layer_number = layer_number
@@ -57,7 +58,8 @@ class SinglePathNodeClassificationSpace(BaseSpace):
                             self.output_dim
                             if layer == self.layer_number - 1
                             else self.hidden_dim,
-                        )
+                        ) if isinstance(op, type) else gnn_map(op, self.input_dim if layer == 0 else self.hidden_dim,
+                            self.output_dim if layer == self.layer_number - 1 else self.hidden_dim)
                         for op in self.ops
                     ],
                 ),

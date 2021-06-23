@@ -296,6 +296,7 @@ class BaseSolver:
             A reference of current solver.
         """
         if nas_algorithms is None and nas_estimators is None and nas_spaces is None:
+            self.nas_algorithms = self.nas_estimators = self.nas_spaces = None
             return
         assert None not in [nas_algorithms, nas_estimators, nas_spaces], "The algorithms, estimators and spaces should all be set"
 
