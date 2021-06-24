@@ -12,6 +12,9 @@ try:
     import torch_cluster
     import torch_spline_conv
     import torch_geometric
+    PYG_VER = torch_geometric.__version__.split('.')
+    PYG_VER = [int(PYG_VER[0]), int(PYG_VER[1])]
+    assert PYG_VER >= [1, 7], "torch geometric version should be at least 1.7.0"
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
         "PyTorch-Geometric not fully installed. "
