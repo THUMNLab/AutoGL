@@ -312,7 +312,7 @@ class RL(BaseNAS):
                 bar.set_postfix(reward_controller=l2)
         
         selection=self.export()
-        arch=space.export(selection,self.device)
+        arch=space.parse_model(selection,self.device)
         #print(selection,arch)
         return arch
     
