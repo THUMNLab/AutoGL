@@ -826,9 +826,9 @@ class AutoNodeClassifier(BaseClassifier):
                 configs = nas_dict[k]
                 if isinstance(configs, list):
                     for item in configs:
-                        container.append(indexer[item.pop('name')](**item, init=False))
+                        container.append(indexer[item.pop('name')](**item))
                 else:
-                    container.append(indexer[configs.pop('name')](**configs, init=False))
+                    container.append(indexer[configs.pop('name')](**configs))
             
             solver.set_nas_module(algorithms, spaces, estimators)
 
