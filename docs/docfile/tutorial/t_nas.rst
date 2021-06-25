@@ -36,10 +36,10 @@ Here is an example.
             self.input_dim = input_dim or self.input_dim
             self.output_dim = output_dim or self.output_dim
             # define two layers with order 0 and 1
-            self.layer0 = self.setLayerChoice(order = 0, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']])
-            self.layer1 = self.setLayerChoice(order = 1, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']])
+            self.layer0 = self.setLayerChoice(0, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']])
+            self.layer1 = self.setLayerChoice(1, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']])
             # define an input choice two choose from the result of the two layer
-            self.input_layer = self.setInputChoice(order = 2, n_candidates = 2)
+            self.input_layer = self.setInputChoice(2, n_candidates = 2)
 
         # Define the forward process
         def forward(self, data):
@@ -62,7 +62,9 @@ But you can only use sample-based search strategy.
     # For example, create an NAS search space by yourself
     from autogl.module.nas.space.base import BaseSpace, map_nn
     from autogl.module.nas.space.operation import gnn_map
-    from torch_geometric.nn import GATConv, GATv2Conv, SuperGATConv
+    # here we search from three types of graph convolution with `head` as a parameter
+    # we should search `heads` at the same time with the convolution
+    from torch_geometric.nn import GATConv, FeaStConv, TransformerConv
     class YourNonOneShotSpace(BaseSpace):
         # Get essential parameters at initialization
         def __init__(self, input_dim = None, output_dim = None):
@@ -78,7 +80,7 @@ But you can only use sample-based search strategy.
             self.input_dim = input_dim or self.input_dim
             self.output_dim = output_dim or self.output_dim
             # set your choices as LayerChoices
-            self.choice0 = self.setLayerChoice(0, map_nn(["gat", "gatv2", "supergat"]), key="conv")
+            self.choice0 = self.setLayerChoice(0, map_nn(["gat", "feast", "transformer"]), key="conv")
             self.choice1 = self.setLayerChoice(1, map_nn([1, 2, 4, 8]), key="head")
 
         # You do not need to define forward process here
@@ -95,10 +97,10 @@ But you can only use sample-based search strategy.
             self.output_dim = output_dim
             if selection["conv"] == "gat":
                 conv = GATConv
-            elif selection["conv"] == "gatv2":
-                conv = GATv2Conv
-            elif selection["conv"] == "supergat":
-                conv = SuperGATConv
+            elif selection["conv"] == "feast":
+                conv = FeaStConv
+            elif selection["conv"] == "transformer":
+                conv = TransformerConv
             self.layer = conv(input_dim, output_dim, selection["head"])
 
         def forward(self, data):
@@ -136,7 +138,7 @@ Search Strategy
 The space strategy defines how to find an architecture.
 
 Sample-based strategy without weight sharing is simpler than strategies with weight sharing.
-We show how to define your strategy here with Random Search as an example.
+We show how to define your strategy here with DFS as an example.
 If you want to define more complex strategy, you can refer to Darts, Enas or other strategies in NNI.
 
 .. code-block:: python
@@ -168,29 +170,29 @@ If you want to define more complex strategy, you can refer to Darts, Enas or oth
             self.selection_dict=selection_range
                 
             arch_perfs=[]
-            cache={}
+            # define DFS process
+            self.selection = {}
+            last_k = list(self.selection_dict.keys())[-1]
+            def dfs():
+                for k,v in self.selection_dict.items():
+                    if not k in self.selection:
+                        for i in range(v):
+                            self.selection[k] = i
+                            if k == last_k:
+                                # evaluate an architecture
+                                self.arch=space.parse_model(self.selection,self.device)
+                                metric,loss=self._infer(mask='val')
+                                arch_perfs.append([metric, self.selection.copy()])
+                            else:
+                                dfs()
+                        del self.selection[k]
+                        break
+            dfs()
 
-            # sample architectures one by one
-            for i in range(self.n_sample):
-                selection=self.sample() 
-                vec=tuple(list(selection.values()))
-                if vec not in cache:
-                    self.arch=space.parse_model(selection,self.device)
-                    metric,loss=self._infer(mask='val')
-                    arch_perfs.append([metric,selection])
-                    cache[vec]=metric
-                
             # get the architecture with the best performance
             selection=arch_perfs[np.argmax([x[0] for x in arch_perfs])][1]
             arch=space.parse_model(selection,self.device)
             return arch 
-
-        # Sample an architecture from the space  
-        def sample(self):
-            selection={}
-            for k,v in self.selection_dict.items():
-                selection[k]=np.random.choice(range(v))
-            return selection
 
 Different search strategies should be combined with different search spaces and estimators in usage.
 
