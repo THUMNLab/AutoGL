@@ -20,6 +20,7 @@ If you want to add your own model and automodel for some task, the only thing yo
 
 For new models used in link prediction tasks, you should fulfill the lp_encode and lp_decode function. The difference between lp_encode and forward function is that there is not classification layer in lp_encode.
 
+
 Firstly, you should define your model if it does not belong to the models above.
 
 Secondly, you should define your corresponding automodel.
