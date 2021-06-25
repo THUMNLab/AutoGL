@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from . import register_nas_space
-from .base import BaseSpace
+from .base import BaseSpace, map_nn
 from ...model import BaseModel
 from .operation import act_map
 
@@ -373,20 +373,6 @@ class GeoLayer(MessagePassing):
 
         if agg_key in params and hasattr(self, "pool_layer"):
             self.pool_layer.load_state_dict(params[agg_key])
-
-class StrModule(nn.Module):
-    def __init__(self, lambd):
-        super().__init__()
-        self.str = lambd
-
-    def forward(self, *args,**kwargs):
-        return self.str  
-
-    def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__,self.str)
-
-def map_nn(l):
-    return [StrModule(x) for x in l]
 
 @register_nas_space("graphnasmacro")
 class GraphNasMacroNodeClassificationSpace(BaseSpace):

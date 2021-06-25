@@ -11,147 +11,217 @@ If you want to design your own NAS process, you can change any of those parts ac
 Search Space
 ------------
 
-The space definition is base on mutable fashion used in NNI.
-There are mainly two ways ti define your search space, one can be performed with one-shot fashion while the other cannot.
-If you need one-shot fashion, you should use 
-Three types of search space are supported, use ``dict`` in python to define your search space.
-For numerical list search space. You can either assign a fixed length for the list, if so, you need not provide ``cutPara`` and ``cutFunc``.
-Or you can let HPO cut the list to a certain length which is dependent on other parameters. You should provide those parameters' names in ``curPara`` and the function to calculate the cut length in "cutFunc". 
+The space definition is base on mutable fashion used in NNI, which is defined as a model inheriting BaseSpace
+There are mainly two ways to define your search space, one can be performed with one-shot fashion while the other cannot.
+If you need one-shot fashion, you should use the function ``setLayerChoice`` and ``setInputChoice`` to construct the super network.
+Here is an example.
 
 .. code-block:: python
 
-    # numerical search space:
-    {
-        "parameterName": "xxx",
-        "type": "DOUBLE" / "INTEGER",
-        "minValue": xx,
-        "maxValue": xx,
-        "scalingType": "LINEAR" / "LOG"
-    }
-
-    # numerical list search space:
-    {
-        "parameterName": "xxx",
-        "type": "NUMERICAL_LIST",
-        "numericalType": "DOUBLE" / "INTEGER",
-        "length": 3,
-        "cutPara": ("para_a", "para_b"),
-        "cutFunc": lambda x: x[0] - 1,
-        "minValue": [xx,xx,xx],
-        "maxValue": [xx,xx,xx],
-        "scalingType": "LINEAR" / "LOG"
-    }
-
-    # categorical search space:
-    {
-        "parameterName": xxx,
-        "type": "CATEGORICAL"
-        "feasiblePoints": [a,b,c]
-    }
-
-    # fixed parameter as search space:
-    {
-        "parameterName": xxx,
-        "type": "FIXED",
-        "value": xxx
-    }
-        
-How given HPO algorithms support search space is listed as follows:
-
-+------------+------------+--------------+-----------+------------+
-| Algorithm  | numerical  |numerical list|categorical| fixed      |
-+============+============+==============+===========+============+
-| Grid       |            |              |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| Random     | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| Anneal     | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| Bayes      | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| TPE        | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| CMAES      | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| MOCMAES    | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-|Quasi random| ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| AutoNE     | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-
-Here, TPE is from [1], CMAES is from [2], MOCMAES is from [3], quasi random is from [4], AutoNE is from [5].
-
-[1] Bergstra, James S., et al. "Algorithms for hyper-parameter optimization." Advances in neural information processing systems. 2011.
-[2] Arnold, Dirk V., and Nikolaus Hansen. "Active covariance matrix adaptation for the (1+ 1)-CMA-ES." Proceedings of the 12th annual conference on Genetic and evolutionary computation. 2010.
-[3] Voß, Thomas, Nikolaus Hansen, and Christian Igel. "Improved step size adaptation for the MO-CMA-ES." Proceedings of the 12th annual conference on Genetic and evolutionary computation. 2010.
-[4] Bratley, Paul, Bennett L. Fox, and Harald Niederreiter. "Programs to generate Niederreiter's low-discrepancy sequences." ACM Transactions on Mathematical Software (TOMS) 20.4 (1994): 494-495.
-[5] Tu, Ke, et al. "Autone: Hyperparameter optimization for massive network embedding." Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2019.
-
-Add Your HPOptimizer
---------------------
-
-If you want to add your own HPOptimizer, the only thing you should do is finishing ``optimize`` function in you HPOptimizer:
-
-.. code-block:: python
-
-    # For example, create a random HPO by yourself
-    import random
-    from autogl.module.hpo.base import BaseHPOptimizer
-    class RandomOptimizer(BaseHPOptimizer):
+    # For example, create an NAS search space by yourself
+    from autogl.module.nas.space.base import BaseSpace
+    from autogl.module.nas.space.operation import gnn_map
+    class YourOneShotSpace(BaseSpace):
         # Get essential parameters at initialization
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.max_evals = kwargs.get("max_evals", 2)
+        def __init__(self, input_dim = None, output_dim = None):
+            super().__init__()
+            # must contain input_dim and output_dim in space, or you can initialize these two parameters in function `instantiate`
+            self.input_dim = input_dim
+            self.output_dim = output_dim
 
-        # The most important thing you should do is completing optimization function
-        def optimize(self, trainer, dataset, time_limit=None, memory_limit=None):
-            # 1. Get the search space from trainer.
-            space = trainer.hyper_parameter_space + trainer.model.hyper_parameter_space
-            # optional: use self._encode_para (in BaseOptimizer) to pretreat the space
-            # If you use _encode_para, the NUMERICAL_LIST will be spread to DOUBLE or INTEGER, LOG scaling type will be changed to LINEAR, feasible points in CATEGORICAL will be changed to discrete numbers.
-            # You should also use _decode_para to transform the types of parameters back.
-            current_space = self._encode_para(space)
+        # Instantiate the super network
+        def instantiate(self, input_dim, output_dim):
+            # must call super in this function
+            super().instantiate()
+            self.input_dim = input_dim or self.input_dim
+            self.output_dim = output_dim or self.output_dim
+            # define two layers with order 0 and 1
+            self.layer0 = self.setLayerChoice(order = 0, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']])
+            self.layer1 = self.setLayerChoice(order = 1, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']])
+            # define an input choice two choose from the result of the two layer
+            self.input_layer = self.setInputChoice(order = 2, n_candidates = 2)
 
-            # 2. Define your function to get the performance.
-            def fn(dset, para):
-                current_trainer = trainer.duplicate_from_hyper_parameter(para)
-                current_trainer.train(dset)
-                loss, self.is_higher_better = current_trainer.get_valid_score(dset)
-                # For convenience, we change the score which is higher better to negative, then we should only minimize the score.
-                if self.is_higher_better:
-                    loss = -loss
-                return current_trainer, loss
+        # Define the forward process
+        def forward(self, data):
+            x, edges = data.x, data.edge_index
+            x_0 = self.layer0(x, edges)
+            x_1 = self.layer1(x, edges)
+            y = self.input_layer([x_0, x_1])
+            return y
 
-            # 3. Define the how to get HP suggestions, it should return a parameter dict. You can use history trials to give new suggestions
-            def get_random(history_trials):
-                hps = {}
-                for para in current_space:
-                    # Because we use _encode_para function before, we should only deal with DOUBLE, INTEGER and DISCRETE
-                    if para["type"] == "DOUBLE" or para["type"] == "INTEGER":
-                        hp = random.random() * (para["maxValue"] - para["minValue"]) + para["minValue"]
-                        if para["type"] == "INTEGER":
-                            hp = round(hp)
-                        hps[para["parameterName"]] = hp
-                    elif para["type"] == "DISCRETE":
-                        feasible_points = para["feasiblePoints"].split(",")
-                        hps[para["parameterName"]] = random.choice(feasible_points)
-                return hps
+        # For one-shot fashion, you can directly use following scheme in ``parse_model``
+        def parse_model(self, selection, device) -> BaseModel:
+            return self.wrap(device).fix(selection)
 
-            # 4. Run your algorithm. For each turn, get a set of parameters according to history information and evaluate it.
-            best_trainer, best_para, best_perf = None, None, None
-            self.trials = []
-            for i in range(self.max_evals):
-                # in this example, we don't need history trails. Since we pass None to history_trails
-                new_hp = get_random(None)
-                # optional: if you use _encode_para, use _decode_para as well. para_for_trainer undos all transformation in _encode_para, and turns double parameter to interger if needed. para_for_hpo only turns double parameter to interger.
-                para_for_trainer, para_for_hpo = self._decode_para(new_hp)
-                current_trainer, perf = fn(dataset, para_for_trainer)
-                self.trials.append((para_for_hpo, perf))
-                if not best_perf or perf < best_perf:
-                    best_perf = perf
-                    best_trainer = current_trainer
-                    best_para = para_for_trainer
+Also, you can use the way which does not support one shot fashion.
+In this way, you can directly copy you model with few changes.
+But you can only use sample-based search strategy.
 
-            # 5. Return the best trainer and parameter.
-            return best_trainer, best_para
+.. code-block:: python
+
+    # For example, create an NAS search space by yourself
+    from autogl.module.nas.space.base import BaseSpace, map_nn
+    from autogl.module.nas.space.operation import gnn_map
+    from torch_geometric.nn import GATConv, GATv2Conv, SuperGATConv
+    class YourNonOneShotSpace(BaseSpace):
+        # Get essential parameters at initialization
+        def __init__(self, input_dim = None, output_dim = None):
+            super().__init__()
+            # must contain input_dim and output_dim in space, or you can initialize these two parameters in function `instantiate`
+            self.input_dim = input_dim
+            self.output_dim = output_dim
+
+        # Instantiate the super network
+        def instantiate(self, input_dim, output_dim):
+            # must call super in this function
+            super().instantiate()
+            self.input_dim = input_dim or self.input_dim
+            self.output_dim = output_dim or self.output_dim
+            # set your choices as LayerChoices
+            self.choice0 = self.setLayerChoice(0, map_nn(["gat", "gatv2", "supergat"]), key="conv")
+            self.choice1 = self.setLayerChoice(1, map_nn([1, 2, 4, 8]), key="head")
+
+        # You do not need to define forward process here
+        # For non-one-shot fashion, you can directly return your model based on the choices
+        # ``YourModel`` must inherit BaseSpace.
+        def parse_model(self, selection, device) -> BaseModel:
+            model = YourModel(selection, self.input_dim, self.output_dim).wrap(device)
+            return model
+
+    # YourModel can be defined as follows
+    class YourModel(BaseSpace):
+        def __init__(self, selection, input_dim, output_dim):
+            self.input_dim = input_dim
+            self.output_dim = output_dim
+            if selection["conv"] == "gat":
+                conv = GATConv
+            elif selection["conv"] == "gatv2":
+                conv = GATv2Conv
+            elif selection["conv"] == "supergat":
+                conv = SuperGATConv
+            self.layer = conv(input_dim, output_dim, selection["head"])
+
+        def forward(self, data):
+            x, edges = data.x, data.edge_index
+            y = self.layer(x, edges)
+            return y
+
+Performance Estimator
+------------
+
+The performance estimator estimates the performance of an architecture.
+Here is an example of estimating an architecture without training (used in one-shot space).
+
+.. code-block:: python
+
+    # For example, create an NAS estimator by yourself
+    from autogl.module.nas.estimator.base import BaseEstimator
+    class YourOneShotEstimator(BaseEstimator):
+        # The only thing you should do is defining ``infer`` function
+        def infer(self, model: BaseSpace, dataset, mask="train"):
+            device = next(model.parameters()).device
+            dset = dataset[0].to(device)
+            # Forward the architecture
+            pred = model(dset)[getattr(dset, f"{mask}_mask")]
+            y = dset.y[getattr(dset, f'{mask}_mask')]
+            # Use default loss function and metrics to evaluate the architecture
+            loss = self.loss_f(pred, y)
+            probs = F.softmax(pred, dim = 1)
+            metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
+            return metrics, loss
+
+Search Strategy
+------------
+
+The space strategy defines how to find an architecture.
+
+Sample-based strategy without weight sharing is simpler than strategies with weight sharing.
+We show how to define your strategy here with Random Search as an example.
+If you want to define more complex strategy, you can refer to Darts, Enas or other strategies in NNI.
+
+.. code-block:: python
+
+    from autogl.module.nas.algorithm.base import BaseNAS
+    class RandomSearch(BaseNAS):
+        # Get the number of samples at initialization
+        def __init__(self, n_sample):
+            super().__init__()
+            self.n_sample = n_sample
+
+        # The key process in NAS algorithm, search for an architecture given space, dataset and estimator
+        def search(self, space: BaseSpace, dset, estimator):
+            self.estimator=estimator
+            self.dataset=dset
+            self.space=space
+                
+            self.nas_modules = []
+            k2o = get_module_order(self.space)
+            # collect all mutables in the space
+            replace_layer_choice(self.space, PathSamplingLayerChoice, self.nas_modules)
+            replace_input_choice(self.space, PathSamplingInputChoice, self.nas_modules)
+            # sort all mutables with given orders
+            self.nas_modules = sort_replaced_module(k2o, self.nas_modules) 
+            # get a dict cantaining all chioces
+            selection_range={}
+            for k,v in self.nas_modules:
+                selection_range[k]=len(v)
+            self.selection_dict=selection_range
+                
+            arch_perfs=[]
+            cache={}
+
+            # sample architectures one by one
+            for i in range(self.n_sample):
+                selection=self.sample() 
+                vec=tuple(list(selection.values()))
+                if vec not in cache:
+                    self.arch=space.parse_model(selection,self.device)
+                    metric,loss=self._infer(mask='val')
+                    arch_perfs.append([metric,selection])
+                    cache[vec]=metric
+                
+            # get the architecture with the best performance
+            selection=arch_perfs[np.argmax([x[0] for x in arch_perfs])][1]
+            arch=space.parse_model(selection,self.device)
+            return arch 
+
+        # Sample an architecture from the space  
+        def sample(self):
+            selection={}
+            for k,v in self.selection_dict.items():
+                selection[k]=np.random.choice(range(v))
+            return selection
+
+Different search strategies should be combined with different search spaces and estimators in usage.
+
++------------+-------------+-------------+------------------+
+| Sapce      | single path | GraphNAS[1] | GraphNAS-macro[1]|
++============+=============+=============+==================+
+| Random     |  ✓          |  ✓          |  ✓               | 
++------------+-------------+-------------+------------------+
+| RL         |  ✓          |  ✓          |  ✓               |
++------------+-------------+-------------+------------------+
+| GraphNAS[1]|  ✓          |  ✓          |  ✓               |
++------------+-------------+-------------+------------------+
+| ENAS[2]    |  ✓          |             |                  |
++------------+-------------+-------------+------------------+
+| DARTS[3]   |  ✓          |             |                  |
++------------+-------------+-------------+------------------+
+
++------------+-------------+-------------+
+| Estimator  | one-shot    | Train       |
++============+=============+=============+
+| Random     |             |  ✓          | 
++------------+-------------+-------------+
+| RL         |             |  ✓          |
++------------+-------------+-------------+
+| GraphNAS[1]|             |  ✓          |
++------------+-------------+-------------+
+| ENAS[2]    |  ✓          |             |
++------------+-------------+-------------+
+| DARTS[3]   |  ✓          |             |
++------------+-------------+-------------+
+
+[1] Gao, Yang, et al. "Graph neural architecture search." IJCAI. Vol. 20. 2020.
+[2] Pham, Hieu, et al. "Efficient neural architecture search via parameters sharing." International Conference on Machine Learning. PMLR, 2018.
+[3] Liu, Hanxiao, Karen Simonyan, and Yiming Yang. "DARTS: Differentiable Architecture Search." International Conference on Learning Representations. 2018.

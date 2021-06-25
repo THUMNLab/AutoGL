@@ -35,6 +35,37 @@ class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
         mutables.InputChoice.__init__(self, n_candidates, choose_from, n_chosen,
                  reduction, return_mask, key)
 
+class StrModule(nn.Module):
+    """
+    A shell used to wrap choices as nn.Module for non-one-shot space definition
+    You can use ``map_nn`` function
+
+    Parameters
+    ----------
+    name : anything
+        the name of module, can be any type
+    """
+    def __init__(self, name):
+        super().__init__()
+        self.str = name
+
+    def forward(self, *args,**kwargs):
+        return self.str  
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__,self.str)
+
+def map_nn(names):
+    """
+    A function used to wrap choices as nn.Module for non-one-shot space definition
+
+    Parameters
+    ----------
+    name : list of anything
+        the names of module, can be any type
+    """
+    return [StrModule(x) for x in names]
+
 class BoxModel(BaseModel):
     """
     The box wrapping a space, can be passed to later procedure or trainer

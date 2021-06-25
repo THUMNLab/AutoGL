@@ -74,4 +74,4 @@ class RandomSearch(BaseNAS):
 
     def _infer(self,mask='train'):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        return metric, loss
+        return metric[0], loss

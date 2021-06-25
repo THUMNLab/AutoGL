@@ -176,4 +176,4 @@ class Enas(BaseNAS):
 
     def _infer(self,mask='train'):
         metric, loss = self.estimator.infer(self.model, self.dataset,mask=mask)
-        return metric, loss
+        return metric[0], loss
