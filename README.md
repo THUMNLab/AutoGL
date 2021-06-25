@@ -19,7 +19,7 @@ AutoGL is developed for researchers and developers to quickly conduct autoML on 
 
 The workflow below shows the overall framework of AutoGL.
 
-<img src="./resources/workflow.svg">
+<img src="https://raw.githubusercontent.com/THUMNLab/AutoGL/a062f6c535feb2cd856f51d41a88df99b02e82e7/resources/workflow.svg">
 
 AutoGL uses `datasets` to maintain dataset for graph-based machine learning, which is based on Dataset in PyTorch Geometric with some support added to corporate with the auto solver framework.
 

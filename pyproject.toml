@@ -1,7 +1,0 @@
-[build-system]
-requires = [
-    "torch>=1.6.0",
-    "torch-geometric>=1.7.0",
-    "torch-scatter",
-    "torch-sparse"
-]
