@@ -9,18 +9,27 @@ except ModuleNotFoundError:
 try:
     import torch_scatter
     import torch_sparse
-    import torch_cluster
-    import torch_spline_conv
     import torch_geometric
     PYG_VER = torch_geometric.__version__.split('.')
     PYG_VER = [int(PYG_VER[0]), int(PYG_VER[1])]
-    assert PYG_VER >= [1, 7], "torch geometric version should be at least 1.7.0"
+    assert PYG_VER >= [1, 7], "PyTorch-Geometric version should be at least 1.7.0"
 except ModuleNotFoundError:
     raise ModuleNotFoundError(
         "PyTorch-Geometric not fully installed. "
         "Please appropriately install PyTorch-Geometric, "
         "see https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html for installation."
     )
+
+if torch.__version__.startswith('1.8.'):
+    try:
+        import torch_cluster
+        import torch_spline_conv
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "PyTorch-Geometric not fully installed. "
+            "For PyTorch version 1.8.x, you should also install torch_cluster and torch_spline_conv "
+            "see https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html for installation."
+        )
 
 from setuptools import setup, find_packages
 
