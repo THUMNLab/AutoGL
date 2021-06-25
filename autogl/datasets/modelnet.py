@@ -26,6 +26,8 @@ class ModelNet10Train(ModelNet):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(ModelNet10Train, self).get(idx)
 
 
@@ -37,6 +39,8 @@ class ModelNet10Test(ModelNet):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(ModelNet10Test, self).get(idx)
 
 
@@ -48,6 +52,8 @@ class ModelNet40Train(ModelNet):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(ModelNet40Train, self).get(idx)
 
 
@@ -59,4 +65,6 @@ class ModelNet40Test(ModelNet):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(ModelNet40Test, self).get(idx)

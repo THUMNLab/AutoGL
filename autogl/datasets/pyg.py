@@ -27,6 +27,8 @@ class AmazonComputersDataset(Amazon):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(AmazonComputersDataset, self).get(idx)
 
 
@@ -41,6 +43,8 @@ class AmazonPhotoDataset(Amazon):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(AmazonPhotoDataset, self).get(idx)
 
 
@@ -55,6 +59,8 @@ class CoauthorPhysicsDataset(Coauthor):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CoauthorPhysicsDataset, self).get(idx)
 
 
@@ -69,6 +75,8 @@ class CoauthorCSDataset(Coauthor):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CoauthorCSDataset, self).get(idx)
 
 
@@ -83,6 +91,8 @@ class CoraDataset(Planetoid):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CoraDataset, self).get(idx)
 
 
@@ -97,6 +107,8 @@ class CiteSeerDataset(Planetoid):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CiteSeerDataset, self).get(idx)
 
 
@@ -111,6 +123,8 @@ class PubMedDataset(Planetoid):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(PubMedDataset, self).get(idx)
 
 
@@ -125,6 +139,8 @@ class RedditDataset(Reddit):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(RedditDataset, self).get(idx)
 
 
@@ -137,6 +153,8 @@ class FlickrDataset(Flickr):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(FlickrDataset, self).get(idx)
 
 
@@ -151,6 +169,8 @@ class MUTAGDataset(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(MUTAGDataset, self).get(idx)
 
 
@@ -165,6 +185,8 @@ class IMDBBinaryDataset(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(IMDBBinaryDataset, self).get(idx)
 
 
@@ -179,6 +201,8 @@ class IMDBMultiDataset(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(IMDBMultiDataset, self).get(idx)
 
 
@@ -193,6 +217,8 @@ class CollabDataset(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CollabDataset, self).get(idx)
 
 
@@ -207,6 +233,8 @@ class ProteinsDataset(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(ProteinsDataset, self).get(idx)
 
 
@@ -221,6 +249,8 @@ class REDDITBinary(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(REDDITBinary, self).get(idx)
 
 
@@ -235,6 +265,8 @@ class REDDITMulti5K(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(REDDITMulti5K, self).get(idx)
 
 
@@ -249,6 +281,8 @@ class REDDITMulti12K(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(REDDITMulti12K, self).get(idx)
 
 
@@ -263,6 +297,8 @@ class PTCMRDataset(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(PTCMRDataset, self).get(idx)
 
 
@@ -277,6 +313,8 @@ class NCI1Dataset(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(NCI1Dataset, self).get(idx)
 
 
@@ -291,6 +329,8 @@ class NCI109Dataset(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(NCI109Dataset, self).get(idx)
 
 
@@ -316,6 +356,8 @@ class ENZYMES(TUDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(ENZYMES, self).get(idx)
 
 
@@ -360,4 +402,6 @@ class QM9Dataset(QM9):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(QM9Dataset, self).get(idx)

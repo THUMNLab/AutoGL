@@ -45,14 +45,14 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
             else:
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
 
-        def forward(self, data) -> torch.Tensor:
+        def forward(self, data, enable_activation: bool = True) -> torch.Tensor:
             x: torch.Tensor = getattr(data, "x")
             edge_index: torch.Tensor = getattr(data, "edge_index")
             if type(x) != torch.Tensor or type(edge_index) != torch.Tensor:
                 raise TypeError
 
             x: torch.Tensor = self._convolution.forward(x, edge_index)
-            if self._activation_name is not None:
+            if self._activation_name is not None and enable_activation:
                 x: torch.Tensor = activate_func(x, self._activation_name)
             if self._dropout is not None:
                 x: torch.Tensor = self._dropout.forward(x)
@@ -85,9 +85,9 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
                     raise TypeError
             _layers_dropout: _typing.Sequence[_typing.Optional[float]] = layers_dropout
         elif layers_dropout is None or type(layers_dropout) == float:
-            _layers_dropout: _typing.Sequence[_typing.Optional[float]] = [
-                layers_dropout for _ in range(len(hidden_features) + 1)
-            ]
+            _layers_dropout: _typing.Sequence[_typing.Optional[float]] = (
+                [layers_dropout for _ in range(len(hidden_features))] + [None]
+            )
         else:
             raise TypeError
         if not type(activation_name) == type(aggr) == str:
@@ -113,15 +113,15 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
                 if i + 1 < len(hidden_features):
                     self.__sequential_encoding_layers.append(
                         self._SAGELayer(
-                            hidden_features[i], hidden_features[i + 1],
-                            aggr, activation_name, _layers_dropout[i + 1]
+                            hidden_features[i], hidden_features[i + 1], aggr,
+                            activation_name, _layers_dropout[i + 1]
                         )
                     )
                 else:
                     self.__sequential_encoding_layers.append(
                         self._SAGELayer(
-                            hidden_features[i], num_classes,
-                            aggr, activation_name, _layers_dropout[i + 1]
+                            hidden_features[i], num_classes, aggr,
+                            _layers_dropout[i + 1]
                         )
                     )
 
@@ -141,23 +141,31 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
             """ Layer-wise encode """
             x: torch.Tensor = getattr(data, "x")
             for i, __edge_index in enumerate(getattr(data, "edge_indexes")):
-                _intermediate_data: autogl.data.Data = autogl.data.Data(
-                    x=x, edge_index=__edge_index
+                x: torch.Tensor = self.__sequential_encoding_layers[i](
+                    autogl.data.Data(x=x, edge_index=__edge_index)
                 )
-                x: torch.Tensor = self.__sequential_encoding_layers[i](_intermediate_data)
             return x
         else:
+            x: torch.Tensor = getattr(data, "x")
             for i in range(len(self.__sequential_encoding_layers)):
-                data.x = self.__sequential_encoding_layers[i](data)
-            return data.x
+                x = self.__sequential_encoding_layers[i](
+                    autogl.data.Data(x, getattr(data, "edge_index"))
+                )
+            return x
 
     def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        for i in range(len(self.__sequential_encoding_layers) - 1):
-            data.x = self.__sequential_encoding_layers[i](data)
-        return getattr(data, "x")
+        x: torch.Tensor = getattr(data, "x")
+        for i in range(len(self.__sequential_encoding_layers) - 2):
+            x = self.__sequential_encoding_layers[i](
+                autogl.data.Data(x, getattr(data, "edge_index"))
+            )
+        x = self.__sequential_encoding_layers[-2](
+            autogl.data.Data(x, getattr(data, "edge_index")), enable_activation=False
+        )
+        return x
 
     def lp_decode(self, z, pos_edge_index, neg_edge_index):
         edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)

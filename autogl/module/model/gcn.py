@@ -48,10 +48,10 @@ class GCN(ClassificationSupportedSequentialModel):
             else:
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
 
-        def forward(self, data) -> torch.Tensor:
+        def forward(self, data, enable_activation: bool = True) -> torch.Tensor:
             x: torch.Tensor = getattr(data, "x")
             edge_index: torch.LongTensor = getattr(data, "edge_index")
-            edge_weight: _typing.Optional[torch.Tensor] = getattr(data, "edge_weight")
+            edge_weight: _typing.Optional[torch.Tensor] = getattr(data, "edge_weight", None)
             """ Validate the arguments """
             if not type(x) == type(edge_index) == torch.Tensor:
                 raise TypeError
@@ -62,7 +62,7 @@ class GCN(ClassificationSupportedSequentialModel):
                 edge_weight: _typing.Optional[torch.Tensor] = None
 
             x: torch.Tensor = self._convolution.forward(x, edge_index, edge_weight)
-            if self._activation_name is not None:
+            if self._activation_name is not None and enable_activation:
                 x: torch.Tensor = activate_func(x, self._activation_name)
             if self._dropout is not None:
                 x: torch.Tensor = self._dropout.forward(x)
@@ -97,9 +97,9 @@ class GCN(ClassificationSupportedSequentialModel):
                 dropout = 0
             if dropout > 1:
                 dropout = 1
-            dropout_list: _typing.Sequence[_typing.Optional[float]] = [
-                dropout for _ in range(len(hidden_features) + 1)
-            ]
+            dropout_list: _typing.Sequence[_typing.Optional[float]] = (
+                [dropout for _ in range(len(hidden_features))] + [None]
+            )
         elif dropout in (None, Ellipsis, ...):
             dropout_list: _typing.Sequence[_typing.Optional[float]] = [
                 None for _ in range(len(hidden_features) + 1)
@@ -224,9 +224,15 @@ class GCN(ClassificationSupportedSequentialModel):
         return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        for i in range(len(self.__sequential_encoding_layers) - 1):
-            data.x = self.__sequential_encoding_layers[i](data)
-        return getattr(data, "x")
+        x: torch.Tensor = getattr(data, "x")
+        for i in range(len(self.__sequential_encoding_layers) - 2):
+            x = self.__sequential_encoding_layers[i](
+                autogl.data.Data(x, getattr(data, "edge_index"))
+            )
+        x = self.__sequential_encoding_layers[-2](
+            autogl.data.Data(x, getattr(data, "edge_index")), enable_activation=False
+        )
+        return x
 
     def lp_decode(self, z, pos_edge_index, neg_edge_index):
         edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)

@@ -267,6 +267,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         """
         data = dataset[0]
+        data.edge_index = data.train_pos_edge_index
         self.train_only(data)
         if keep_valid_result:
             self.valid_result = self.predict_only(data)
@@ -309,6 +310,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         The prediction result.
         """
         data = dataset[0]
+        data.edge_index = data.train_pos_edge_index
         data = data.to(self.device)
         if mask in ["train", "val", "test"]:
             pos_edge_index = data[f"{mask}_pos_edge_index"]
