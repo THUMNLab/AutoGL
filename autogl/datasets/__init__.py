@@ -92,7 +92,6 @@ from .han_data import HANDataset, ACM_HANDataset, DBLP_HANDataset, IMDB_HANDatas
 from .matlab_matrix import (
     MatlabMatrix,
     BlogcatalogDataset,
-    FlickrDataset,
     WikipediaDataset,
     PPIDataset,
 )

@@ -39,6 +39,8 @@ class OGBNproductsDataset(PygNodePropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNproductsDataset, self).get(idx)
 
 
@@ -72,6 +74,8 @@ class OGBNproteinsDataset(PygNodePropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNproteinsDataset, self).get(idx)
 
 
@@ -97,6 +101,8 @@ class OGBNarxivDataset(PygNodePropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNarxivDataset, self).get(idx)
 
 
@@ -121,6 +127,8 @@ class OGBNpapers100MDataset(PygNodePropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNpapers100MDataset, self).get(idx)
 
 
@@ -159,6 +167,8 @@ class OGBNmagDataset(PygNodePropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNmagDataset, self).get(idx)
 
 
@@ -178,6 +188,8 @@ class OGBGmolhivDataset(PygGraphPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBGmolhivDataset, self).get(idx)
 
 
@@ -194,6 +206,8 @@ class OGBGmolpcbaDataset(PygGraphPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBGmolpcbaDataset, self).get(idx)
 
 
@@ -210,6 +224,8 @@ class OGBGppaDataset(PygGraphPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBGppaDataset, self).get(idx)
 
 
@@ -226,6 +242,8 @@ class OGBGcodeDataset(PygGraphPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBGcodeDataset, self).get(idx)
 
 
@@ -245,6 +263,8 @@ class OGBLppaDataset(PygLinkPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLppaDataset, self).get(idx)
 
 
@@ -261,6 +281,8 @@ class OGBLcollabDataset(PygLinkPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLcollabDataset, self).get(idx)
 
 
@@ -277,6 +299,8 @@ class OGBLddiDataset(PygLinkPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLddiDataset, self).get(idx)
 
 
@@ -293,6 +317,8 @@ class OGBLcitationDataset(PygLinkPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLcitationDataset, self).get(idx)
 
 
@@ -309,6 +335,8 @@ class OGBLwikikgDataset(PygLinkPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLwikikgDataset, self).get(idx)
 
 
@@ -325,4 +353,6 @@ class OGBLbiokgDataset(PygLinkPropPredDataset):
     def get(self, idx):
         if hasattr(self, "__data_list__"):
             delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLbiokgDataset, self).get(idx)

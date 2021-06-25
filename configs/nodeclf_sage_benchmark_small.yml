@@ -29,12 +29,12 @@ models:
     parameterName: dropout
     scalingType: LINEAR
     type: DOUBLE
-  - feasiblePoints":
+  - feasiblePoints:
     - mean
     - add
     - max
-    parameterName: agg,
-    type: CATEGORICAL,
+    parameterName: agg
+    type: CATEGORICAL
   - feasiblePoints:
     - leaky_relu
     - relu

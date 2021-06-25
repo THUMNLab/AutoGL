@@ -1,133 +1,124 @@
-import collections
-import random
 import typing as _typing
-import numpy as np
 import torch.utils.data
+import torch_geometric
+from .target_dependant_sampler import TargetDependantSampler, TargetDependantSampledData
 
 
-class NeighborSampler(torch.utils.data.DataLoader, collections.Iterable):
-    class _NodeIndexesDataset(torch.utils.data.Dataset):
-        def __init__(self, node_indexes):
-            self.__node_indexes: _typing.Sequence[int] = node_indexes
+class NeighborSampler(TargetDependantSampler, _typing.Iterable):
+    class _SequenceDataset(torch.utils.data.Dataset):
+        def __init__(self, sequence):
+            self.__sequence = sequence
 
-        def __getitem__(self, index) -> int:
-            if not 0 <= index < len(self.__node_indexes):
-                raise IndexError("Index out of range")
-            else:
-                return self.__node_indexes[index]
+        def __len__(self):
+            return len(self.__sequence)
 
-        def __len__(self) -> int:
-            return len(self.__node_indexes)
+        def __getitem__(self, idx):
+            return self.__sequence[idx]
+
+    @classmethod
+    def __compute_edge_weight(cls, edge_index: torch.LongTensor) -> torch.Tensor:
+        __num_nodes = max(int(edge_index[0].max()), int(edge_index[1].max())) + 1
+        __out_degree: torch.LongTensor = torch_geometric.utils.degree(
+            edge_index[0], __num_nodes
+        )
+        __in_degree: torch.LongTensor = torch_geometric.utils.degree(
+            edge_index[1], __num_nodes
+        )
+        temp_tensor: torch.Tensor = torch.stack(
+            [__out_degree[edge_index[0]], __in_degree[edge_index[1]]]
+        )
+        temp_tensor: torch.Tensor = torch.pow(temp_tensor, -0.5)
+        temp_tensor[torch.isinf(temp_tensor)] = 0.0
+        return temp_tensor[0] * temp_tensor[1]
 
     def __init__(
-        self,
-        data,
-        sampling_sizes: _typing.Sequence[int],
-        target_node_indexes: _typing.Optional[_typing.Sequence[int]] = None,
-        batch_size: _typing.Optional[int] = 1,
-        *args,
-        **kwargs
+            self, edge_index: torch.LongTensor,
+            target_nodes_indexes: torch.LongTensor,
+            sampling_sizes: _typing.Sequence[int],
+            batch_size: int = 1, num_workers: int = 0,
+            shuffle: bool = True, **kwargs
     ):
-        self._data = data
-        self.__sampling_sizes: _typing.Sequence[int] = sampling_sizes
-
-        if not (
-            target_node_indexes is not None
-            and isinstance(target_node_indexes, _typing.Sequence)
-        ):
-            if hasattr(data, "train_mask"):
-                target_node_indexes: _typing.Sequence[int] = torch.where(
-                    getattr(data, "train_mask")
-                )[0]
-            else:
-                target_node_indexes: _typing.Sequence[int] = list(
-                    np.arange(0, data.x.shape[0])
-                )
-
-        self.__edge_index_map: _typing.Dict[
-            int, _typing.Union[torch.Tensor, _typing.Sequence[int]]
-        ] = {}
-        self.__init_edge_index_map()
-        super(NeighborSampler, self).__init__(
-            self._NodeIndexesDataset(target_node_indexes),
-            batch_size=batch_size if batch_size > 0 else 1,
-            collate_fn=self.__sample,
-            *args,
-            **kwargs
+        def is_deterministic(__cached: bool = bool(kwargs.get("cached", True))) -> bool:
+            if not __cached:
+                return False
+            _deterministic: bool = True
+            for _sampling_size in sampling_sizes:
+                if type(_sampling_size) != int:
+                    raise TypeError("The sampling_sizes argument must be a sequence of integer")
+                if _sampling_size >= 0:
+                    _deterministic = False
+                    break
+            return _deterministic
+        self.__edge_weight: torch.Tensor = self.__compute_edge_weight(edge_index)
+        self.__pyg_neighbor_sampler: torch_geometric.data.NeighborSampler = (
+            torch_geometric.data.NeighborSampler(
+                edge_index, list(sampling_sizes[::-1]), target_nodes_indexes,
+                transform=self._transform, batch_size=batch_size,
+                num_workers=num_workers, shuffle=shuffle, **kwargs
+            )
         )
 
-    def __init_edge_index_map(self):
-        self.__edge_index_map.clear()
-        all_edge_index: torch.Tensor = getattr(self._data, "edge_index")
-        target_node_indexes: torch.Tensor = all_edge_index[1]
-        for target_node_index in target_node_indexes.unique().tolist():
-            self.__edge_index_map[target_node_index] = torch.where(
-                all_edge_index[1] == target_node_index
-            )[0]
+        if is_deterministic():
+            pyg_neighbor_sampler: _typing.Iterable = self.__pyg_neighbor_sampler
+            self.__cached_sampled_data_list: _typing.Optional[
+                _typing.List[TargetDependantSampledData]
+            ] = [sampled_data for sampled_data in pyg_neighbor_sampler]
+        else:
+            self.__cached_sampled_data_list: _typing.Optional[
+                _typing.List[TargetDependantSampledData]
+            ] = None
+
+    def _transform(
+        self, batch_size: int, n_id: torch.LongTensor,
+        adj_or_adj_list: _typing.Union[
+            _typing.Sequence[
+                _typing.Tuple[torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]]
+            ],
+            _typing.Tuple[torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]]
+        ]
+    ) -> TargetDependantSampledData:
+        if (
+                isinstance(adj_or_adj_list[0], _typing.Tuple) and
+                isinstance(adj_or_adj_list, _typing.Sequence) and
+                not isinstance(adj_or_adj_list, _typing.Tuple)
+        ):
+            return TargetDependantSampledData(
+                [
+                    (current_layer[0], current_layer[1], self.__edge_weight[current_layer[1]])
+                    for current_layer in adj_or_adj_list
+                ],
+                (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]), n_id
+            )
+        elif isinstance(adj_or_adj_list, _typing.Tuple) and type(adj_or_adj_list[0]) == torch.Tensor:
+            adj_or_adj_list: _typing.Tuple[
+                torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]
+            ] = adj_or_adj_list
+            return TargetDependantSampledData(
+                [(adj_or_adj_list[0], adj_or_adj_list[1], self.__edge_weight[adj_or_adj_list[1]])],
+                (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]), n_id
+            )
 
     def __iter__(self):
-        return super(NeighborSampler, self).__iter__()
+        if (
+                self.__cached_sampled_data_list is not None and
+                isinstance(self.__cached_sampled_data_list, _typing.Sequence)
+        ):
+            return iter(torch.utils.data.DataLoader(
+                self._SequenceDataset(self.__cached_sampled_data_list),
+                collate_fn=lambda x: x[0]
+            ))
+        else:
+            return iter(self.__pyg_neighbor_sampler)
 
-    def __sample(
-        self, target_nodes_indexes: _typing.List[int]
-    ) -> _typing.Tuple[torch.Tensor, _typing.List[torch.Tensor]]:
-        """
-        Sample a sub-graph with neighborhood sampling
-        :param target_nodes_indexes:
-        """
-        original_edge_index: torch.Tensor = self._data.edge_index
-        edges_indexes: _typing.List[torch.Tensor] = []
-
-        current_target_nodes_indexes: _typing.List[int] = target_nodes_indexes
-        for current_sampling_size in self.__sampling_sizes:
-            current_edge_index: _typing.Optional[torch.Tensor] = None
-            for current_target_node_index in current_target_nodes_indexes:
-                if current_target_node_index in self.__edge_index_map:
-                    all_indexes: torch.Tensor = self.__edge_index_map.get(
-                        current_target_node_index
-                    )
-                else:
-                    all_indexes: torch.Tensor = torch.where(
-                        original_edge_index[1] == current_target_node_index
-                    )[0]
-                if all_indexes.numel() < current_sampling_size:
-                    sampled_indexes: np.ndarray = np.random.choice(
-                        all_indexes.cpu().numpy(), current_sampling_size
-                    )
-                    if current_edge_index is not None:
-                        current_edge_index: torch.Tensor = torch.cat(
-                            [
-                                current_edge_index,
-                                original_edge_index[:, sampled_indexes],
-                            ],
-                            dim=1,
-                        )
-                    else:
-                        current_edge_index: torch.Tensor = original_edge_index[
-                            :, sampled_indexes
-                        ]
-                else:
-                    all_indexes_list = all_indexes.tolist()
-                    random.shuffle(all_indexes_list)
-                    shuffled_indexes_list: _typing.List[int] = all_indexes_list[
-                        0:current_sampling_size
-                    ]
-                    if current_edge_index is not None:
-                        current_edge_index: torch.Tensor = torch.cat(
-                            [
-                                current_edge_index,
-                                original_edge_index[:, shuffled_indexes_list],
-                            ],
-                            dim=1,
-                        )
-                    else:
-                        current_edge_index: torch.Tensor = original_edge_index[
-                            :, shuffled_indexes_list
-                        ]
-            edges_indexes.append(current_edge_index)
-
-            if len(edges_indexes) < len(self.__sampling_sizes):
-                next_target_nodes_indexes: torch.Tensor = current_edge_index[0].unique()
-                current_target_nodes_indexes = next_target_nodes_indexes.tolist()
-
-        return torch.tensor(target_nodes_indexes), edges_indexes[::-1]
+    @classmethod
+    def create_basic_sampler(
+            cls, edge_index: torch.LongTensor,
+            target_nodes_indexes: torch.LongTensor,
+            layer_wise_arguments: _typing.Sequence,
+            batch_size: int = 1, num_workers: int = 1,
+            shuffle: bool = True, *args, **kwargs
+    ) -> TargetDependantSampler:
+        return cls(
+            edge_index, target_nodes_indexes, layer_wise_arguments,
+            batch_size, num_workers, shuffle, **kwargs
+        )

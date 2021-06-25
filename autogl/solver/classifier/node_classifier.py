@@ -16,7 +16,7 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT, BaseModel
 from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
 from ...module.train import get_feval
-from ..utils import Leaderboard, set_seed
+from ..utils import LeaderBoard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
 
@@ -268,7 +268,7 @@ class AutoNodeClassifier(BaseClassifier):
         assert isinstance(evaluation_method, list)
         evaluator_list = get_feval(evaluation_method)
 
-        self.leaderboard = Leaderboard(
+        self.leaderboard = LeaderBoard(
             [e.get_eval_name() for e in evaluator_list],
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
@@ -340,7 +340,7 @@ class AutoNodeClassifier(BaseClassifier):
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
-            name = optimized.get_name_with_hp() + "_idx%d" % (idx)
+            name = str(optimized) + "_idx%d" % (idx)
             names.append(name)
             performance_on_valid, _ = optimized.get_valid_score(return_major=False)
             result_valid.append(optimized.get_valid_predict_proba().cpu().numpy())

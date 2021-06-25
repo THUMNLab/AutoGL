@@ -16,7 +16,7 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT, BaseModel
 from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
 from ...module.train import get_feval
-from ..utils import Leaderboard, set_seed
+from ..utils import LeaderBoard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
 
@@ -268,7 +268,7 @@ class AutoLinkPredictor(BaseClassifier):
         assert isinstance(evaluation_method, list)
         evaluator_list = get_feval(evaluation_method)
 
-        self.leaderboard = Leaderboard(
+        self.leaderboard = LeaderBoard(
             [e.get_eval_name() for e in evaluator_list],
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )

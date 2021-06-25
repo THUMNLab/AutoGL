@@ -95,7 +95,7 @@ class GAT(torch.nn.Module):
 
         return F.log_softmax(x, dim=1)
 
-    def encode(self, data):
+    def lp_encode(self, data):
         x = data.x
         for i in range(self.num_layer - 1):
             x = self.convs[i](x, data.train_pos_edge_index)
