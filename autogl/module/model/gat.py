@@ -95,7 +95,7 @@ class GAT(torch.nn.Module):
 
         return F.log_softmax(x, dim=1)
 
-    def encode(self, data):
+    def lp_encode(self, data):
         x = data.x
         for i in range(self.num_layer - 1):
             x = self.convs[i](x, data.train_pos_edge_index)
@@ -104,12 +104,12 @@ class GAT(torch.nn.Module):
                 # x = F.dropout(x, p=self.args["dropout"], training=self.training)
         return x
 
-    def decode(self, z, pos_edge_index, neg_edge_index):
+    def lp_decode(self, z, pos_edge_index, neg_edge_index):
         edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)
         logits = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=-1)
         return logits
 
-    def decode_all(self, z):
+    def lp_decode_all(self, z):
         prob_adj = z @ z.t()
         return (prob_adj > 0).nonzero(as_tuple=False).t()
 

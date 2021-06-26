@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import (
 )
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
+from ..model.base import ClassificationSupportedSequentialModel
 from .evaluation import get_feval, Logloss
 from typing import Union
 from copy import deepcopy
@@ -209,7 +210,10 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
             optimizer.zero_grad()
-            res = self.model.model.forward(data)
+            if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+                res = self.model.model.cls_forward(data)
+            else:
+                res = self.model.model.forward(data)
             if hasattr(F, self.loss):
                 loss = getattr(F, self.loss)(res[mask], data.y[mask])
             else:
@@ -255,7 +259,10 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         data = data.to(self.device)
         self.model.model.eval()
         with torch.no_grad():
-            res = self.model.model.forward(data)
+            if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+                res = self.model.model.cls_forward(data)
+            else:
+                res = self.model.model.forward(data)
         return res
 
     def train(self, dataset, keep_valid_result=True):
@@ -366,29 +373,18 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         else:
             return self.valid_score, self.feval.is_higher_better()
 
-    def get_name_with_hp(self):
-        # """Get the name of hyperparameter."""
-        name = "-".join(
-            [
-                str(self.optimizer),
-                str(self.lr),
-                str(self.max_epoch),
-                str(self.early_stopping_round),
-                str(self.model),
-                str(self.device),
-            ]
+    def __repr__(self) -> str:
+        import yaml
+        return yaml.dump(
+            {
+                "trainer_name": self.__class__.__name__,
+                "optimizer": self.optimizer,
+                "learning_rate": self.lr,
+                "max_epoch": self.max_epoch,
+                "early_stopping_round": self.early_stopping_round,
+                "model": repr(self.model)
+            }
         )
-        name = (
-            name
-            + "|"
-            + "-".join(
-                [
-                    str(x[0]) + "-" + str(x[1])
-                    for x in self.model.get_hyper_parameter().items()
-                ]
-            )
-        )
-        return name
 
     def evaluate(self, dataset, mask=None, feval=None):
         """

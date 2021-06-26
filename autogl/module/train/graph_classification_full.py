@@ -397,29 +397,16 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         else:
             return self.valid_score, self.feval.is_higher_better()
 
-    def get_name_with_hp(self):
-        # """Get the name of hyperparameter."""
-        name = "-".join(
-            [
-                str(self.optimizer),
-                str(self.lr),
-                str(self.max_epoch),
-                str(self.early_stopping_round),
-                str(self.model),
-                str(self.device),
-            ]
-        )
-        name = (
-            name
-            + "|"
-            + "-".join(
-                [
-                    str(x[0]) + "-" + str(x[1])
-                    for x in self.model.get_hyper_parameter().items()
-                ]
-            )
-        )
-        return name
+    def __repr__(self) -> str:
+        import yaml
+        return yaml.dump({
+            "trainer_name": self.__class__.__name__,
+            "optimizer": self.optimizer,
+            "learning_rate": self.lr,
+            "max_epoch": self.max_epoch,
+            "early_stopping_round": self.early_stopping_round,
+            "model": repr(self.model)
+        })
 
     def evaluate(self, dataset, mask="val", feval=None):
         """

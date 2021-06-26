@@ -30,7 +30,7 @@ class BaseHPOptimizer:
             raise WrongDependedParameterError("The depended parameter does not exist.")
 
         for para in config:
-            if para["type"] == "NUMERICAL_LIST" and para.get("cutPara", None):
+            if para["type"] in ("NUMERICAL_LIST", "CATEGORICAL_LIST") and para.get("cutPara", None):
                 self._depend_map[para["parameterName"]] = para
                 if type(para["cutPara"]) == str:
                     get_depended_para(para["cutPara"])
@@ -76,6 +76,18 @@ class BaseHPOptimizer:
                     new_para["maxValue"] = y
                     new_para["scalingType"] = para["scalingType"]
                     fin.append(new_para)
+            elif para["type"] == "CATEGORICAL_LIST":
+                self._list_map[para["parameterName"]] = para["length"]
+                category = para["feasiblePoints"]
+                self._category_map[para["parameterName"]] = category
+
+                cur_points = ",".join(map(lambda _x: str(_x), range(len(category))))
+                for i in range(para["length"]):
+                    new_para = dict()
+                    new_para["parameterName"] = para["parameterName"] + "_" + str(i)
+                    new_para["type"] = "DISCRETE"
+                    new_para["feasiblePoints"] = cur_points
+                    fin.append(new_para)
             elif para["type"] == "FIXED":
                 self._fix_map[para["parameterName"]] = para["value"]
             else:
@@ -92,6 +104,8 @@ class BaseHPOptimizer:
             for i in range(self._list_map[pname]):
                 val.append(config[pname + "_" + str(i)])
                 del config[pname + "_" + str(i)]
+            if pname in self._category_map:
+                val = [self._category_map[pname][i] for i in val]
             fin[pname] = val
         # deal other para
         for pname in config:
@@ -123,10 +137,10 @@ class BaseHPOptimizer:
             "maxValue": 0.9,
             "scalingType": "LINEAR"
         }]"""
-        config = self._decompose_list_fixed_para(config)
         self._category_map = {}
         self._discrete_map = {}
         self._numerical_map = {}
+        config = self._decompose_list_fixed_para(config)
 
         current_config = []
         for para in config:

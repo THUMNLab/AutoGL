@@ -16,7 +16,7 @@ from ..module.nas.algorithm import NAS_ALGO_DICT
 from ..module.nas.estimator import NAS_ESTIMATOR_DICT
 from ..module.nas.space import NAS_SPACE_DICT
 from ..module import BaseFeatureAtom, BaseHPOptimizer, BaseTrainer
-from .utils import Leaderboard
+from .utils import LeaderBoard
 from ..utils import get_logger
 
 LOGGER = get_logger("BaseSolver")
@@ -369,7 +369,7 @@ class BaseSolver:
         """
         raise NotImplementedError()
 
-    def get_leaderboard(self) -> Leaderboard:
+    def get_leaderboard(self) -> LeaderBoard:
         r"""
         Get the current leaderboard of this solver.
 

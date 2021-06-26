@@ -294,13 +294,16 @@ class ClassificationModel(_BaseModel):
         num_classes: int = ...,
         num_graph_features: int = ...,
         device: _typing.Union[str, torch.device] = ...,
+        hyper_parameter_space: _typing.Sequence[_typing.Any] = ...,
+        hyper_parameter: _typing.Dict[str, _typing.Any] = ...,
         init: bool = False,
         **kwargs
     ):
         if "initialize" in kwargs:
             del kwargs["initialize"]
         super(ClassificationModel, self).__init__(
-            initialize=init, device=device, **kwargs
+            initialize=init, hyper_parameter_space=hyper_parameter_space,
+            hyper_parameter=hyper_parameter, device=device, **kwargs
         )
         if num_classes != Ellipsis and type(num_classes) == int:
             self.__num_classes: int = num_classes if num_classes > 0 else 0
@@ -317,6 +320,10 @@ class ClassificationModel(_BaseModel):
                 self.__num_graph_features: int = 0
         else:
             self.__num_graph_features: int = 0
+
+    def __repr__(self) -> str:
+        import yaml
+        return yaml.dump(self.hyper_parameter)
 
     @property
     def num_classes(self) -> int:
@@ -371,3 +378,32 @@ class ClassificationModel(_BaseModel):
                 self.__num_graph_features = num_graph_features
             else:
                 self.__num_graph_features = 0
+
+
+class _ClassificationModel(torch.nn.Module):
+    def __init__(self):
+        super(_ClassificationModel, self).__init__()
+
+    def cls_encode(self, data) -> torch.Tensor:
+        raise NotImplementedError
+
+    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    def cls_forward(self, data) -> torch.Tensor:
+        return self.cls_decode(self.cls_encode(data))
+
+
+class ClassificationSupportedSequentialModel(_ClassificationModel):
+    def __init__(self):
+        super(ClassificationSupportedSequentialModel, self).__init__()
+
+    @property
+    def sequential_encoding_layers(self) -> torch.nn.ModuleList:
+        raise NotImplementedError
+
+    def cls_encode(self, data) -> torch.Tensor:
+        raise NotImplementedError
+
+    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError

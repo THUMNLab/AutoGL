@@ -26,7 +26,7 @@ from .graph_classification_full import GraphClassificationFullTrainer
 from .node_classification_full import NodeClassificationFullTrainer
 from .link_prediction import LinkPredictionTrainer
 from .node_classification_trainer import *
-from .evaluation import get_feval, Acc, Auc, Logloss, Mrr
+from .evaluation import get_feval, Acc, Auc, Logloss, Mrr, MicroF1
 
 __all__ = [
     "BaseTrainer",
@@ -41,5 +41,6 @@ __all__ = [
     "Auc",
     "Logloss",
     "Mrr",
+    "MicroF1",
     "get_feval",
 ]
