@@ -196,34 +196,34 @@ If you want to define more complex strategy, you can refer to Darts, Enas or oth
 
 Different search strategies should be combined with different search spaces and estimators in usage.
 
-+------------+-------------+-------------+------------------+
-| Sapce      | single path | GraphNAS[1] | GraphNAS-macro[1]|
-+============+=============+=============+==================+
-| Random     |  ✓          |  ✓          |  ✓               | 
-+------------+-------------+-------------+------------------+
-| RL         |  ✓          |  ✓          |  ✓               |
-+------------+-------------+-------------+------------------+
-| GraphNAS[1]|  ✓          |  ✓          |  ✓               |
-+------------+-------------+-------------+------------------+
-| ENAS[2]    |  ✓          |             |                  |
-+------------+-------------+-------------+------------------+
-| DARTS[3]   |  ✓          |             |                  |
-+------------+-------------+-------------+------------------+
++----------------+-------------+-------------+------------------+
+| Sapce          | single path | GraphNAS[1] | GraphNAS-macro[1]|
++================+=============+=============+==================+
+| Random         |  ✓          |  ✓          |  ✓               | 
++----------------+-------------+-------------+------------------+
+| RL             |  ✓          |  ✓          |  ✓               |
++----------------+-------------+-------------+------------------+
+| GraphNAS [1]_  |  ✓          |  ✓          |  ✓               |
++----------------+-------------+-------------+------------------+
+| ENAS [2]_      |  ✓          |             |                  |
++----------------+-------------+-------------+------------------+
+| DARTS [3]_     |  ✓          |             |                  |
++----------------+-------------+-------------+------------------+
 
-+------------+-------------+-------------+
-| Estimator  | one-shot    | Train       |
-+============+=============+=============+
-| Random     |             |  ✓          | 
-+------------+-------------+-------------+
-| RL         |             |  ✓          |
-+------------+-------------+-------------+
-| GraphNAS[1]|             |  ✓          |
-+------------+-------------+-------------+
-| ENAS[2]    |  ✓          |             |
-+------------+-------------+-------------+
-| DARTS[3]   |  ✓          |             |
-+------------+-------------+-------------+
++----------------+-------------+-------------+
+| Estimator      | one-shot    | Train       |
++================+=============+=============+
+| Random         |             |  ✓          | 
++----------------+-------------+-------------+
+| RL             |             |  ✓          |
++----------------+-------------+-------------+
+| GraphNAS [1]_  |             |  ✓          |
++----------------+-------------+-------------+
+| ENAS [2]_      |  ✓          |             |
++----------------+-------------+-------------+
+| DARTS [3]_     |  ✓          |             |
++----------------+-------------+-------------+
 
-[1] Gao, Yang, et al. "Graph neural architecture search." IJCAI. Vol. 20. 2020.
-[2] Pham, Hieu, et al. "Efficient neural architecture search via parameters sharing." International Conference on Machine Learning. PMLR, 2018.
-[3] Liu, Hanxiao, Karen Simonyan, and Yiming Yang. "DARTS: Differentiable Architecture Search." International Conference on Learning Representations. 2018.
+.. [1] Gao, Yang, et al. "Graph neural architecture search." IJCAI. Vol. 20. 2020.
+.. [2] Pham, Hieu, et al. "Efficient neural architecture search via parameters sharing." International Conference on Machine Learning. PMLR, 2018.
+.. [3] Liu, Hanxiao, Karen Simonyan, and Yiming Yang. "DARTS: Differentiable Architecture Search." International Conference on Learning Representations. 2018.
