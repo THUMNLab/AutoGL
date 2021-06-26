@@ -50,11 +50,11 @@ class GeEigen(BaseGenerator):
 
     Notes
     -----
-    An implementation of [1]_
+    An implementation of [#]_
 
     References
     ----------
-    .. [1] Ziwei Zhang, Peng Cui, Jian Pei, Xin Wang, Wenwu Zhu:
+    .. [#] Ziwei Zhang, Peng Cui, Jian Pei, Xin Wang, Wenwu Zhu:
         Eigen-GNN: A Graph Structure Preserving Plug-in for GNNs. CoRR abs/2006.04330 (2020)
         https://arxiv.org/abs/2006.04330
 

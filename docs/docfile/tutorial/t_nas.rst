@@ -109,7 +109,7 @@ But you can only use sample-based search strategy.
             return y
 
 Performance Estimator
-------------
+---------------------
 
 The performance estimator estimates the performance of an architecture.
 Here is an example of estimating an architecture without training (used in one-shot space).
@@ -133,7 +133,7 @@ Here is an example of estimating an architecture without training (used in one-s
             return metrics, loss
 
 Search Strategy
-------------
+---------------
 
 The space strategy defines how to find an architecture.
 

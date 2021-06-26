@@ -272,11 +272,11 @@ class Graphlet:
 
 @register_feature("graphlet")
 class GeGraphlet(BaseGenerator):
-    r"""generate local graphlet numbers as features. The implementation refers to [1]_ .
+    r"""generate local graphlet numbers as features. The implementation refers to [#]_ .
 
     References
     ----------
-    .. [1] Ahmed, N. K., Willke, T. L., & Rossi, R. A. (2016).
+    .. [#] Ahmed, N. K., Willke, T. L., & Rossi, R. A. (2016).
         Estimation of local subgraph counts. Proceedings - 2016 IEEE International Conference on Big Data, Big Data 2016, 586–595.
         https://doi.org/10.1109/BigData.2016.7840651
 

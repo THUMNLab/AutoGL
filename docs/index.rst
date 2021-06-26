@@ -89,6 +89,7 @@ In AutoGL, the tasks are solved by corresponding learners, which in general do t
    docfile/tutorial/t_model
    docfile/tutorial/t_trainer
    docfile/tutorial/t_hpo
+   docfile/tutorial/t_nas
    docfile/tutorial/t_ensemble
    docfile/tutorial/t_solver
 
