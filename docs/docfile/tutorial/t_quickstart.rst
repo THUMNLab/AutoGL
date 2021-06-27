@@ -12,7 +12,7 @@ Based on the concept of autoML, auto graph learning aims at **automatically** so
 
 The diagram below describes the workflow of AutoGL framework.
 
-To reach the aim of autoML, our proposed auto graph learning framework is organized as follows. We have ``dataset`` to maintain the graph datasets given by users. A ``solver`` object needs to be built for specifying the target tasks. Inside ``solver``, there are four submodules to help complete the auto graph tasks, namely ``auto feature engineer``, ``auto model``, ``hyperparameter optimization`` and ``auto ensemble``, which will automatically preprocess/enhance your data, choose and optimize deep models and ensemble them in the best way for you.
+To reach the aim of autoML, our proposed auto graph learning framework is organized as follows. We have ``dataset`` to maintain the graph datasets given by users. A ``solver`` object needs to be built for specifying the target tasks. Inside ``solver``, there are five submodules to help complete the auto graph tasks, namely ``auto feature engineer``, ``auto model``, ``neural architecture search``, ``hyperparameter optimization`` and ``auto ensemble``, which will automatically preprocess/enhance your data, choose and optimize deep models and ensemble them in the best way for you.
 
 Let's say you want to conduct an auto graph learning on dataset ``Cora``. First, you can easily get the ``Cora`` dataset using the ``dataset`` module:
 
