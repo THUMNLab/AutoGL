@@ -99,7 +99,12 @@ In AutoGL, the tasks are solved by corresponding learners, which in general do t
 
    docfile/documentation/data
    docfile/documentation/dataset
-   docfile/documentation/module
+   docfile/documentation/feature
+   docfile/documentation/model
+   docfile/documentation/train
+   docfile/documentation/hpo
+   docfile/documentation/nas
+   docfile/documentation/ensemble
    docfile/documentation/solver
 
 Indices and tables

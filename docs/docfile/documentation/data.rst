@@ -1,7 +1,7 @@
 .. _data documentation:
 
-data
-====
+autogl.data
+===========
 
 .. automodule:: autogl.data
    :members:
