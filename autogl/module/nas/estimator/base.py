@@ -21,11 +21,11 @@ class BaseEstimator:
     evaluation: list of autogl.module.train.evaluation.Evaluation
         Default evaluation metric
     """
-    def __init__(self, loss_f = F.nll_loss, evaluation = [Acc()]):
+    def __init__(self, loss_f: str = 'nll_loss', evaluation = [Acc()]):
         self.loss_f = loss_f
         self.evaluation = evaluation
 
-    def setLossFunction(self, loss_f):
+    def setLossFunction(self, loss_f: str):
         self.loss_f = loss_f
     
     def setEvaluation(self, evaluation):

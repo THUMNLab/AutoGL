@@ -18,7 +18,7 @@ class OneShotEstimator(BaseEstimator):
         dset = dataset[0].to(device)
         pred = model(dset)[getattr(dset, f"{mask}_mask")]
         y = dset.y[getattr(dset, f'{mask}_mask')]
-        loss = self.loss_f(pred, y)
+        loss = getattr(F, self.loss_f)(pred, y)
         #acc=sum(pred.max(1)[1]==y).item()/y.size(0)
         probs = F.softmax(pred, dim = 1).detach().cpu().numpy()
         y = y.cpu()

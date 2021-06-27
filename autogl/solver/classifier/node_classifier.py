@@ -7,6 +7,7 @@ import json
 from copy import deepcopy
 
 import torch
+import torch.nn.functional as F
 import numpy as np
 import yaml
 
@@ -18,7 +19,7 @@ from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
 from ...module.train import get_feval
 from ...module.nas.space import NAS_SPACE_DICT
 from ...module.nas.algorithm import NAS_ALGO_DICT
-from ...module.nas.estimator import NAS_ESTIMATOR_DICT
+from ...module.nas.estimator import NAS_ESTIMATOR_DICT, BaseEstimator
 from ..utils import LeaderBoard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
@@ -218,9 +219,11 @@ class AutoNodeClassifier(BaseClassifier):
         for algo, space, estimator in zip(
             self.nas_algorithms, self.nas_spaces, self.nas_estimators
         ):
-            # TODO: initialize important parameters
+            estimator: BaseEstimator
             algo.to(device)
             space.instantiate(input_dim=num_features, output_dim=num_classes)
+            estimator.setEvaluation(feval)
+            estimator.setLossFunction(loss)
 
     # pylint: disable=arguments-differ
     def fit(
@@ -349,7 +352,7 @@ class AutoNodeClassifier(BaseClassifier):
             num_classes=dataset.num_classes,
             feval=evaluator_list,
             device=self.runtime_device,
-            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+            loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
         )
 
         if self.nas_algorithms is not None:
@@ -359,7 +362,7 @@ class AutoNodeClassifier(BaseClassifier):
                 num_classes=self.dataset.num_classes,
                 feval=evaluator_list,
                 device=self.runtime_device,
-                loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+                loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
             )
 
             assert not isinstance(self._default_trainer, list) or len(self.nas_algorithms) == len(self._default_trainer) - len(self.graph_model_list), "length of default trainer should match total graph models and nas models passed"
@@ -381,7 +384,7 @@ class AutoNodeClassifier(BaseClassifier):
                         model=model,
                         num_features=self.dataset[0].x.shape[1],
                         num_classes=self.dataset.num_classes,
-                        loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+                        loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
                         feval=evaluator_list,
                         device=self.runtime_device,
                         init=False,
@@ -392,7 +395,7 @@ class AutoNodeClassifier(BaseClassifier):
                     trainer.update_parameters(
                         num_classes=self.dataset.num_classes,
                         num_features=self.dataset[0].x.shape[1],
-                        loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+                        loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
                         feval=evaluator_list,
                         device=self.runtime_device,
                     
