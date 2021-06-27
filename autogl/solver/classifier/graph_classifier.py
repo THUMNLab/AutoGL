@@ -231,8 +231,6 @@ class AutoGraphClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        cross_validation=False,
-        cv_split=10,
         evaluation_method="infer",
         seed=None,
     ) -> "AutoGraphClassifier":
@@ -261,13 +259,6 @@ class AutoGraphClassifier(BaseClassifier):
             The validation ratio (in ``float``) or number (in ``int``) of dataset. If you want to
             use default train/val/test split in dataset, please set this to ``None``.
             Default ``None``.
-
-        cross_validation: bool
-            Whether to use cross validation to fit on train dataset. Default ``False``.
-
-        cv_split: int
-            The cross validation split number. Only be effective when ``cross_validation=True``.
-            Default ``10``.
 
         evaluation_method: (list of) str autogl.module.train.evaluation
             A (list of) evaluation method for current solver. If ``infer``, will automatically
@@ -319,13 +310,6 @@ class AutoGraphClassifier(BaseClassifier):
 
         elif train_split is not None and val_split is not None:
             utils.graph_random_splits(dataset, train_split, val_split, seed=seed)
-            if cross_validation:
-                assert (
-                    val_split > 0
-                ), "You should set val_split > 0 to use cross_validation"
-                utils.graph_cross_validation(
-                    dataset.train_split, cv_split, random_seed=seed
-                )
         else:
             LOGGER.error(
                 "Please set both train_split and val_split explicitly. Detect %s is None.",
@@ -388,88 +372,39 @@ class AutoGraphClassifier(BaseClassifier):
         # train the models and tune hpo
         result_valid = []
         names = []
-        if not cross_validation:
-            for idx, model in enumerate(self.graph_model_list):
-                if time_limit < 0:
-                    time_for_each_model = None
-                else:
-                    time_for_each_model = (time_limit - time.time() + time_begin) / (
-                        len(self.graph_model_list) - idx
-                    )
-                if self.hpo_module is None:
-                    model.initialize()
-                    model.train(dataset, True)
-                    optimized = model
-                else:
-                    optimized, _ = self.hpo_module.optimize(
-                        trainer=model, dataset=dataset, time_limit=time_for_each_model
-                    )
-                # to save memory, all the trainer derived will be mapped to cpu
-                optimized.to(torch.device("cpu"))
-                name = str(optimized)
-                names.append(name)
-                performance_on_valid, _ = optimized.get_valid_score(return_major=False)
-                result_valid.append(
-                    optimized.get_valid_predict_proba().detach().cpu().numpy()
+        for idx, model in enumerate(self.graph_model_list):
+            if time_limit < 0:
+                time_for_each_model = None
+            else:
+                time_for_each_model = (time_limit - time.time() + time_begin) / (
+                    len(self.graph_model_list) - idx
                 )
-                self.leaderboard.insert_model_performance(
-                    name,
-                    dict(
-                        zip(
-                            [e.get_eval_name() for e in evaluator_list],
-                            performance_on_valid,
-                        )
-                    ),
+            if self.hpo_module is None:
+                model.initialize()
+                model.train(dataset, True)
+                optimized = model
+            else:
+                optimized, _ = self.hpo_module.optimize(
+                    trainer=model, dataset=dataset, time_limit=time_for_each_model
                 )
-                self.trained_models[name] = optimized
-        else:
-            for i in range(dataset.train_split.n_splits):
-                utils.graph_set_fold_id(dataset.train_split, i)
-                if time_limit < 0:
-                    time_for_each_cv = None
-                else:
-                    time_for_each_cv = (time_limit - time.time() + time_begin) / (
-                        dataset.train_split.n_splits - i
+            # to save memory, all the trainer derived will be mapped to cpu
+            optimized.to(torch.device("cpu"))
+            name = str(optimized)
+            names.append(name)
+            performance_on_valid, _ = optimized.get_valid_score(return_major=False)
+            result_valid.append(
+                optimized.get_valid_predict_proba().detach().cpu().numpy()
+            )
+            self.leaderboard.insert_model_performance(
+                name,
+                dict(
+                    zip(
+                        [e.get_eval_name() for e in evaluator_list],
+                        performance_on_valid,
                     )
-                time_cv_begin = time.time()
-                for idx, model in enumerate(self.graph_model_list):
-                    if time_for_each_cv is None:
-                        time_for_each_model = None
-                    else:
-                        time_for_each_model = (
-                            time_for_each_cv - time.time() + time_cv_begin
-                        ) / (len(self.graph_model_list) - idx)
-                    if self.hpo_module is None:
-                        model.train(dataset.train_split, False)
-                        optimized = model
-                    else:
-                        optimized, _ = self.hpo_module.optimize(
-                            trainer=model,
-                            dataset=dataset.train_split,
-                            time_limit=time_for_each_model,
-                        )
-                    # to save memory, all the trainer derived will be mapped to cpu
-                    optimized.to(torch.device("cpu"))
-                    name = str(optimized) + "_cv%d_idx%d" % (i, idx)
-                    names.append(name)
-                    # evaluate on val_split of input dataset
-                    performance_on_valid = optimized.evaluate(dataset, mask="val")
-                    result_valid.append(
-                        optimized.predict_proba(dataset, mask="val")
-                        .detach()
-                        .cpu()
-                        .numpy()
-                    )
-                    self.leaderboard.insert_model_performance(
-                        name,
-                        dict(
-                            zip(
-                                [e.get_eval_name() for e in evaluator_list],
-                                performance_on_valid,
-                            )
-                        ),
-                    )
-                    self.trained_models[name] = optimized
+                ),
+            )
+            self.trained_models[name] = optimized
 
         # fit the ensemble model
         if self.ensemble_module is not None:
@@ -494,8 +429,6 @@ class AutoGraphClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        cross_validation=True,
-        cv_split=10,
         evaluation_method="infer",
         seed=None,
         use_ensemble=True,
@@ -528,13 +461,6 @@ class AutoGraphClassifier(BaseClassifier):
             to use default train/val/test split in dataset, please set this to ``None``.
             Default ``None``.
 
-        cross_validation: bool
-            Whether to use cross validation to fit on train dataset. Default ``True``.
-
-        cv_split: int
-            The cross validation split number. Only be effective when ``cross_validation=True``.
-            Default ``10``.
-
         evaluation_method: (list of) str or autogl.module.train.evaluation
             A (list of) evaluation method for current solver. If ``infer``, will automatically
             determine. Default ``infer``.
@@ -566,8 +492,6 @@ class AutoGraphClassifier(BaseClassifier):
             inplace=inplace,
             train_split=train_split,
             val_split=val_split,
-            cross_validation=cross_validation,
-            cv_split=cv_split,
             evaluation_method=evaluation_method,
             seed=seed,
         )
