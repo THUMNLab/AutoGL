@@ -91,11 +91,11 @@ def random_splits_mask_class(
     num_test=None,
     seed=None,
 ):
-    r"""If the data has masks for train/val/test, return the splits with specific number of samples from every class for training as suggested in Pitfalls of graph neural network evaluation [1]_ for semi-supervised learning.
+    r"""If the data has masks for train/val/test, return the splits with specific number of samples from every class for training as suggested in Pitfalls of graph neural network evaluation [#]_ for semi-supervised learning.
 
     References
     ----------
-    .. [1] Shchur, O., Mumme, M., Bojchevski, A., & Günnemann, S. (2018).
+    .. [#] Shchur, O., Mumme, M., Bojchevski, A., & Günnemann, S. (2018).
         Pitfalls of graph neural network evaluation.
         arXiv preprint arXiv:1811.05868.
 

@@ -7,6 +7,7 @@ import json
 from copy import deepcopy
 
 import torch
+import torch.nn.functional as F
 import numpy as np
 import yaml
 
@@ -16,9 +17,14 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT, BaseModel
 from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
 from ...module.train import get_feval
+from ...module.nas.space import NAS_SPACE_DICT
+from ...module.nas.algorithm import NAS_ALGO_DICT
+from ...module.nas.estimator import NAS_ESTIMATOR_DICT, BaseEstimator
 from ..utils import LeaderBoard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
+
+from torch_geometric.nn import GATConv, GCNConv
 
 LOGGER = get_logger("NodeClassifier")
 
@@ -37,6 +43,15 @@ class AutoNodeClassifier(BaseClassifier):
 
     graph_models: list of autogl.module.model.BaseModel or list of str
         The (name of) models to be optimized as backbone. Default ``['gat', 'gcn']``.
+    
+    nas_algorithms: (list of) autogl.module.nas.algorithm.BaseNAS or str (Optional)
+        The (name of) nas algorithms used. Default ``None``.
+    
+    nas_spaces: (list of) autogl.module.nas.space.BaseSpace or str (Optional)
+        The (name of) nas spaces used. Default ``None``.
+    
+    nas_estimators: (list of) autogl.module.nas.estimator.BaseEstimator or str (Optional)
+        The (name of) nas estimators used. Default ``None``.
 
     hpo_module: autogl.module.hpo.BaseHPOptimizer or str or None
         The (name of) hpo module used to search for best hyper parameters. Default ``anneal``.
@@ -74,6 +89,9 @@ class AutoNodeClassifier(BaseClassifier):
         self,
         feature_module=None,
         graph_models=("gat", "gcn"),
+        nas_algorithms=None,
+        nas_spaces=None,
+        nas_estimators=None,
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
@@ -87,6 +105,9 @@ class AutoNodeClassifier(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
+            nas_algorithms=nas_algorithms,
+            nas_spaces=nas_spaces,
+            nas_estimators=nas_estimators,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
@@ -98,7 +119,7 @@ class AutoNodeClassifier(BaseClassifier):
         )
 
         # data to be kept when fit
-        self.data = None
+        self.dataset = None
 
     def _init_graph_module(
         self, graph_models, num_classes, num_features, feval, device, loss
@@ -146,6 +167,7 @@ class AutoNodeClassifier(BaseClassifier):
                         loss=loss,
                         feval=feval,
                         device=device,
+                    
                     )
                     self.graph_model_list.append(model)
                 else:
@@ -192,6 +214,16 @@ class AutoNodeClassifier(BaseClassifier):
             self.graph_model_list[i] = model
 
         return self
+
+    def _init_nas_module(self, num_features, num_classes, feval, device, loss):
+        for algo, space, estimator in zip(
+            self.nas_algorithms, self.nas_spaces, self.nas_estimators
+        ):
+            estimator: BaseEstimator
+            algo.to(device)
+            space.instantiate(input_dim=num_features, output_dim=num_classes)
+            estimator.setEvaluation(feval)
+            estimator.setLossFunction(loss)
 
     # pylint: disable=arguments-differ
     def fit(
@@ -320,8 +352,55 @@ class AutoNodeClassifier(BaseClassifier):
             num_classes=dataset.num_classes,
             feval=evaluator_list,
             device=self.runtime_device,
-            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+            loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
         )
+
+        if self.nas_algorithms is not None:
+            # perform neural architecture search
+            self._init_nas_module(
+                num_features=self.dataset[0].x.shape[1],
+                num_classes=self.dataset.num_classes,
+                feval=evaluator_list,
+                device=self.runtime_device,
+                loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
+            )
+
+            assert not isinstance(self._default_trainer, list) or len(self.nas_algorithms) == len(self._default_trainer) - len(self.graph_model_list), "length of default trainer should match total graph models and nas models passed"
+
+            # perform nas and add them to model list
+            idx_trainer = len(self.graph_model_list)
+            for algo, space, estimator in zip(
+                self.nas_algorithms, self.nas_spaces, self.nas_estimators
+            ):
+                model = algo.search(space, self.dataset, estimator)
+                # insert model into default trainer
+                if isinstance(self._default_trainer, list):
+                    train_name = self._default_trainer[idx_trainer]
+                    idx_trainer += 1
+                else:
+                    train_name = self._default_trainer
+                if isinstance(train_name, str):
+                    trainer = TRAINER_DICT[train_name](
+                        model=model,
+                        num_features=self.dataset[0].x.shape[1],
+                        num_classes=self.dataset.num_classes,
+                        loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
+                        feval=evaluator_list,
+                        device=self.runtime_device,
+                        init=False,
+                    )
+                else:
+                    trainer = train_name
+                    trainer.model = model
+                    trainer.update_parameters(
+                        num_classes=self.dataset.num_classes,
+                        num_features=self.dataset[0].x.shape[1],
+                        loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
+                        feval=evaluator_list,
+                        device=self.runtime_device,
+                    
+                    )
+                self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
         result_valid = []
@@ -537,7 +616,7 @@ class AutoNodeClassifier(BaseClassifier):
         if use_ensemble and self.ensemble_module is None:
             LOGGER.warning(
                 "Cannot use ensemble because no ensebmle module is given."
-                "Will use best model instead."
+                " Will use best model instead."
             )
 
         if use_best or (use_ensemble and self.ensemble_module is None):
@@ -735,5 +814,25 @@ class AutoNodeClassifier(BaseClassifier):
         if ensemble_dict is not None:
             name = ensemble_dict.pop("name")
             solver.set_ensemble_module(name, **ensemble_dict)
+        
+        nas_dict = path_or_dict.pop("nas", None)
+        if nas_dict is not None:
+            keys: set = set(nas_dict.keys())
+            needed = {'space', 'algorithm', 'estimator'}
+            if keys != needed:
+                LOGGER.error('Key mismatch, we need %s, you give %s', needed, keys)
+                raise KeyError('Key mismatch, we need %s, you give %s' % (needed, keys))
+
+            spaces, algorithms, estimators = [], [], []
+
+            for container, indexer, k in zip([spaces, algorithms, estimators], [NAS_SPACE_DICT, NAS_ALGO_DICT, NAS_ESTIMATOR_DICT], ['space', 'algorithm', 'estimator']):
+                configs = nas_dict[k]
+                if isinstance(configs, list):
+                    for item in configs:
+                        container.append(indexer[item.pop('name')](**item))
+                else:
+                    container.append(indexer[configs.pop('name')](**configs))
+            
+            solver.set_nas_module(algorithms, spaces, estimators)
 
         return solver

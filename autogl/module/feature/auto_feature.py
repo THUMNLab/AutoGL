@@ -120,14 +120,12 @@ class Timer:
 class AutoFeatureEngineer(BaseFeatureEngineer):
     r"""
 
-    Notes
-    -----
-    An implementation of auto feature engineering method Deepgl [1]_ ,which iteratively generates features by aggregating neighbour features
+    An implementation of auto feature engineering method Deepgl [#]_ , which iteratively generates features by aggregating neighbour features
     and select a fixed number of  features to automatically add important graph-aware features.
 
     References
     ----------
-    .. [1] Rossi, R. A., Zhou, R., & Ahmed, N. K. (2020).
+    .. [#] Rossi, R. A., Zhou, R., & Ahmed, N. K. (2020).
         Deep Inductive Graph Representation Learning.
         IEEE Transactions on Knowledge and Data Engineering, 32(3), 438–452.
         https://doi.org/10.1109/TKDE.2018.2878247

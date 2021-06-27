@@ -57,9 +57,9 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str],
-        num_features,
-        num_classes,
+        model: Union[BaseModel, str]=None,
+        num_features=None,
+        num_classes=None,
         optimizer=None,
         lr=None,
         max_epoch=None,
@@ -82,13 +82,6 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             feval=feval,
             loss=loss,
         )
-
-        # init model
-        if isinstance(model, str):
-            assert model in MODEL_DICT, "Cannot parse model name " + model
-            self.model = MODEL_DICT[model](num_features, num_classes, device, init=init)
-        elif isinstance(model, BaseModel):
-            self.model = model
 
         self.opt_received = optimizer
         if type(optimizer) == str and optimizer.lower() == "adam":

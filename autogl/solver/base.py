@@ -5,12 +5,16 @@ Provide some standard solver interface.
 """
 
 from typing import Any, Tuple
+from copy import deepcopy
 
 import torch
 
 from ..module.feature import FEATURE_DICT
 from ..module.hpo import HPO_DICT
 from ..module.model import MODEL_DICT
+from ..module.nas.algorithm import NAS_ALGO_DICT
+from ..module.nas.estimator import NAS_ESTIMATOR_DICT
+from ..module.nas.space import NAS_SPACE_DICT
 from ..module import BaseFeatureAtom, BaseHPOptimizer, BaseTrainer
 from .utils import LeaderBoard
 from ..utils import get_logger
@@ -89,6 +93,9 @@ class BaseSolver:
         self,
         feature_module,
         graph_models,
+        nas_spaces,
+        nas_algorithms,
+        nas_estimators,
         hpo_module,
         ensemble_module,
         max_evals=50,
@@ -120,6 +127,7 @@ class BaseSolver:
         self.set_feature_module(feature_module)
         self.set_hpo_module(hpo_module, max_evals=max_evals)
         self.set_ensemble_module(ensemble_module, size=size)
+        self.set_nas_module(nas_algorithms, nas_spaces, nas_estimators)
 
         # initialize leaderboard
         self.leaderboard = None
@@ -255,6 +263,60 @@ class BaseSolver:
                 type(hpo_module),
                 "instead.",
             )
+        return self
+
+    def set_nas_module(
+        self, nas_algorithms=None, nas_spaces=None, nas_estimators=None
+    ) -> "BaseSolver":
+        """
+        Set the neural architecture search module in current solver.
+
+        Parameters
+        ----------
+        nas_spaces: (list of) `autogl.module.hpo.nas.GraphSpace`
+            The search space of nas. You can pass a list of space to enable
+            multiple space search. If list passed, the length of `nas_spaces`,
+            `nas_algorithms` and `nas_estimators` should be the same. If set
+            to `None`, will disable the whole nas module.
+
+        nas_algorithms: (list of) `autogl.module.hpo.nas.BaseNAS`
+            The search algorithm of nas. You can pass a list of algorithms
+            to enable multiple algorithms search. If list passed, the length of
+            `nas_spaces`, `nas_algorithms` and `nas_estimators` should be the same.
+            Default `None`.
+
+        nas_estimators: (list of) `autogl.module.hpo.nas.BaseEstimators`
+            The nas estimators. You can pass a list of estimators to enable multiple
+            estimators search. If list passed, the length of `nas_spaces`, `nas_algorithms`
+            and `nas_estimators` should be the same. Default `None`.
+
+        Returns
+        -------
+        self: autogl.solver.BaseSolver
+            A reference of current solver.
+        """
+        if nas_algorithms is None and nas_estimators is None and nas_spaces is None:
+            self.nas_algorithms = self.nas_estimators = self.nas_spaces = None
+            return
+        assert None not in [nas_algorithms, nas_estimators, nas_spaces], "The algorithms, estimators and spaces should all be set"
+
+        nas_algorithms = nas_algorithms if isinstance(nas_algorithms, (list, tuple)) else [nas_algorithms]
+        nas_spaces = nas_spaces if isinstance(nas_spaces, (list, tuple)) else [nas_spaces]
+        nas_estimators = nas_estimators if isinstance(nas_estimators, (list, tuple)) else [nas_estimators]
+
+        # parse all str elements
+        nas_algorithms = [algo if not isinstance(algo, str) else NAS_ALGO_DICT[algo]() for algo in nas_algorithms]
+        nas_spaces = [space if not isinstance(space, str) else NAS_SPACE_DICT[space]() for space in nas_spaces]
+        nas_estimators = [estimator if not isinstance(estimator, str) else NAS_ESTIMATOR_DICT[estimator]() for estimator in nas_estimators]
+        
+        max_number = max([len(x) for x in [nas_algorithms, nas_spaces, nas_estimators]])
+        assert all([len(x) in [1, max_number] for x in [nas_algorithms, nas_spaces, nas_estimators]]), "lengths of algorithms/spaces/estimators do not match!"
+
+        self.nas_algorithms = [deepcopy(nas_algorithms) for _ in range(max_number)] if len(nas_algorithms) == 1 and max_number > 1 else nas_algorithms
+        self.nas_spaces = [deepcopy(nas_spaces) for _ in range(max_number)] if len(nas_spaces) == 1 and max_number > 1 else nas_spaces
+        self.nas_estimators = [deepcopy(nas_estimators) for _ in range(max_number)] if len(nas_estimators) == 1 and max_number > 1 else nas_estimators
+
+        return self
 
     def set_ensemble_module(self, ensemble_module, *args, **kwargs) -> "BaseSolver":
         r"""

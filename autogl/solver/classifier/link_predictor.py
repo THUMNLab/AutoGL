@@ -87,6 +87,9 @@ class AutoLinkPredictor(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
+            nas_algorithms=None,
+            nas_spaces=None,
+            nas_estimators=None,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,

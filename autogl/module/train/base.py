@@ -352,13 +352,15 @@ class _BaseClassificationTrainer(BaseTrainer):
             )
         if type(model) == str:
             _model: BaseModel = ModelUniversalRegistry.get_model(model)(
-                num_features, num_classes, device, init=init
+                num_features, num_classes, __device, init=init
             )
         elif isinstance(model, BaseModel):
             _model: BaseModel = model
+        elif model is None:
+            _model = None
         else:
             raise TypeError(
-                f"Model argument only support str or BaseModel, got ${model}."
+                f"Model argument only support str or BaseModel, got {model}."
             )
         super(_BaseClassificationTrainer, self).__init__(
             _model, __device, init, feval, loss
