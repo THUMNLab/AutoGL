@@ -127,7 +127,7 @@ Here is an example of estimating an architecture without training (used in one-s
             pred = model(dset)[getattr(dset, f"{mask}_mask")]
             y = dset.y[getattr(dset, f'{mask}_mask')]
             # Use default loss function and metrics to evaluate the architecture
-            loss = self.loss_f(pred, y)
+            loss = getattr(F, self.loss_f)(pred, y)
             probs = F.softmax(pred, dim = 1)
             metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
             return metrics, loss
