@@ -1,4 +1,45 @@
 from .netlsd import SgNetLSD
 from .base import BaseSubgraph
+from .nx import (
+    register_nx,
+    NxSubgraph,
+    nxfunc,
+    NxLargeCliqueSize,
+    NxAverageClusteringApproximate,
+    NxDegreeAssortativityCoefficient,
+    NxDegreePearsonCorrelationCoefficient,
+    NxHasBridge,
+    NxGraphCliqueNumber,
+    NxGraphNumberOfCliques,
+    NxTransitivity,
+    NxAverageClustering,
+    NxIsConnected,
+    NxNumberConnectedComponents,
+    NxIsDistanceRegular,
+    NxLocalEfficiency,
+    NxGlobalEfficiency,
+    NxIsEulerian,
+)
 
-__all__ = ["SgNetLSD", "BaseSubgraph"]
+__all__ = [
+    "SgNetLSD",
+    "BaseSubgraph",
+    "register_nx",
+    "NxSubgraph",
+    "nxfunc",
+    "NxLargeCliqueSize",
+    "NxAverageClusteringApproximate",
+    "NxDegreeAssortativityCoefficient",
+    "NxDegreePearsonCorrelationCoefficient",
+    "NxHasBridge",
+    "NxGraphCliqueNumber",
+    "NxGraphNumberOfCliques",
+    "NxTransitivity",
+    "NxAverageClustering",
+    "NxIsConnected",
+    "NxNumberConnectedComponents",
+    "NxIsDistanceRegular",
+    "NxLocalEfficiency",
+    "NxGlobalEfficiency",
+    "NxIsEulerian",
+]

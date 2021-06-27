@@ -1,6 +1,5 @@
 import netlsd
 from .base import BaseSubgraph
-import numpy as np
 import torch
 from .. import register_feature
 

@@ -1,5 +1,3 @@
-import importlib
-import os
 from .base import BaseSelector
 from .se_filter_constant import SeFilterConstant
 from .se_gbdt import SeGBDT

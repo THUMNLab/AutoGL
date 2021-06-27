@@ -4,7 +4,6 @@ from networkx.algorithms.efficiency_measures import local_efficiency
 from networkx.algorithms.distance_regular import is_distance_regular
 from networkx.algorithms.components import number_connected_components
 from networkx.algorithms.components import is_connected
-from networkx.algorithms.cluster import average_clustering
 from networkx.algorithms.cluster import transitivity
 from networkx.algorithms.clique import graph_number_of_cliques
 from networkx.algorithms.clique import graph_clique_number
@@ -13,11 +12,8 @@ from networkx.algorithms.assortativity import degree_pearson_correlation_coeffic
 from networkx.algorithms.assortativity import degree_assortativity_coefficient
 from networkx.algorithms.approximation.clustering_coefficient import average_clustering
 from networkx.algorithms.approximation.clique import large_clique_size
-import netlsd
 from .base import BaseSubgraph
-import numpy as np
 import torch
-from functools import wraps
 from .. import register_feature
 
 NX_EXTRACTORS = []
