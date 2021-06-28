@@ -89,6 +89,7 @@ class BoxModel(BaseModel):
         self.num_classes = self._model.output_dim
         self.params = {"num_class": self.num_classes, "features_num": self.num_features}
         self.device = device
+        self.selection = None
 
     def fix(self, selection):
         """
@@ -119,7 +120,8 @@ class BoxModel(BaseModel):
 
         ret_self = deepcopy(self)
         ret_self._model.instantiate()
-        apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
+        if ret_self.selection:
+            apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
         ret_self.to(self.device)
         return ret_self
 
