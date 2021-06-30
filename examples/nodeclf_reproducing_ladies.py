@@ -3,10 +3,10 @@ import yaml
 import random
 import torch.backends.cudnn
 import numpy as np
+sys.path.append("../")
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
 from autogl.module import MicroF1
-sys.path.append("../")
 
 
 torch.multiprocessing.set_sharing_strategy('file_system')
