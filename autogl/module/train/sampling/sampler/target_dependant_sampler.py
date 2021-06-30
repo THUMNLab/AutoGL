@@ -3,6 +3,41 @@ import typing as _typing
 
 
 class TargetDependantSampledData:
+    """
+    A uniform aggregation of sampled data for one mini-batch,
+    generally sampler by target-dependent sampler.
+    Node-wise Sampling and Layer-wise Sampling techniques are definitely target-dependent,
+    for which each sampled subgraph depends on the corresponding target nodes.
+    Besides, the Subgraph-wise Sampling mechanism can also be treated as target-dependent,
+    however, each set of target nodes for Subgraph-wise Sampling is determined by the sampled graph.
+
+    Parameters
+    ------------
+    sampled_edges_for_layers:
+        A sequence of tuple denoted as
+        `( edge_index_for_sampled_graph, edge_id_in_integral_graph, (optional)edge_weight )`,
+        where the `edge_index_for_sampled_graph` represents the sampled `edge_index` for sampled subgraph,
+        the `edge_id_in_integral_graph` represents
+        the corresponding positional indexes for the `edge_index` of integral graph,
+        and the optional `edge_weight` for aggregation can also be provided.
+    target_nodes_indexes:
+        A tuple consists of (`torch.Tensor`, `torch.Tensor`),
+        in which the first element represents the indexes of target nodes in sampled subgraph,
+        and the second element represents the indexes of target nodes in the integral graph.
+    all_sampled_nodes_indexes:
+        Indexes of all sampled nodes for mini-batch.
+
+    Attributes
+    ------------
+    target_nodes_indexes:
+        A combined aggregation composed of
+        `indexes_in_sampled_graph` and `indexes_in_integral_graph`
+    all_sampled_nodes_indexes:
+        Indexes of all sampled nodes for mini-batch.
+    sampled_edges_for_layers:
+        The stored sequence of tuple
+        `( edge_index_for_sampled_graph, edge_id_in_integral_graph, (optional)edge_weight )`.
+    """
     class _LayerSampledEdgeData:
         def __init__(
                 self, edge_index_for_sampled_graph: torch.Tensor,
@@ -77,16 +112,6 @@ class TargetDependantSampledData:
             target_nodes_indexes: _typing.Tuple[torch.Tensor, torch.Tensor],
             all_sampled_nodes_indexes: torch.Tensor
     ):
-        """
-
-        :param sampled_edges_for_layers: Sequence of tuple (
-                                             edge_index_for_sampled_graph,
-                                             edge_id_in_integral_graph,
-                                             optional edge_weight
-                                         )
-        :param target_nodes_indexes: (indexes_in_sampled_data, indexes_in_integral_data)
-        :param all_sampled_nodes_indexes: torch.Tensor
-        """
         self.__sampled_edges_for_layers: _typing.Sequence[
             TargetDependantSampledData._LayerSampledEdgeData
         ] = [
@@ -100,6 +125,9 @@ class TargetDependantSampledData:
 
 
 class TargetDependantSampler(torch.utils.data.DataLoader, _typing.Iterable):
+    """
+    An abstract base class for various target-dependent sampler
+    """
     @classmethod
     def create_basic_sampler(
             cls, edge_index: torch.LongTensor,
@@ -126,6 +154,27 @@ class TargetDependantSampler(torch.utils.data.DataLoader, _typing.Iterable):
 
 
 class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
+    """
+    The base class for various Layer-wise Sampling techniques,
+    providing basic functionality of composing sampled data for mini-batches.
+
+    Parameters
+    ------------
+    edge_index:
+        edge index of integral graph
+    target_nodes_indexes:
+        indexes of target nodes in the integral graph
+    layer_wise_arguments:
+        layer-wise arguments for sampling
+    batch_size:
+        batch size for target nodes
+    num_workers:
+        number of workers
+    shuffle:
+        flag for shuffling, default to True
+    kwargs:
+        remaining keyword arguments
+    """
     def __init__(
             self, edge_index: torch.LongTensor,
             target_nodes_indexes: torch.LongTensor,
@@ -173,13 +222,27 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
             layer_argument: _typing.Any, *args, **kwargs
     ) -> _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]:
         """
-        Sample edges for one layer
-        :param __current_layer_target_nodes_indexes: target nodes for current layer
-        :param __top_layer_target_nodes_indexes: target nodes for top layer
-        :param layer_argument: argument for current layer
-        :param args: remaining positional arguments
-        :param kwargs: remaining keyword arguments
-        :return: (edge_id_in_integral_graph, edge_weight)
+        Sample edges for one specific layer, expected to be implemented in subclass.
+
+        Parameters
+        ------------
+        __current_layer_target_nodes_indexes:
+            target nodes for current layer
+        __top_layer_target_nodes_indexes:
+            target nodes for top layer
+        layer_argument:
+            argument for current layer
+        args:
+            remaining positional arguments
+        kwargs:
+            remaining keyword arguments
+
+        Returns
+        --------
+        edge_id_in_integral_graph:
+            the corresponding positional indexes for the `edge_index` of integral graph
+        edge_weight:
+            the optional `edge_weight` for aggregation
         """
         raise NotImplementedError
 

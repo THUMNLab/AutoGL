@@ -1,13 +1,12 @@
 import sys
-
-sys.path.append("../")
+import yaml
+import random
+import torch.backends.cudnn
+import numpy as np
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
 from autogl.module import Acc
-import yaml
-import random
-import torch
-import numpy as np
+sys.path.append("../")
 
 if __name__ == "__main__":
 

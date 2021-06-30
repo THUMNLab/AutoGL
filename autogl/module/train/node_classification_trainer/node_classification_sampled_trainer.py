@@ -61,6 +61,34 @@ class _DeterministicNeighborSamplerStore:
 
 @register_trainer("NodeClassificationGraphSAINTTrainer")
 class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
+    """
+    The node classification trainer utilizing GraphSAINT technique.
+
+    Parameters
+    ------------
+    model: ``BaseModel`` or ``str``
+        The name or class of model adopted
+    num_features: ``int``
+        number of features for each node provided by dataset
+    num_classes: ``int``
+        number of classes to classify
+    optimizer: ``Optimizer`` of ``str``
+        The (name of) optimizer used to train and predict.
+    lr: ``float``
+        The learning rate of link prediction task.
+    max_epoch: ``int``
+        The max number of epochs in training.
+    early_stopping_round: ``int``
+        The round of early stop.
+    weight_decay: ``float``
+        The weight decay argument for optimizer
+    device: ``torch.device`` or ``str``
+        The device where model will be running on.
+    init: ``bool``
+        If True(False), the model will (not) be initialized.
+    feval: ``str``.
+        The evaluation method adopted in this function.
+    """
     def __init__(
             self,
             model: _typing.Union[BaseModel, str],
@@ -359,10 +387,21 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
     ):
         """
         The function of predicting the probability on the given dataset.
-        :param dataset: The node classification dataset used to be predicted.
-        :param mask:
-        :param in_log_format:
-        :return:
+
+        Parameters
+        ----------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+        in_log_format: ``bool``.
+            If True(False), the probability will (not) be log format.
+
+        Returns
+        -------
+        The prediction result.
         """
         data = dataset[0].to(torch.device("cpu"))
         if mask is not None and type(mask) == str:
@@ -380,6 +419,22 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         return result if in_log_format else torch.exp(result)
 
     def predict(self, dataset, mask: _typing.Optional[str] = None) -> torch.Tensor:
+        """
+        The function of predicting on the given dataset.
+
+        Parameters
+        ----------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+
+        Returns
+        -------
+        The prediction result of ``predict_proba``.
+        """
         return self.predict_proba(dataset, mask, in_log_format=True).max(1)[1]
 
     def evaluate(
@@ -390,6 +445,24 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
                 None, _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
             ] = None,
     ) -> _typing.Sequence[float]:
+        """
+        The function of training on the given dataset and keeping valid result.
+
+        Parameters
+        ------------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+        feval: ``str``.
+            The evaluation method adopted in this function.
+
+        Returns
+        -------
+        result: The evaluation result on the given dataset.
+        """
         data = dataset[0]
         data = data.to(self.device)
         if feval is None:
@@ -447,8 +520,18 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
     def train(self, dataset, keep_valid_result: bool = True):
         """
         The function of training on the given dataset and keeping valid result.
-        :param dataset:
-        :param keep_valid_result: Whether to save the validation result after training
+
+        Parameters
+        ------------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        keep_valid_result: ``bool``
+            If True(False), save the validation result after training.
+
+        Returns
+        --------
+        None
         """
         import gc
         gc.collect()
@@ -472,6 +555,19 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         _typing.Tuple[float, bool],
         _typing.Tuple[_typing.Sequence[float], _typing.Sequence[bool]]
     ]:
+        """
+        The function of getting the valid score.
+
+        Parameters
+        ----------
+        return_major: ``bool``.
+            If True, the return only consists of the major result.
+            If False, the return consists of the all results.
+
+        Returns
+        -------
+        result: The valid score.
+        """
         if return_major:
             return self._valid_score[0], self.feval[0].is_higher_better()
         else:
@@ -509,6 +605,21 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
             hp: _typing.Dict[str, _typing.Any],
             model: _typing.Optional[BaseModel] = None,
     ) -> "NodeClassificationGraphSAINTTrainer":
+        """
+        The function of duplicating a new instance from the given hyper-parameter.
+
+        Parameters
+        ------------
+        hp: ``dict``.
+            The hyper-parameter settings for the new instance.
+        model: ``BaseModel``
+            The name or class of model adopted
+
+        Returns
+        --------
+        instance: ``NodeClassificationGraphSAINTTrainer``
+            A new instance of trainer.
+        """
         if model is None or not isinstance(model, BaseModel):
             model: BaseModel = self.model
         model = model.from_hyper_parameter(
@@ -536,6 +647,34 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
 
 @register_trainer("NodeClassificationLayerDependentImportanceSamplingTrainer")
 class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassificationTrainer):
+    """
+    The node classification trainer utilizing Layer dependent importance sampling technique.
+
+    Parameters
+    ------------
+    model: ``BaseModel`` or ``str``
+        The name or class of model adopted
+    num_features: ``int``
+        number of features for each node provided by dataset
+    num_classes: ``int``
+        number of classes to classify
+    optimizer: ``Optimizer`` of ``str``
+        The (name of) optimizer used to train and predict.
+    lr: ``float``
+        The learning rate of link prediction task.
+    max_epoch: ``int``
+        The max number of epochs in training.
+    early_stopping_round: ``int``
+        The round of early stop.
+    weight_decay: ``float``
+        The weight decay argument for optimizer
+    device: ``torch.device`` or ``str``
+        The device where model will be running on.
+    init: ``bool``
+        If True(False), the model will (not) be initialized.
+    feval: ``str``.
+        The evaluation method adopted in this function.
+    """
     def __init__(
             self,
             model: _typing.Union[BaseModel, str],
@@ -912,10 +1051,21 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
     ):
         """
         The function of predicting the probability on the given dataset.
-        :param dataset: The node classification dataset used to be predicted.
-        :param mask:
-        :param in_log_format:
-        :return:
+
+        Parameters
+        ----------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+        in_log_format: ``bool``.
+            If True(False), the probability will (not) be log format.
+
+        Returns
+        -------
+        The prediction result.
         """
         data = dataset[0].to(torch.device("cpu"))
         if mask is not None and type(mask) == str:
@@ -933,6 +1083,22 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         return result if in_log_format else torch.exp(result)
 
     def predict(self, dataset, mask: _typing.Optional[str] = None) -> torch.Tensor:
+        """
+        The function of predicting on the given dataset.
+
+        Parameters
+        ----------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+
+        Returns
+        -------
+        The prediction result of ``predict_proba``.
+        """
         return self.predict_proba(dataset, mask, in_log_format=True).max(1)[1]
 
     def evaluate(
@@ -943,6 +1109,24 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
                 None, _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
             ] = None,
     ) -> _typing.Sequence[float]:
+        """
+        The function of training on the given dataset and keeping valid result.
+
+        Parameters
+        ------------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+        feval: ``str``.
+            The evaluation method adopted in this function.
+
+        Returns
+        -------
+        result: The evaluation result on the given dataset.
+        """
         data = dataset[0]
         data = data.to(self.device)
         if feval is None:
@@ -973,8 +1157,18 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
     def train(self, dataset, keep_valid_result: bool = True):
         """
         The function of training on the given dataset and keeping valid result.
-        :param dataset:
-        :param keep_valid_result: Whether to save the validation result after training
+
+        Parameters
+        ------------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        keep_valid_result: ``bool``
+            If True(False), save the validation result after training.
+
+        Returns
+        --------
+        None
         """
         import gc
         gc.collect()
@@ -999,6 +1193,19 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         _typing.Tuple[float, bool],
         _typing.Tuple[_typing.Sequence[float], _typing.Sequence[bool]]
     ]:
+        """
+        The function of getting the valid score.
+
+        Parameters
+        ----------
+        return_major: ``bool``.
+            If True, the return only consists of the major result.
+            If False, the return consists of the all results.
+
+        Returns
+        -------
+        result: The valid score.
+        """
         if return_major:
             return self._valid_score[0], self.feval[0].is_higher_better()
         else:
@@ -1035,6 +1242,21 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
             hp: _typing.Dict[str, _typing.Any],
             model: _typing.Optional[BaseModel] = None,
     ) -> "NodeClassificationLayerDependentImportanceSamplingTrainer":
+        """
+        The function of duplicating a new instance from the given hyper-parameter.
+
+        Parameters
+        ------------
+        hp: ``dict``.
+            The hyper-parameter settings for the new instance.
+        model: ``BaseModel``
+            The name or class of model adopted
+
+        Returns
+        --------
+        instance: ``NodeClassificationLayerDependentImportanceSamplingTrainer``
+            A new instance of trainer.
+        """
         if model is None or not isinstance(model, BaseModel):
             model: BaseModel = self.model
         model = model.from_hyper_parameter(
@@ -1060,8 +1282,36 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(BaseNodeClassifi
         )
 
 
-@register_trainer("NodeClassificationNeighborSampling")
+@register_trainer("NodeClassificationNeighborSamplingTrainer")
 class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
+    """
+    The node classification trainer utilizing Layer dependent importance sampling technique.
+
+    Parameters
+    ------------
+    model: ``BaseModel`` or ``str``
+        The name or class of model adopted
+    num_features: ``int``
+        number of features for each node provided by dataset
+    num_classes: ``int``
+        number of classes to classify
+    optimizer: ``Optimizer`` of ``str``
+        The (name of) optimizer used to train and predict.
+    lr: ``float``
+        The learning rate of link prediction task.
+    max_epoch: ``int``
+        The max number of epochs in training.
+    early_stopping_round: ``int``
+        The round of early stop.
+    weight_decay: ``float``
+        The weight decay argument for optimizer
+    device: ``torch.device`` or ``str``
+        The device where model will be running on.
+    init: ``bool``
+        If True(False), the model will (not) be initialized.
+    feval: ``str``.
+        The evaluation method adopted in this function.
+    """
     def __init__(
             self,
             model: _typing.Union[BaseModel, str],
@@ -1422,10 +1672,21 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
     ):
         """
         The function of predicting the probability on the given dataset.
-        :param dataset: The node classification dataset used to be predicted.
-        :param mask:
-        :param in_log_format:
-        :return:
+
+        Parameters
+        ----------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+        in_log_format: ``bool``.
+            If True(False), the probability will (not) be log format.
+
+        Returns
+        -------
+        The prediction result.
         """
         data = dataset[0].to(torch.device("cpu"))
         if mask is not None and type(mask) == str:
@@ -1443,6 +1704,22 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         return result if in_log_format else torch.exp(result)
 
     def predict(self, dataset, mask: _typing.Optional[str] = None) -> torch.Tensor:
+        """
+        The function of predicting on the given dataset.
+
+        Parameters
+        ----------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+
+        Returns
+        -------
+        The prediction result of ``predict_proba``.
+        """
         return self.predict_proba(dataset, mask, in_log_format=True).max(1)[1]
 
     def evaluate(
@@ -1453,6 +1730,24 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
                 None, _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
             ] = None,
     ) -> _typing.Sequence[float]:
+        """
+        The function of training on the given dataset and keeping valid result.
+
+        Parameters
+        ------------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        mask: .
+            The `str` of ``train``, ``val``, or ``test``,
+            representing the identifier for specific dataset mask.
+        feval: ``str``.
+            The evaluation method adopted in this function.
+
+        Returns
+        -------
+        result: The evaluation result on the given dataset.
+        """
         data = dataset[0]
         data = data.to(self.device)
         if feval is None:
@@ -1486,8 +1781,18 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
     def train(self, dataset, keep_valid_result: bool = True):
         """
         The function of training on the given dataset and keeping valid result.
-        :param dataset:
-        :param keep_valid_result: Whether to save the validation result after training
+
+        Parameters
+        ------------
+        dataset:
+            The dataset containing conventional data of integral graph
+            adopted to train for node classification.
+        keep_valid_result: ``bool``
+            If True(False), save the validation result after training.
+
+        Returns
+        --------
+        None
         """
         import gc
         gc.collect()
@@ -1512,6 +1817,19 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         _typing.Tuple[float, bool],
         _typing.Tuple[_typing.Sequence[float], _typing.Sequence[bool]]
     ]:
+        """
+        The function of getting the valid score.
+
+        Parameters
+        ----------
+        return_major: ``bool``.
+            If True, the return only consists of the major result.
+            If False, the return consists of the all results.
+
+        Returns
+        -------
+        result: The valid score.
+        """
         if return_major:
             return self._valid_score[0], self.feval[0].is_higher_better()
         else:
@@ -1548,6 +1866,21 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             hp: _typing.Dict[str, _typing.Any],
             model: _typing.Optional[BaseModel] = None,
     ) -> "NodeClassificationNeighborSamplingTrainer":
+        """
+        The function of duplicating a new instance from the given hyper-parameter.
+
+        Parameters
+        ------------
+        hp: ``dict``.
+            The hyper-parameter settings for the new instance.
+        model: ``BaseModel``
+            The name or class of model adopted
+
+        Returns
+        --------
+        instance: ``NodeClassificationLayerDependentImportanceSamplingTrainer``
+            A new instance of trainer.
+        """
         if model is None or not isinstance(model, BaseModel):
             model: BaseModel = self.model
         model = model.from_hyper_parameter(
