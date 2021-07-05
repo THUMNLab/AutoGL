@@ -11,7 +11,7 @@ nas:
     hidden_dim: 64
     layer_number: 4
   algorithm:
-    name: rl
+    name: graphnas
     num_epochs: 200
   estimator:
     name: scratch

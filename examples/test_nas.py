@@ -9,7 +9,7 @@ import argparse
 if __name__ == '__main__':
     set_seed(202106)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='../configs/nodeclf_nas_darts_benchmark.yml')
+    parser.add_argument('--config', type=str, default='../configs/nodeclf_nas_macro_benchmark.yml')
     parser.add_argument('--dataset', choices=['cora', 'citeseer', 'pubmed'], default='cora', type=str)
 
     args = parser.parse_args()
