@@ -49,7 +49,7 @@ Let's say you want to implement a simple MLP for node classification and want to
         
             self.core = torch.nn.Sequential(*ops)
         
-        # this method is mendatory to have
+        # this method is required
         def forward(self, data):
             # data: torch_geometric.data.Data
             assert hasattr(data, 'x'), 'MLP only support graph data with features'
@@ -66,11 +66,11 @@ After you define the logic of ``model``, you can now define your ``automodel`` t
     # define your automodel, need to inherit from BaseModel
     class MyAutoMLP(BaseModel):
         def __init__(self):
-            # (mendatory) make sure you call __init__ of super with init argument properly set.
+            # (required) make sure you call __init__ of super with init argument properly set.
             # if you do not want to initialize inside __init__, please pass False.
             super().__init__(init=False)
 
-            # (mendatory) define the search space
+            # (required) define the search space
             self.space = [
                 {'parameterName': 'layer_num', 'type': 'INTEGER', 'minValue': 1, 'maxValue': 5, 'scalingType': 'LINEAR'},
                 {'parameterName': 'dim', 'type': 'INTEGER', 'minValue': 64, 'maxValue': 128, 'scalingType': 'LINEAR'}
@@ -84,14 +84,14 @@ After you define the logic of ``model``, you can now define your ``automodel`` t
             self.num_classes = None
             self.num_features = None
 
-            # (mendatory) since we don't know the num_classes and num_features until we see the dataset,
+            # (required) since we don't know the num_classes and num_features until we see the dataset,
             # we cannot initialize the models when instantiated. the initialized will be set to False.
             self.initialized = False
 
-            # (mendatory) set the device of current auto model
+            # (required) set the device of current auto model
             self.device = torch.device('cuda')
 
-        # (mendatory) get current hyper-parameters of this automodel
+        # (required) get current hyper-parameters of this automodel
         # need to return a dictionary whose keys are the same with self.space
         def get_hyper_parameter(self):
             return {
@@ -99,25 +99,25 @@ After you define the logic of ``model``, you can now define your ``automodel`` t
                 'dim': self.dim
             }
         
-        # (mendatory) override to interact with num_classes
+        # (required) override to interact with num_classes
         def get_num_classes(self):
             return self.num_classes
         
-        # (mendatory) override to interact with num_classes
+        # (required) override to interact with num_classes
         def set_num_classes(self, n_classes):
             self.num_classes = n_classes
         
-        # (mendatory) override to interact with num_features
+        # (required) override to interact with num_features
         def get_num_features(self):
             return self.num_features
         
-        # (mendatory) override to interact with num_features
+        # (required) override to interact with num_features
         def set_num_features(self, n_features):
             self.num_features = n_features
 
-        # (mendatory) create the core MLP model
+        # (required) instantiate the core MLP model using corresponding hyper-parameters
         def initialize(self):
-            # (mendatory) you need to make sure the core model is named as `self.model`
+            # (required) you need to make sure the core model is named as `self.model`
             self.model = MyMLP(
                 in_channels = self.num_features,
                 num_classes = self.num_classes,
@@ -127,7 +127,7 @@ After you define the logic of ``model``, you can now define your ``automodel`` t
 
             self.initialized = True
         
-        # (mendatory) override to create a copy of model using current hyper-parameters
+        # (required) override to create a copy of model using provided hyper-parameters
         def from_hyper_parameter(self, hp):
             # hp is a dictionary that contains keys and values corrsponding to your self.space
             # in this case, it will be in form {'layer_num': XX, 'dim': XX}
@@ -178,11 +178,11 @@ For link prediction, the definition of model is a bit different with the common 
         
             self.core = torch.nn.Sequential(*ops)
 
-        # (mendatory) for interaction with link prediction trainer and solver        
+        # (required) for interaction with link prediction trainer and solver
         def lp_encode(self, data):
             return self.core(data.x)
 
-        # (mendatory) for interaction with link prediction trainer and solver
+        # (required) for interaction with link prediction trainer and solver
         def lp_decode(self, x, pos_edge_index, neg_edge_index):
             # first, get all the edge_index need calculated
             edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)
@@ -205,11 +205,14 @@ For link prediction, the definition of model is a bit different with the common 
 Model with sampling support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-AutoGL now support sampling training for large-scale dataset. Currently, node-wise sampling, layer-wise sampling and graph-wise sampling are supported for node classification. See more about sampling in :ref:`trainer`.
+Towards efficient representation learning on large-scale graph, AutoGL currently support node classification using sampling techniques including node-wise sampling, layer-wise sampling, and graph-wise sampling. See more about sampling in :ref:`trainer`.
 
-If you want to use the corresponding sampling methods on your customized dataset, you may need to make further adaptation. Currently, sampling trainer only support **Sequential Model**, which means it only consists of a sequence of layers, with each layer taking a ``Data`` as an example. The Data has the same organization structure with ``torch_geometric.data.Data``, which contains keywords ``x``, ``edge_index`` and ``edge_weight`` for you to use.
-
-You need to make your sampling ``model`` inherit from ``ClassificationSupportedSequentialModel``:
+In order to conduct node classification using sampling technique with your custom model, further adaptation and modification are generally required.
+According to the Message Passing mechanism of Graph Neural Network (GNN), numerous nodes in the multi-hop neighborhood of evaluation set or test set are potentially involved to evaluate the GNN model on large-scale graph dataset.
+As the representations for those numerous nodes are likely to occupy large amount of computational resource, the common forwarding process is generally infeasible for model evaluation on large-scale graph.
+An iterative representation learning mechanism is a practical and feasible way to evaluate **Sequential Model**,
+which only consists of multiple sequential layers, with each layer taking a ``Data`` aggregate as input. The input ``Data`` has the same functionality with ``torch_geometric.data.Data``, which conventionally provides properties ``x``, ``edge_index``, and optional ``edge_weight``.
+If your custom model is composed of concatenated layers, you would better make your model inherit ``ClassificationSupportedSequentialModel`` to utilize the layer-wise representation learning mechanism to efficiently conduct representation learning for your custom sequential model.
 
 .. code-block:: python
 
@@ -223,7 +226,7 @@ You need to make your sampling ``model`` inherit from ``ClassificationSupportedS
 
     class MyMLPSampling(ClassificationSupportedSequentialModel):
         def __init__(self, in_channels, num_classes, layer_num, dim):
-                super().__init__()
+            super().__init__()
             if layer_num == 1:
                 ops = [Linear(in_channels, num_classes)]
             else:
@@ -234,12 +237,12 @@ You need to make your sampling ``model`` inherit from ``ClassificationSupportedS
 
             self.core = torch.nn.ModuleList(ops)
 
-        # (mendatory) override sequential_encoding_layers property to interact with sampling        
+        # (required) override sequential_encoding_layers property to interact with sampling
         @property
         def sequential_encoding_layers(self) -> torch.nn.ModuleList:
             return self.core
         
-        # (mendatory) define the encode logic of classification for sampling
+        # (required) define the encode logic of classification for sampling
         def cls_encode(self, data):
             # if you use sampling, the data will be passed in two possible ways,
             # you can judge it use following rules
@@ -259,7 +262,7 @@ You need to make your sampling ``model`` inherit from ``ClassificationSupportedS
                 x = self.sequential_encoding_layers[i](data)
             return x
 
-        # (mendatory) define the decode logic of classification for sampling
+        # (required) define the decode logic of classification for sampling
         def cls_decode(self, x):
             return torch.nn.functional.log_softmax(x)
 
