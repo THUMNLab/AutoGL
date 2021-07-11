@@ -258,7 +258,7 @@ If your custom model is composed of concatenated layers, you would better make y
             x = data.x
             for i in range(len(self.core)):
                 data = autogl.data.Data(x=x, edge_index=edge_indexes[i])
-                data.edge_weight = edge_weight
+                data.edge_weight = edge_weights[i]
                 x = self.sequential_encoding_layers[i](data)
             return x
 
