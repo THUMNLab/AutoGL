@@ -20,3 +20,4 @@ https://pytorch-geometric.com/whl/torch-1.7.0/torch_sparse-0.6.8%2Bcpu-cp36-cp36
 https://pytorch-geometric.com/whl/torch-1.7.0/torch_spline_conv-1.2.0%2Bcpu-cp36-cp36m-linux_x86_64.whl
 torch-geometric
 tqdm
+nni
