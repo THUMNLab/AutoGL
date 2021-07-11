@@ -1,15 +1,18 @@
-from . import register_trainer, BaseTrainer, Evaluation, EVALUATE_DICT, EarlyStopping
+from . import register_trainer, Evaluation
 import torch
 from torch.optim.lr_scheduler import StepLR
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
-from .evaluate import Logloss, Acc, Auc
+from .evaluation import Auc, EVALUATE_DICT
+from .base import EarlyStopping, BaseLinkPredictionTrainer
 from typing import Union
 from copy import deepcopy
+from torch_geometric.utils import negative_sampling
 
 from ...utils import get_logger
 
-LOGGER = get_logger("node classification trainer")
+LOGGER = get_logger("link prediction trainer")
+
 
 def get_feval(feval):
     if isinstance(feval, str):
@@ -21,12 +24,12 @@ def get_feval(feval):
     raise ValueError("feval argument of type", type(feval), "is not supported!")
 
 
-@register_trainer("NodeClassification")
-class NodeClassificationTrainer(BaseTrainer):
+@register_trainer("LinkPredictionFull")
+class LinkPredictionTrainer(BaseLinkPredictionTrainer):
     """
-    The node classification trainer.
+    The link prediction trainer.
 
-    Used to automatically train the node classification problem.
+    Used to automatically train the link prediction problem.
 
     Parameters
     ----------
@@ -37,7 +40,7 @@ class NodeClassificationTrainer(BaseTrainer):
         The (name of) optimizer used to train and predict.
 
     lr: ``float``
-        The learning rate of node classification task.
+        The learning rate of link prediction task.
 
     max_epoch: ``int``
         The max number of epochs in training.
@@ -56,34 +59,21 @@ class NodeClassificationTrainer(BaseTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str],
-        num_features,
-        num_classes,
+        model: Union[BaseModel, str] = None,
+        num_features=None,
         optimizer=None,
-        lr=None,
-        max_epoch=None,
-        early_stopping_round=None,
+        lr=1e-4,
+        max_epoch=100,
+        early_stopping_round=101,
         weight_decay=1e-4,
-        device=None,
+        device="auto",
         init=True,
-        feval=[Logloss],
-        loss="nll_loss",
+        feval=[Auc],
+        loss="binary_cross_entropy_with_logits",
         *args,
-        **kwargs
+        **kwargs,
     ):
-        super(NodeClassificationTrainer, self).__init__(model)
-
-        self.loss_type = loss
-
-        if device is None:
-            device = "cpu"
-
-        # init model
-        if isinstance(model, str):
-            assert model in MODEL_DICT, "Cannot parse model name " + model
-            self.model = MODEL_DICT[model](num_features, num_classes, device, init=init)
-        elif isinstance(model, BaseModel):
-            self.model = model
+        super().__init__(model, num_features, device, init, feval, loss)
 
         if type(optimizer) == str and optimizer.lower() == "adam":
             self.optimizer = torch.optim.Adam
@@ -92,19 +82,12 @@ class NodeClassificationTrainer(BaseTrainer):
         else:
             self.optimizer = torch.optim.Adam
 
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.lr = lr if lr is not None else 1e-4
-        self.max_epoch = max_epoch if max_epoch is not None else 100
-        self.early_stopping_round = (
-            early_stopping_round if early_stopping_round is not None else 100
-        )
+        self.lr = lr
+        self.max_epoch = max_epoch
+        self.early_stopping_round = early_stopping_round
         self.device = device
         self.args = args
         self.kwargs = kwargs
-
-        self.feval = get_feval(feval)
-
         self.weight_decay = weight_decay
 
         self.early_stopping = EarlyStopping(
@@ -116,8 +99,6 @@ class NodeClassificationTrainer(BaseTrainer):
         self.valid_score = None
 
         self.initialized = False
-        self.num_features = num_features
-        self.num_classes = num_classes
         self.device = device
 
         self.space = [
@@ -150,8 +131,8 @@ class NodeClassificationTrainer(BaseTrainer):
                 "scalingType": "LOG",
             },
         ]
-        self.space += self.model.space
-        NodeClassificationTrainer.space = self.space
+
+        LinkPredictionTrainer.space = self.space
 
         self.hyperparams = {
             "max_epoch": self.max_epoch,
@@ -159,7 +140,6 @@ class NodeClassificationTrainer(BaseTrainer):
             "lr": self.lr,
             "weight_decay": self.weight_decay,
         }
-        self.hyperparams = {**self.hyperparams, **self.model.get_hyper_parameter()}
 
         if init is True:
             self.initialize()
@@ -169,6 +149,8 @@ class NodeClassificationTrainer(BaseTrainer):
         if self.initialized is True:
             return
         self.initialized = True
+        self.model.set_num_classes(self.num_classes)
+        self.model.set_num_features(self.num_features)
         self.model.initialize()
 
     def get_model(self):
@@ -177,8 +159,8 @@ class NodeClassificationTrainer(BaseTrainer):
 
     @classmethod
     def get_task_name(cls):
-        # Get task name, i.e., `NodeClassification`.
-        return "NodeClassification"
+        # Get task name, i.e., `LinkPrediction`.
+        return "LinkPrediction"
 
     def train_only(self, data, train_mask=None):
         """
@@ -186,29 +168,49 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Parameters
         ----------
-        data: The node classification dataset used to be trained. It should consist of masks, including train_mask, and etc.
+        data: The link prediction dataset used to be trained. It should consist of masks, including train_mask, and etc.
         train_mask: The mask used in training stage.
 
         Returns
         -------
-        self: ``autogl.train.NodeClassificationTrainer``
+        self: ``autogl.train.LinkPredictionTrainer``
             A reference of current trainer.
 
         """
+
+        # data.train_mask = data.val_mask = data.test_mask = data.y = None
+        # data = train_test_split_edges(data)
         data = data.to(self.device)
-        mask = data.train_mask if train_mask is None else train_mask
+        # mask = data.train_mask if train_mask is None else train_mask
         optimizer = self.optimizer(
-            self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
         scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
+
+            neg_edge_index = negative_sampling(
+                edge_index=data.train_pos_edge_index,
+                num_nodes=data.num_nodes,
+                num_neg_samples=data.train_pos_edge_index.size(1),
+            )
+
             optimizer.zero_grad()
-            res = self.model.model.forward(data)
-            if hasattr(F, self.loss_type):
-                loss = getattr(F, self.loss_type)(res[mask], data.y[mask])
+            # res = self.model.model.forward(data)
+            z = self.model.model.lp_encode(data)
+            link_logits = self.model.model.lp_decode(
+                z, data.train_pos_edge_index, neg_edge_index
+            )
+            link_labels = self.get_link_labels(
+                data.train_pos_edge_index, neg_edge_index
+            )
+            # loss = F.binary_cross_entropy_with_logits(link_logits, link_labels)
+            if hasattr(F, self.loss):
+                loss = getattr(F, self.loss)(link_logits, link_labels)
             else:
-                raise TypeError("PyTorch does not support loss type {}".format(self.loss_type))
+                raise TypeError(
+                    "PyTorch does not support loss type {}".format(self.loss)
+                )
 
             loss.backward()
             optimizer.step()
@@ -218,14 +220,14 @@ class NodeClassificationTrainer(BaseTrainer):
                 feval = self.feval[0]
             else:
                 feval = self.feval
-            val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
+            val_loss = self.evaluate([data], mask="val", feval=feval)
             if feval.is_higher_better() is True:
                 val_loss = -val_loss
             self.early_stopping(val_loss, self.model.model)
             if self.early_stopping.early_stop:
                 LOGGER.debug("Early stopping at %d", epoch)
-                self.early_stopping.load_checkpoint(self.model.model)
                 break
+        self.early_stopping.load_checkpoint(self.model.model)
 
     def predict_only(self, data, test_mask=None):
         """
@@ -233,7 +235,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Parameters
         ----------
-        data: The node classification dataset used to be predicted.
+        data: The link prediction dataset used to be predicted.
         train_mask: The mask used in training stage.
 
         Returns
@@ -241,12 +243,11 @@ class NodeClassificationTrainer(BaseTrainer):
         res: The result of predicting on the given dataset.
 
         """
-        # mask = data.test_mask if test_mask is None else test_mask
         data = data.to(self.device)
         self.model.model.eval()
         with torch.no_grad():
-            res = self.model.model.forward(data)
-        return res
+            z = self.model.model.lp_encode(data)
+        return z
 
     def train(self, dataset, keep_valid_result=True):
         """
@@ -254,25 +255,24 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Parameters
         ----------
-        dataset: The node classification dataset used to be trained.
+        dataset: The link prediction dataset used to be trained.
 
         keep_valid_result: ``bool``
             If True(False), save the validation result after training.
 
         Returns
         -------
-        self: ``autogl.train.NodeClassificationTrainer``
+        self: ``autogl.train.LinkPredictionTrainer``
             A reference of current trainer.
 
         """
         data = dataset[0]
+        data.edge_index = data.train_pos_edge_index
         self.train_only(data)
         if keep_valid_result:
-            self.valid_result = self.predict_only(data)[data.val_mask].max(1)[1]
-            self.valid_result_prob = self.predict_only(data)[data.val_mask]
-            self.valid_score = self.evaluate(
-                dataset, mask=data.val_mask, feval=self.feval
-            )
+            self.valid_result = self.predict_only(data)
+            self.valid_result_prob = self.predict_proba(dataset, "val")
+            self.valid_score = self.evaluate(dataset, mask="val", feval=self.feval)
 
     def predict(self, dataset, mask=None):
         """
@@ -280,7 +280,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Parameters
         ----------
-        dataset: The node classification dataset used to be predicted.
+        dataset: The link prediction dataset used to be predicted.
 
         mask: ``train``, ``val``, or ``test``.
             The dataset mask.
@@ -289,7 +289,7 @@ class NodeClassificationTrainer(BaseTrainer):
         -------
         The prediction result of ``predict_proba``.
         """
-        return self.predict_proba(dataset, mask=mask, in_log_format=True).max(1)[1]
+        return self.predict_proba(dataset, mask=mask, in_log_format=False)
 
     def predict_proba(self, dataset, mask=None, in_log_format=False):
         """
@@ -297,7 +297,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Parameters
         ----------
-        dataset: The node classification dataset used to be predicted.
+        dataset: The link prediction dataset used to be predicted.
 
         mask: ``train``, ``val``, or ``test``.
             The dataset mask.
@@ -310,21 +310,22 @@ class NodeClassificationTrainer(BaseTrainer):
         The prediction result.
         """
         data = dataset[0]
+        data.edge_index = data.train_pos_edge_index
         data = data.to(self.device)
-        if mask is not None:
-            if mask == "val":
-                mask = data.val_mask
-            elif mask == "test":
-                mask = data.test_mask
-            elif mask == "train":
-                mask = data.train_mask
+        if mask in ["train", "val", "test"]:
+            pos_edge_index = data[f"{mask}_pos_edge_index"]
+            neg_edge_index = data[f"{mask}_neg_edge_index"]
         else:
-            mask = data.test_mask
-        ret = self.predict_only(data, mask)[mask]
-        if in_log_format is True:
-            return ret
-        else:
-            return torch.exp(ret)
+            pos_edge_index = data[f"test_pos_edge_index"]
+            neg_edge_index = data[f"test_neg_edge_index"]
+
+        self.model.model.eval()
+        with torch.no_grad():
+            z = self.predict_only(data)
+            link_logits = self.model.model.lp_decode(z, pos_edge_index, neg_edge_index)
+            link_probs = link_logits.sigmoid()
+
+        return link_probs
 
     def get_valid_predict(self):
         # """Get the valid result."""
@@ -386,7 +387,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Parameters
         ----------
-        dataset: The node classification dataset used to be evaluated.
+        dataset: The link prediction dataset used to be evaluated.
 
         mask: ``train``, ``val``, or ``test``.
             The dataset mask.
@@ -406,17 +407,18 @@ class NodeClassificationTrainer(BaseTrainer):
             feval = self.feval
         else:
             feval = get_feval(feval)
-        if test_mask is None:
-            test_mask = data.test_mask
-        elif test_mask == "test":
-            test_mask = data.test_mask
-        elif test_mask == "val":
-            test_mask = data.val_mask
-        elif test_mask == "train":
-            test_mask = data.train_mask
-        y_pred_prob = self.predict_proba(dataset, mask)
-        y_pred = y_pred_prob.max(1)[1]
-        y_true = data.y[test_mask]
+
+        if mask in ["train", "val", "test"]:
+            pos_edge_index = data[f"{mask}_pos_edge_index"]
+            neg_edge_index = data[f"{mask}_neg_edge_index"]
+        else:
+            pos_edge_index = data[f"test_pos_edge_index"]
+            neg_edge_index = data[f"test_neg_edge_index"]
+
+        self.model.model.eval()
+        with torch.no_grad():
+            link_probs = self.predict_proba(dataset, mask)
+            link_labels = self.get_link_labels(pos_edge_index, neg_edge_index)
 
         if not isinstance(feval, list):
             feval = [feval]
@@ -426,10 +428,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         res = []
         for f in feval:
-            try:
-                res.append(f.evaluate(y_pred_prob, y_true))
-            except:
-                res.append(f.evaluate(y_pred_prob.cpu().numpy(), y_true.cpu().numpy()))
+            res.append(f.evaluate(link_probs.cpu().numpy(), link_labels.cpu().numpy()))
         if return_signle:
             return res[0]
         return res
@@ -456,7 +455,7 @@ class NodeClassificationTrainer(BaseTrainer):
 
         Returns
         -------
-        self: ``autogl.train.NodeClassificationTrainer``
+        self: ``autogl.train.LinkPredictionTrainer``
             A new instance of trainer.
 
         """
@@ -466,6 +465,8 @@ class NodeClassificationTrainer(BaseTrainer):
             hp = origin_hp
         if model is None:
             model = self.model
+        model.set_num_classes(self.num_classes)
+        model.set_num_features(self.num_features)
         model = model.from_hyper_parameter(
             dict(
                 [
@@ -479,7 +480,6 @@ class NodeClassificationTrainer(BaseTrainer):
         ret = self.__class__(
             model=model,
             num_features=self.num_features,
-            num_classes=self.num_classes,
             optimizer=self.optimizer,
             lr=hp["lr"],
             max_epoch=hp["max_epoch"],
@@ -489,7 +489,7 @@ class NodeClassificationTrainer(BaseTrainer):
             feval=self.feval,
             init=True,
             *self.args,
-            **self.kwargs
+            **self.kwargs,
         )
 
         return ret
@@ -507,8 +507,14 @@ class NodeClassificationTrainer(BaseTrainer):
     def hyper_parameter_space(self, space):
         # """Set the space of hyperparameter."""
         self.space = space
-        NodeClassificationTrainer.space = space
+        LinkPredictionTrainer.space = space
 
     def get_hyper_parameter(self):
         # """Get the hyperparameter in this trainer."""
         return self.hyperparams
+
+    def get_link_labels(self, pos_edge_index, neg_edge_index):
+        E = pos_edge_index.size(1) + neg_edge_index.size(1)
+        link_labels = torch.zeros(E, dtype=torch.float, device=self.device)
+        link_labels[: pos_edge_index.size(1)] = 1.0
+        return link_labels

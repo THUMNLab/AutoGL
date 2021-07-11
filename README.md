@@ -11,7 +11,8 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 
 ## News!
 
-- 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://openreview.net/forum?id=0yHwpLeInDn) are accepted in _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
+- 2021.07.11 New version! v0.2.0-pre is here! In new version, AutoGL support neural architecture search to customize the architectures for the given datasets and tasks. AutoGL also support sampling now to perform tasks on large datasets, including node-wise sampling, layer-wise sampling and sub-graph sampling. Link prediction task is now also supported! Learn more in our [tutorial](https://autogl.readthedocs.io/en/latest/index.html).
+- 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987) are accepted in _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
 
 ## Introduction
 
@@ -23,7 +24,7 @@ The workflow below shows the overall framework of AutoGL.
 
 AutoGL uses `datasets` to maintain dataset for graph-based machine learning, which is based on Dataset in PyTorch Geometric with some support added to corporate with the auto solver framework.
 
-Different graph-based machine learning tasks are solved by different `AutoGL solvers`, which make use of four main modules to automatically solve given tasks, namely `auto feature engineer`, `auto model`, `hyperparameter optimization`, and `auto ensemble`. 
+Different graph-based machine learning tasks are solved by different `AutoGL solvers`, which make use of five main modules to automatically solve given tasks, namely `auto feature engineer`, `neural architecture search`, `auto model`, `hyperparameter optimization`, and `auto ensemble`. 
 
 Currently, the following algorithms are supported in AutoGL:
 
@@ -33,20 +34,34 @@ Currently, the following algorithms are supported in AutoGL:
     <tr valign="top">
         <td>Feature Engineer</td>
         <td>Model</td>
+        <td>NAS</td>
         <td>HPO</td>
         <td>Ensemble</td>
     </tr>
     <tr valign="top">
         <!--<td><b>Generators</b><br>graphlet <br> eigen <br> pagerank <br> PYGLocalDegreeProfile <br> PYGNormalizeFeatures <br> PYGOneHotDegree <br> onehot <br> <br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Subgraph</b><br> NxLargeCliqueSize<br> NxAverageClusteringApproximate<br> NxDegreeAssortativityCoefficient<br> NxDegreePearsonCorrelationCoefficient<br> NxHasBridge <br>NxGraphCliqueNumber<br> NxGraphNumberOfCliques<br> NxTransitivity<br> NxAverageClustering<br> NxIsConnected<br> NxNumberConnectedComponents<br> NxIsDistanceRegular<br> NxLocalEfficiency<br> NxGlobalEfficiency<br> NxIsEulerian </td>-->
-        <td><b>Generators</b><br>graphlet <br> eigen <br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Subgraph</b><br> netlsd<br> NxAverageClustering<br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a></td>
+        <td><b>Generators</b><br>graphlet <br> eigen <br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Graph</b><br> netlsd<br> NxAverageClustering<br> <a href="https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_fe.html">more ...</a></td>
         <td><b>Node Classification</b><br> GCN <br> GAT <br> GraphSAGE <br><br><b>Graph Classification</b><br> GIN <br> TopKPool </td>
+        <td>
+        <b>Algorithms</b><br>
+        Random<br>
+        RL<br>
+        <a href='#'>more ...</a><br><br>
+        <b>Spaces</b><br>
+        SinglePath<br>
+        GraphNas<br>
+        <a href='#'>more ...</a><br><br>
+        <b>Estimators</b><br>
+        Oneshot<br>
+        Scratch<br>
+        </td>
         <td> Grid <br> Random <br> Anneal <br> Bayes <br> CAMES <br> MOCAMES <br> Quasi random <br> TPE <br> AutoNE </td>
         <td> Voting <br> Stacking </td>
     </tr>
     </tbody>
 </table>
 
-This toolkit also serves as a platform for users to implement and test their own autoML or graph-based machine learning models.
+This toolkit also serves as a framework for users to implement and test their own autoML or graph-based machine learning models.
 
 ## Installation
 
@@ -56,11 +71,11 @@ Please make sure you meet the following requirements before installing AutoGL.
 
 1. Python >= 3.6.0
 
-2. PyTorch (>=1.5.1)
+2. PyTorch (>=1.6.0)
 
     see <https://pytorch.org/> for installation.
 
-3. PyTorch Geometric
+3. PyTorch Geometric (>=1.7.0)
 
     see <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html> for installation.
 
@@ -71,7 +86,7 @@ Please make sure you meet the following requirements before installing AutoGL.
 Run the following command to install this package through `pip`.
 
 ```
-pip install auto-graph-learning
+pip install autogl
 ```
 
 #### Install from source
@@ -111,7 +126,7 @@ The documentation will be automatically generated under `docs/_build/html`
 
 ## Cite
 
-You can cite [our paper](https://openreview.net/forum?id=0yHwpLeInDn) as follows if you use this code in your own work:
+You can cite [our paper](https://arxiv.org/abs/2104.04987) as follows if you use this code in your own work:
 ```
 @inproceedings{
 guan2021autogl,

@@ -1,22 +1,20 @@
 import netlsd
-from .base import BaseSubgraph
+from .base import BaseGraph
 import numpy as np
 import torch
 from .. import register_feature
 
 
 @register_feature("netlsd")
-class SgNetLSD(BaseSubgraph):
+class SgNetLSD(BaseGraph):
     r"""
     Notes
     -----
-    a subgraph feature generation method. This is a simple wrapper of NetLSD [1]_.
-
+    a graph feature generation method. This is a simple wrapper of NetLSD [#]_.
     References
     ----------
-    .. [1] A. Tsitsulin, D. Mottin, P. Karras, A. Bronstein, and E. Müller, “NetLSD: Hearing the shape of a graph,”
+    .. [#] A. Tsitsulin, D. Mottin, P. Karras, A. Bronstein, and E. Müller, “NetLSD: Hearing the shape of a graph,”
      Proc. ACM SIGKDD Int. Conf. Knowl. Discov. Data Min., pp. 2347–2356, 2018.
-
     """
 
     def __init__(self, *args, **kwargs):

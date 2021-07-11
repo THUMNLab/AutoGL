@@ -10,8 +10,8 @@ from ...utils import get_logger
 LOGGER = get_logger("Feature")
 
 
-class BaseFeatureAtom:
-    r"""Any feature funcion object should inherit BaseFeatureAtom,
+class BaseFeature:
+    r"""Any feature funcion object should inherit BaseFeature,
     which provides basic transformations and composing operation for feature
     engineering. Basic transformations include data type adjusting(tensor or numpy),
     complementing necessary attributes for future transform. Any subclass needs
@@ -22,19 +22,15 @@ class BaseFeatureAtom:
     Parameters
     ----------
     pipe : list
-        stores pipeline of ``BaseFeatureAtom``.
-
+        stores pipeline of ``BaseFeature``.
     data_t: str
         represents the data type needed for this transform, where 'tensor' accounts for ``torch.Tensor``,
         'np' for ``numpy.array`` and 'nx' for ``networkx``. When ``data_t`` values 'nx', then a ``networkx.DiGraph`` will
         be added to data as data.G .
-
     multigraph : bool
         determine whether it supports dataset with multiple graphs
-
     subgraph : bool
         determine whether it extracts subgraph features.
-
     """
 
     def __init__(self, pipe=None, data_t="tensor", multigraph=True, subgraph=False):
@@ -50,7 +46,7 @@ class BaseFeatureAtom:
         r"""enable and operation to support feature engineering pipeline syntax like
         SeFilterConstant()&GeEigen()&...
         """
-        return BaseFeatureAtom(self._pipe + o._pipe)
+        return BaseFeature(self._pipe + o._pipe)
 
     def _rebuild(self, dataset, datalist):
         dataset.__indices__ = None
@@ -68,6 +64,12 @@ class BaseFeatureAtom:
         elif self._data_t == "nx":
             if not hasattr(data, "G") or data.G is None:
                 data.G = to_networkx(data, to_undirected=True)
+
+    def _adjust_to_tensor(self, data):
+        if self._data_t == "tensor":
+            pass
+        else:
+            data_np2tensor(data)
 
     def _preprocess(self, data):
         pass
@@ -98,23 +100,17 @@ class BaseFeatureAtom:
         if not self._check_dataset(dataset):
             return
         dataset = copy.deepcopy(dataset)
-        for p in self._pipe:
-            _dataset = [x for x in dataset]
-            if p._subgraph:
+        with torch.no_grad():
+            for p in self._pipe:
+                _dataset = [x for x in dataset]
                 for i, datai in enumerate(_dataset):
                     p._adjust_t(datai)
                     p._preprocess(datai)
                     p._fit_transform(datai)
                     p._postprocess(datai)
+                    p._adjust_to_tensor(datai)
                     _dataset[i] = datai
-            else:
-                data = dataset.data
-                p._adjust_t(data)
-                p._preprocess(data)
-                data = p._fit_transform(data)
-                p._postprocess(data)
-            dataset = self._rebuild(dataset, _dataset)
-                
+                dataset = self._rebuild(dataset, _dataset)
 
     def transform(self, dataset, inplace=True):
         r"""transform dataset inplace or not w.r.t bool argument ``inplace``"""
@@ -122,22 +118,17 @@ class BaseFeatureAtom:
             return dataset
         if not inplace:
             dataset = copy.deepcopy(dataset)
-        for p in self._pipe:
-            self._dataset = _dataset = [x for x in dataset]
-            if p._subgraph:
+        with torch.no_grad():
+            for p in self._pipe:
+                self._dataset = _dataset = [x for x in dataset]
                 for i, datai in enumerate(_dataset):
                     p._adjust_t(datai)
                     p._preprocess(datai)
                     datai = p._transform(datai)
                     p._postprocess(datai)
-                    _dataset[i] = datai    
-            else:
-                data = dataset.data
-                p._adjust_t(data)
-                p._preprocess(data)
-                data = p._transform(data)
-                p._postprocess(data)
-            dataset = self._rebuild(dataset, _dataset)
+                    p._adjust_to_tensor(datai)
+                    _dataset[i] = datai
+                dataset = self._rebuild(dataset, _dataset)
         dataset.data = data_np2tensor(dataset.data)
         return dataset
 
@@ -148,14 +139,14 @@ class BaseFeatureAtom:
 
     @staticmethod
     def compose(trans_list):
-        r"""put a list of ``BaseFeatureAtom`` into feature engineering pipeline"""
-        res = BaseFeatureAtom()
+        r"""put a list of ``BaseFeature`` into feature engineering pipeline"""
+        res = BaseFeature()
         for tran in trans_list:
             res = res & tran
         return res
 
 
-class BaseFeatureEngineer(BaseFeatureAtom):
+class BaseFeatureEngineer(BaseFeature):
     def __init__(self, data_t="np", multigraph=False, *args, **kwargs):
         super(BaseFeatureEngineer, self).__init__(
             data_t=data_t, multigraph=multigraph, *args, **kwargs
@@ -164,7 +155,7 @@ class BaseFeatureEngineer(BaseFeatureAtom):
         self.kwargs = kwargs
 
 
-class TransformWrapper(BaseFeatureAtom):
+class TransformWrapper(BaseFeature):
     def __init__(self, cls, *args, **kwargs):
         super(TransformWrapper, self).__init__(data_t="tensor", *args, **kwargs)
         self._cls = cls

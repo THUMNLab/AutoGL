@@ -6,11 +6,12 @@ from tqdm import tqdm
 from tabulate import tabulate
 import time
 
-from .base import BaseFeatureAtom, BaseFeatureEngineer
+from .base import BaseFeature, BaseFeatureEngineer
 from .selectors import SeGBDT
 from . import register_feature
 
 from ...utils import get_logger
+import torch
 
 LOGGER = get_logger("Feature")
 
@@ -28,10 +29,15 @@ class Onlyconst(BaseFeatureEngineer):
     r"""it is a dummy feature engineer , which directly returns identical data"""
 
     def __init__(self, *args, **kwargs):
-        super(Onlyconst, self).__init__(multigraph=True, *args, **kwargs)
+        super(Onlyconst, self).__init__(
+            data_t="tensor", multigraph=True, *args, **kwargs
+        )
 
     def _transform(self, data):
-        data.x = np.ones((data.x.shape[0], 1))
+        if "x" in data:
+            data.x = torch.ones((data.x.shape[0], 1))
+        else:
+            data.x = torch.ones((torch.unique(data.edge_index).shape[0], 1))
         return data
 
 
@@ -113,37 +119,30 @@ class Timer:
 @register_feature("deepgl")
 class AutoFeatureEngineer(BaseFeatureEngineer):
     r"""
-
     Notes
     -----
-    An implementation of auto feature engineering method Deepgl [1]_ ,which iteratively generates features by aggregating neighbour features
+    An implementation of auto feature engineering method Deepgl [#]_ ,which iteratively generates features by aggregating neighbour features
     and select a fixed number of  features to automatically add important graph-aware features.
-
     References
     ----------
-    .. [1] Rossi, R. A., Zhou, R., & Ahmed, N. K. (2020).
+    .. [#] Rossi, R. A., Zhou, R., & Ahmed, N. K. (2020).
         Deep Inductive Graph Representation Learning.
         IEEE Transactions on Knowledge and Data Engineering, 32(3), 438–452.
         https://doi.org/10.1109/TKDE.2018.2878247
-
     Parameters
     ----------
     fixlen : int
         fixed number of features for every epoch. The final number of features added will be
         ``fixlen`` \times ``max_epoch``, 200 \times 5 in default.
-
     max_epoch : int
         number of epochs in total process.
-
     timebudget : int
         timebudget(seconds) for the feature engineering process, None for no time budget . Note that
         this time budget is a soft budget ,which is obtained by rough time estimation through previous iterations and
         may finally exceed the actual timebudget
-
     y_sel_func : Callable
         feature selector function object for selection at each iteration ,lightgbm in default. Note that in original paper,
         connected components of feature graph is used , and you may implement it by yourself if you want.
-
     verbosity : int
         hide any infomation except error and fatal if ``verbosity`` < 1
     """

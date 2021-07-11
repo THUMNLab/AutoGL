@@ -1,6 +1,7 @@
 import os.path as osp
 
 import torch
+
 # import torch_geometric.transforms as T
 from torch_geometric.datasets import (
     Planetoid,
@@ -9,6 +10,7 @@ from torch_geometric.datasets import (
     QM9,
     Amazon,
     Coauthor,
+    Flickr,
 )
 from torch_geometric.utils import remove_self_loops
 from . import register_dataset
@@ -21,10 +23,12 @@ class AmazonComputersDataset(Amazon):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         Amazon(path, dataset)
         super(AmazonComputersDataset, self).__init__(path, dataset)
-        
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(AmazonComputersDataset, self).get(idx)
 
 
@@ -35,10 +39,12 @@ class AmazonPhotoDataset(Amazon):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         Amazon(path, dataset)
         super(AmazonPhotoDataset, self).__init__(path, dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(AmazonPhotoDataset, self).get(idx)
 
 
@@ -49,10 +55,12 @@ class CoauthorPhysicsDataset(Coauthor):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         Coauthor(path, dataset)
         super(CoauthorPhysicsDataset, self).__init__(path, dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CoauthorPhysicsDataset, self).get(idx)
 
 
@@ -63,10 +71,12 @@ class CoauthorCSDataset(Coauthor):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         Coauthor(path, dataset)
         super(CoauthorCSDataset, self).__init__(path, dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CoauthorCSDataset, self).get(idx)
 
 
@@ -77,10 +87,12 @@ class CoraDataset(Planetoid):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         Planetoid(path, dataset)
         super(CoraDataset, self).__init__(path, dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CoraDataset, self).get(idx)
 
 
@@ -91,10 +103,12 @@ class CiteSeerDataset(Planetoid):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         Planetoid(path, dataset)
         super(CiteSeerDataset, self).__init__(path, dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CiteSeerDataset, self).get(idx)
 
 
@@ -105,10 +119,12 @@ class PubMedDataset(Planetoid):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         Planetoid(path, dataset)
         super(PubMedDataset, self).__init__(path, dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(PubMedDataset, self).get(idx)
 
 
@@ -119,11 +135,27 @@ class RedditDataset(Reddit):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         Reddit(path)
         super(RedditDataset, self).__init__(path)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(RedditDataset, self).get(idx)
+
+
+@register_dataset("flickr")
+class FlickrDataset(Flickr):
+    def __init__(self, path):
+        Flickr(path)
+        super(FlickrDataset, self).__init__(path)
+
+    def get(self, idx):
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
+        return super(FlickrDataset, self).get(idx)
 
 
 @register_dataset("mutag")
@@ -135,8 +167,10 @@ class MUTAGDataset(TUDataset):
         super(MUTAGDataset, self).__init__(path, name=dataset)
 
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(MUTAGDataset, self).get(idx)
 
 
@@ -147,10 +181,12 @@ class IMDBBinaryDataset(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(IMDBBinaryDataset, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(IMDBBinaryDataset, self).get(idx)
 
 
@@ -161,10 +197,12 @@ class IMDBMultiDataset(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(IMDBMultiDataset, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(IMDBMultiDataset, self).get(idx)
 
 
@@ -175,10 +213,12 @@ class CollabDataset(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(CollabDataset, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(CollabDataset, self).get(idx)
 
 
@@ -189,10 +229,12 @@ class ProteinsDataset(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(ProteinsDataset, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(ProteinsDataset, self).get(idx)
 
 
@@ -203,10 +245,12 @@ class REDDITBinary(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(REDDITBinary, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(REDDITBinary, self).get(idx)
 
 
@@ -217,10 +261,12 @@ class REDDITMulti5K(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(REDDITMulti5K, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(REDDITMulti5K, self).get(idx)
 
 
@@ -231,10 +277,12 @@ class REDDITMulti12K(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(REDDITMulti12K, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(REDDITMulti12K, self).get(idx)
 
 
@@ -247,8 +295,10 @@ class PTCMRDataset(TUDataset):
         super(PTCMRDataset, self).__init__(path, name=dataset)
 
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(PTCMRDataset, self).get(idx)
 
 
@@ -259,10 +309,12 @@ class NCI1Dataset(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(NCI1Dataset, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(NCI1Dataset, self).get(idx)
 
 
@@ -273,10 +325,12 @@ class NCI109Dataset(TUDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         TUDataset(path, name=dataset)
         super(NCI109Dataset, self).__init__(path, name=dataset)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(NCI109Dataset, self).get(idx)
 
 
@@ -298,10 +352,12 @@ class ENZYMES(TUDataset):
             return data
         else:
             return self.index_select(idx)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(ENZYMES, self).get(idx)
 
 
@@ -342,8 +398,10 @@ class QM9Dataset(QM9):
         if not osp.exists(path):
             QM9(path)
         super(QM9Dataset, self).__init__(path)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(QM9Dataset, self).get(idx)

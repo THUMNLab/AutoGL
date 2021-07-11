@@ -5,6 +5,7 @@ HPO Module for tuning hyper parameters
 import time
 import json
 import math
+from tqdm import trange
 from .suggestion.models import Study
 from .base import BaseHPOptimizer, TimeTooLimitedError
 from .suggestion.algorithm.random_search import RandomSearchAlgorithm
@@ -43,7 +44,9 @@ class AdvisorBaseHPOptimizer(BaseHPOptimizer):
         self.xs = []
         self.best_id = None
         self.best_trainer = None
-        space = trainer.hyper_parameter_space
+        space = (
+            trainer.hyper_parameter_space + trainer.get_model().hyper_parameter_space
+        )
         current_config = self._encode_para(space)
 
         for i in range(slaves):
@@ -129,7 +132,9 @@ class AdvisorBaseHPOptimizer(BaseHPOptimizer):
 
         self.feval_name = trainer.get_feval(return_major=True).get_eval_name()
         self.is_higher_better = trainer.get_feval(return_major=True).is_higher_better()
-        space = trainer.hyper_parameter_space
+        space = (
+            trainer.hyper_parameter_space + trainer.get_model().hyper_parameter_space
+        )
         current_space = self._encode_para(space)
         self._setUp(current_space)
 
@@ -146,7 +151,8 @@ class AdvisorBaseHPOptimizer(BaseHPOptimizer):
         best_id = None
         best_trainer = None
 
-        for i in range(self.max_evals):
+        print("HPO Search Phase:\n")
+        for i in trange(self.max_evals):
             if time.time() - start_time > time_limit:
                 self.logger.info("Time out of limit, Epoch: {}".format(str(i)))
                 break

@@ -46,6 +46,7 @@ def register_dataset(name):
 
     return register_dataset_cls
 
+
 from .pyg import (
     AmazonComputersDataset,
     AmazonPhotoDataset,
@@ -91,14 +92,16 @@ from .han_data import HANDataset, ACM_HANDataset, DBLP_HANDataset, IMDB_HANDatas
 from .matlab_matrix import (
     MatlabMatrix,
     BlogcatalogDataset,
-    FlickrDataset,
     WikipediaDataset,
     PPIDataset,
 )
 from .modelnet import (
-    ModelNet10, ModelNet40,
-    ModelNet10Train, ModelNet10Test,
-    ModelNet40Train, ModelNet40Test
+    ModelNet10,
+    ModelNet40,
+    ModelNet10Train,
+    ModelNet10Test,
+    ModelNet40Train,
+    ModelNet40Test,
 )
 from .utils import (
     get_label_number,
@@ -110,6 +113,7 @@ from .utils import (
     graph_get_split,
 )
 
+
 def build_dataset(args, path="~/.cache-autogl/"):
     path = osp.join(path, "data", args.dataset)
     path = os.path.expanduser(path)
@@ -120,9 +124,9 @@ def build_dataset_from_name(dataset_name, path="~/.cache-autogl/"):
     path = osp.join(path, "data", dataset_name)
     path = os.path.expanduser(path)
     dataset = DATASET_DICT[dataset_name](path)
-    if 'ogbn' in dataset_name:
-        #dataset.data, dataset.slices = dataset.collate([dataset.data])
-        #dataset.data.num_nodes = dataset.data.num_nodes[0]
+    if "ogbn" in dataset_name:
+        # dataset.data, dataset.slices = dataset.collate([dataset.data])
+        # dataset.data.num_nodes = dataset.data.num_nodes[0]
         if dataset.data.y.shape[-1] == 1:
             dataset.data.y = torch.squeeze(dataset.data.y)
     return dataset
@@ -132,10 +136,6 @@ __all__ = [
     "register_dataset",
     "build_dataset",
     "build_dataset_from_name",
-    "GatneDataset",
-    "GTNDataset",
-    "HANDataset",
-    "MatlabMatrix",
     "get_label_number",
     "random_splits_mask",
     "random_splits_mask_class",
@@ -143,4 +143,61 @@ __all__ = [
     "graph_set_fold_id",
     "graph_random_splits",
     "graph_get_split",
+    "AmazonComputersDataset",
+    "AmazonPhotoDataset",
+    "CoauthorPhysicsDataset",
+    "CoauthorCSDataset",
+    "CoraDataset",
+    "CiteSeerDataset",
+    "PubMedDataset",
+    "RedditDataset",
+    "MUTAGDataset",
+    "IMDBBinaryDataset",
+    "IMDBMultiDataset",
+    "CollabDataset",
+    "ProteinsDataset",
+    "REDDITBinary",
+    "REDDITMulti5K",
+    "REDDITMulti12K",
+    "PTCMRDataset",
+    "NCI1Dataset",
+    "ENZYMES",
+    "QM9Dataset",
+    "OGBNproductsDataset",
+    "OGBNproteinsDataset",
+    "OGBNarxivDataset",
+    "OGBNpapers100MDataset",
+    "OGBNmagDataset",
+    "OGBGmolhivDataset",
+    "OGBGmolpcbaDataset",
+    "OGBGppaDataset",
+    "OGBGcodeDataset",
+    "OGBLppaDataset",
+    "OGBLcollabDataset",
+    "OGBLddiDataset",
+    "OGBLcitationDataset",
+    "OGBLwikikgDataset",
+    "OGBLbiokgDataset",
+    "GatneDataset",
+    "AmazonDataset",
+    "TwitterDataset",
+    "YouTubeDataset",
+    "GTNDataset",
+    "ACM_GTNDataset",
+    "DBLP_GTNDataset",
+    "IMDB_GTNDataset",
+    "HANDataset",
+    "ACM_HANDataset",
+    "DBLP_HANDataset",
+    "IMDB_HANDataset",
+    "MatlabMatrix",
+    "BlogcatalogDataset",
+    "WikipediaDataset",
+    "PPIDataset",
+    "ModelNet10",
+    "ModelNet40",
+    "ModelNet10Train",
+    "ModelNet10Test",
+    "ModelNet40Train",
+    "ModelNet40Test",
 ]

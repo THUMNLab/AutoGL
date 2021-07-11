@@ -1,163 +1,205 @@
 import torch
+import typing as _typing
+
+from torch_geometric.nn.conv import SAGEConv
+import torch.nn.functional
+import autogl.data
 from . import register_model
-from .base import BaseModel, activate_func
-
-from typing import Union, Tuple
-from torch_geometric.typing import OptPairTensor, Adj, Size
-
-from torch import Tensor
-from torch.nn import Linear
-import torch.nn.functional as F
-from torch_sparse import SparseTensor, matmul
-from torch_geometric.nn.conv import MessagePassing
+from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
 from ...utils import get_logger
 
 LOGGER = get_logger("SAGEModel")
 
 
-class SAGEConv(MessagePassing):
-    r"""Modified from SAGEConv in Pytorch Geometric <https://github.com/rusty1s/pytorch_geometric/blob/master/torch_geometric/nn/conv/sage_conv.py>
-    The GraphSAGE operator from the `"Inductive Representation Learning on
-    Large Graphs" <https://arxiv.org/abs/1706.02216>`_ paper
-    .. math::
-        \mathbf{x}^{\prime}_i = \mathbf{W}_1 \mathbf{x}_i + \mathbf{W_2} \cdot
-        \mathrm{mean}_{j \in \mathcal{N(i)}} \mathbf{x}_j
-    Args:
-        in_channels (int or tuple): Size of each input sample. A tuple
-            corresponds to the sizes of source and target dimensionalities.
-        out_channels (int): Size of each output sample.
-        normalize (bool, optional): If set to :obj:`True`, output features
-            will be :math:`\ell_2`-normalized, *i.e.*,
-            :math:`\frac{\mathbf{x}^{\prime}_i}
-            {\| \mathbf{x}^{\prime}_i \|_2}`.
-            (default: :obj:`False`)
-        bias (bool, optional): If set to :obj:`False`, the layer will not learn
-            an additive bias. (default: :obj:`True`)
-        **kwargs (optional): Additional arguments of
-            :class:`torch_geometric.nn.conv.MessagePassing`.
-    """
+class GraphSAGE(ClassificationSupportedSequentialModel):
+    class _SAGELayer(torch.nn.Module):
+        def __init__(
+            self,
+            input_channels: int,
+            output_channels: int,
+            aggr: str,
+            activation_name: _typing.Optional[str] = ...,
+            dropout_probability: _typing.Optional[float] = ...,
+        ):
+            super().__init__()
+            self._convolution: SAGEConv = SAGEConv(
+                input_channels, output_channels, aggr=aggr
+            )
+            if (
+                activation_name is not Ellipsis
+                and activation_name is not None
+                and type(activation_name) == str
+            ):
+                self._activation_name: _typing.Optional[str] = activation_name
+            else:
+                self._activation_name: _typing.Optional[str] = None
+            if (
+                dropout_probability is not Ellipsis
+                and dropout_probability is not None
+                and type(dropout_probability) == float
+            ):
+                if dropout_probability < 0:
+                    dropout_probability = 0
+                if dropout_probability > 1:
+                    dropout_probability = 1
+                self._dropout: _typing.Optional[torch.nn.Dropout] = torch.nn.Dropout(
+                    dropout_probability
+                )
+            else:
+                self._dropout: _typing.Optional[torch.nn.Dropout] = None
+
+        def forward(self, data, enable_activation: bool = True) -> torch.Tensor:
+            x: torch.Tensor = getattr(data, "x")
+            edge_index: torch.Tensor = getattr(data, "edge_index")
+            if type(x) != torch.Tensor or type(edge_index) != torch.Tensor:
+                raise TypeError
+
+            x: torch.Tensor = self._convolution.forward(x, edge_index)
+            if self._activation_name is not None and enable_activation:
+                x: torch.Tensor = activate_func(x, self._activation_name)
+            if self._dropout is not None:
+                x: torch.Tensor = self._dropout.forward(x)
+            return x
 
     def __init__(
         self,
-        in_channels: Union[int, Tuple[int, int]],
-        out_channels: int,
-        normalize: bool = False,
-        bias: bool = True,
+        num_features: int,
+        num_classes: int,
+        hidden_features: _typing.Sequence[int],
+        activation_name: str,
+        layers_dropout: _typing.Union[
+            _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
+        ] = None,
         aggr: str = "mean",
-        **kwargs
     ):
-        super(SAGEConv, self).__init__(aggr=aggr, **kwargs)
+        super().__init__()
+        if not type(num_features) == type(num_classes) == int:
+            raise TypeError
+        if not isinstance(hidden_features, _typing.Sequence):
+            raise TypeError
+        for hidden_feature in hidden_features:
+            if type(hidden_feature) != int:
+                raise TypeError
+            elif hidden_feature <= 0:
+                raise ValueError
+        if isinstance(layers_dropout, _typing.Sequence):
+            if len(layers_dropout) != (len(hidden_features) + 1):
+                raise TypeError
+            for d in layers_dropout:
+                if d is not None and type(d) != float:
+                    raise TypeError
+            _layers_dropout: _typing.Sequence[_typing.Optional[float]] = layers_dropout
+        elif layers_dropout is None or type(layers_dropout) == float:
+            _layers_dropout: _typing.Sequence[_typing.Optional[float]] = [
+                layers_dropout for _ in range(len(hidden_features))
+            ] + [None]
+        else:
+            raise TypeError
+        if not type(activation_name) == type(aggr) == str:
+            raise TypeError
+        if aggr not in ("add", "max", "mean"):
+            aggr = "mean"
 
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.normalize = normalize
-
-        if isinstance(in_channels, int):
-            in_channels = (in_channels, in_channels)
-
-        self.lin_l = Linear(in_channels[0], out_channels, bias=bias)
-        self.lin_r = Linear(in_channels[1], out_channels, bias=False)
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        self.lin_l.reset_parameters()
-        self.lin_r.reset_parameters()
-
-    def forward(
-        self, x: Union[Tensor, OptPairTensor], edge_index: Adj, size: Size = None
-    ) -> Tensor:
-        """"""
-        if isinstance(x, Tensor):
-            x: OptPairTensor = (x, x)
-
-        # propagate_type: (x: OptPairTensor)
-        out = self.propagate(edge_index, x=x, size=size)
-        out = self.lin_l(out)
-
-        x_r = x[1]
-        if x_r is not None:
-            out += self.lin_r(x_r)
-
-        if self.normalize:
-            out = F.normalize(out, p=2.0, dim=-1)
-
-        return out
-
-    def message(self, x_j: Tensor) -> Tensor:
-        return x_j
-
-    def message_and_aggregate(self, adj_t: SparseTensor, x: OptPairTensor) -> Tensor:
-        adj_t = adj_t.set_value(None, layout=None)
-        return matmul(adj_t, x[0], reduce=self.aggr)
-
-    def __repr__(self):
-        return "{}({}, {})".format(
-            self.__class__.__name__, self.in_channels, self.out_channels
-        )
-
-
-def set_default(args, d):
-    for k, v in d.items():
-        if k not in args:
-            args[k] = v
-    return args
-
-
-class GraphSAGE(torch.nn.Module):
-    def __init__(self, args):
-        super(GraphSAGE, self).__init__()
-        self.args = args
-        agg = self.args["agg"]
-        self.num_layer = int(self.args["num_layers"])
-        if not self.num_layer == len(self.args["hidden"]) + 1:
-            LOGGER.warn("Warning: layer size does not match the length of hidden units")
-
-        missing_keys = list(set(["features_num", "num_class", "num_layers",
-                    "hidden", "dropout", "act", "agg"]) - set(self.args.keys()))
-        if len(missing_keys) > 0:
-            raise Exception("Missing keys: %s." % ','.join(missing_keys))
-        
-        self.convs = torch.nn.ModuleList()
-        self.convs.append(
-            SAGEConv(self.args["features_num"], self.args["hidden"][0], aggr=agg)
-        )
-        for i in range(self.num_layer - 2):
-            self.convs.append(
-                SAGEConv(self.args["hidden"][i], self.args["hidden"][i + 1], aggr=agg)
+        if len(hidden_features) == 0:
+            self.__sequential_encoding_layers: torch.nn.ModuleList = (
+                torch.nn.ModuleList(
+                    [
+                        self._SAGELayer(
+                            num_features,
+                            num_classes,
+                            aggr,
+                            activation_name,
+                            _layers_dropout[0],
+                        )
+                    ]
+                )
             )
-        self.convs.append(
-            SAGEConv(
-                self.args["hidden"][self.num_layer - 2],
-                self.args["num_class"],
-                aggr=agg,
+        else:
+            self.__sequential_encoding_layers: torch.nn.ModuleList = (
+                torch.nn.ModuleList(
+                    [
+                        self._SAGELayer(
+                            num_features,
+                            hidden_features[0],
+                            aggr,
+                            activation_name,
+                            _layers_dropout[0],
+                        )
+                    ]
+                )
             )
+            for i in range(len(hidden_features)):
+                if i + 1 < len(hidden_features):
+                    self.__sequential_encoding_layers.append(
+                        self._SAGELayer(
+                            hidden_features[i],
+                            hidden_features[i + 1],
+                            aggr,
+                            activation_name,
+                            _layers_dropout[i + 1],
+                        )
+                    )
+                else:
+                    self.__sequential_encoding_layers.append(
+                        self._SAGELayer(
+                            hidden_features[i],
+                            num_classes,
+                            aggr,
+                            _layers_dropout[i + 1],
+                        )
+                    )
+
+    @property
+    def sequential_encoding_layers(self) -> torch.nn.ModuleList:
+        return self.__sequential_encoding_layers
+
+    def cls_encode(self, data) -> torch.Tensor:
+        if (
+            hasattr(data, "edge_indexes")
+            and isinstance(getattr(data, "edge_indexes"), _typing.Sequence)
+            and len(getattr(data, "edge_indexes"))
+            == len(self.__sequential_encoding_layers)
+        ):
+            for __edge_index in getattr(data, "edge_indexes"):
+                if type(__edge_index) != torch.Tensor:
+                    raise TypeError
+            """ Layer-wise encode """
+            x: torch.Tensor = getattr(data, "x")
+            for i, __edge_index in enumerate(getattr(data, "edge_indexes")):
+                x: torch.Tensor = self.__sequential_encoding_layers[i](
+                    autogl.data.Data(x=x, edge_index=__edge_index)
+                )
+            return x
+        else:
+            x: torch.Tensor = getattr(data, "x")
+            for i in range(len(self.__sequential_encoding_layers)):
+                x = self.__sequential_encoding_layers[i](
+                    autogl.data.Data(x, getattr(data, "edge_index"))
+                )
+            return x
+
+    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.log_softmax(x, dim=1)
+
+    def lp_encode(self, data):
+        x: torch.Tensor = getattr(data, "x")
+        for i in range(len(self.__sequential_encoding_layers) - 2):
+            x = self.__sequential_encoding_layers[i](
+                autogl.data.Data(x, getattr(data, "edge_index"))
+            )
+        x = self.__sequential_encoding_layers[-2](
+            autogl.data.Data(x, getattr(data, "edge_index")), enable_activation=False
         )
+        return x
 
-    def forward(self, data):
-        try:
-            x = data.x
-        except:
-            print("no x")
-            pass
-        try:
-            edge_index = data.edge_index
-        except:
-            print("no index")
-            pass
-        try:
-            edge_weight = data.edge_weight
-        except:
-            edge_weight = None
-            pass
+    def lp_decode(self, z, pos_edge_index, neg_edge_index):
+        edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)
+        logits = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=-1)
+        return logits
 
-        for i in range(self.num_layer):
-            x = self.convs[i](x, edge_index, edge_weight)
-            if i != self.num_layer - 1:
-                x = activate_func(x, self.args["act"])
-                x = F.dropout(x, p=self.args["dropout"], training=self.training)
-
-        return F.log_softmax(x, dim=1)
+    def lp_decode_all(self, z):
+        prob_adj = z @ z.t()
+        return (prob_adj > 0).nonzero(as_tuple=False).t()
 
 
 @register_model("sage")
@@ -251,8 +293,14 @@ class AutoSAGE(BaseModel):
             self.initialize()
 
     def initialize(self):
-        # """Initialize model."""
         if self.initialized:
             return
         self.initialized = True
-        self.model = GraphSAGE({**self.params, **self.hyperparams}).to(self.device)
+        self.model = GraphSAGE(
+            self.num_features,
+            self.num_classes,
+            self.hyperparams.get("hidden"),
+            self.hyperparams.get("act", "relu"),
+            self.hyperparams.get("dropout", None),
+            self.hyperparams.get("agg", "mean"),
+        ).to(self.device)

@@ -1,0 +1,69 @@
+ensemble:
+  name: null
+feature:
+- name: PYGNormalizeFeatures
+hpo:
+  max_evals: 10
+  name: random
+models:
+- name: sage
+  hp_space:
+  - parameterName: num_layers
+    type: DISCRETE
+    feasiblePoints: 2,3
+  
+  - parameterName: hidden
+    type: NUMERICAL_LIST
+    scalingType: LOG
+    numericalType: INTEGER
+    cutFunc: lambda x:x[0] - 1
+    cutPara:
+    - num_layers
+    length: 2
+    maxValue:
+    - 256
+    - 256
+    minValue:
+    - 64
+    - 64
+  
+  - parameterName: dropout
+    type: DOUBLE
+    scalingType: LINEAR
+    maxValue: 0.2
+    minValue: 0.0
+    
+  - parameterName: act
+    type: CATEGORICAL
+    feasiblePoints:
+    - leaky_relu
+    - relu
+    - elu
+    - tanh
+    
+  - parameterName: agg
+    type: CATEGORICAL
+    feasiblePoints: ["mean", "add", "max"]    
+
+trainer:
+  hp_space:
+  - maxValue: 150
+    minValue: 50
+    parameterName: max_epoch
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 40
+    minValue: 25
+    parameterName: early_stopping_round
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 0.05
+    minValue: 0.005
+    parameterName: lr
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 1.0E-7
+    minValue: 1.0E-10
+    parameterName: weight_decay
+    scalingType: LOG
+    type: DOUBLE

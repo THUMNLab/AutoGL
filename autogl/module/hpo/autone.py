@@ -3,26 +3,25 @@ HPO Module for tuning hyper parameters
 """
 
 import time
-import json
-import math
 import numpy as np
+from tqdm import trange
 from . import register_hpo
-from .suggestion.models import Study
 from .base import BaseHPOptimizer, TimeTooLimitedError
 
 from .autone_file import utils
 
 from torch_geometric.data import GraphSAINTRandomWalkSampler
 
-from ..feature.subgraph.nx import NxSubgraph, NxLargeCliqueSize
-from ..feature.subgraph import nx, SgNetLSD
+from ..feature.graph import SgNetLSD
 
-from torch_geometric.data import InMemoryDataset 
+from torch_geometric.data import InMemoryDataset
+
 
 class _MyDataset(InMemoryDataset):
     def __init__(self, datalist) -> None:
         super().__init__()
         self.data, self.slices = self.collate(datalist)
+
 
 @register_hpo("autone")
 class AutoNE(BaseHPOptimizer):
@@ -59,7 +58,9 @@ class AutoNE(BaseHPOptimizer):
         """
         self.feval_name = trainer.get_feval(return_major=True).get_eval_name()
         self.is_higher_better = trainer.get_feval(return_major=True).is_higher_better()
-        space = trainer.hyper_parameter_space + trainer.model.hyper_parameter_space
+        space = (
+            trainer.hyper_parameter_space + trainer.get_model().hyper_parameter_space
+        )
         current_space = self._encode_para(space)
 
         def sample_subgraph(whole_data):
@@ -73,17 +74,17 @@ class AutoNE(BaseHPOptimizer):
             )
             results = []
             for data in loader:
-                in_dataset= _MyDataset([data])
+                in_dataset = _MyDataset([data])
                 results.append(in_dataset)
             return results
 
         func = SgNetLSD()
 
         def get_wne(graph):
-            graph=func.fit_transform(graph)
-            # transform = nx.NxSubgraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
+            graph = func.fit_transform(graph)
+            # transform = nx.NxGraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
             # print(type(graph))
-            #gf = transform.fit_transform(graph).data.gf
+            # gf = transform.fit_transform(graph).data.gf
             gf = graph.data.gf
             fin = list(gf[0]) + list(map(lambda x: float(x), gf[1:]))
             return fin
@@ -111,7 +112,8 @@ class AutoNE(BaseHPOptimizer):
         K = utils.K(len(params.type_))
         gp = utils.GaussianProcessRegressor(K)
         sample_graphs = sample_subgraph(dataset)
-        for t in range(sampled_number):
+        print("Sample Phase:\n")
+        for t in trange(sampled_number):
             b_t = time.time()
             i = t
             subgraph = sample_graphs[t]
@@ -129,7 +131,8 @@ class AutoNE(BaseHPOptimizer):
         best_trainer = None
         best_para = None
         wne = get_wne(dataset)
-        for t in range(s):
+        print("HPO Search Phase:\n")
+        for t in trange(s):
             if time.time() - start_time > time_limit:
                 self.logger.info("Time out of limit, Epoch: {}".format(str(i)))
                 break

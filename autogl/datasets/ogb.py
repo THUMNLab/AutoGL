@@ -30,15 +30,17 @@ class OGBNproductsDataset(PygNodePropPredDataset):
         split_idx = self.get_idx_split()
         datalist = []
         for d in self:
-            setattr(d, "train_mask", index_to_mask(split_idx['train'], d.y.shape[0]))
-            setattr(d, "val_mask", index_to_mask(split_idx['valid'], d.y.shape[0]))
-            setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
+            setattr(d, "train_mask", index_to_mask(split_idx["train"], d.y.shape[0]))
+            setattr(d, "val_mask", index_to_mask(split_idx["valid"], d.y.shape[0]))
+            setattr(d, "test_mask", index_to_mask(split_idx["test"], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNproductsDataset, self).get(idx)
 
 
@@ -49,7 +51,9 @@ class OGBNproteinsDataset(PygNodePropPredDataset):
         # path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", dataset)
         PygNodePropPredDataset(name=dataset, root=path)
         super(OGBNproteinsDataset, self).__init__(dataset, path)
-        dataset_t = PygNodePropPredDataset(name=dataset, root=path, transform=T.ToSparseTensor())
+        dataset_t = PygNodePropPredDataset(
+            name=dataset, root=path, transform=T.ToSparseTensor()
+        )
 
         # Move edge features to node features.
         self.data.x = dataset_t[0].adj_t.mean(dim=1)
@@ -61,15 +65,17 @@ class OGBNproteinsDataset(PygNodePropPredDataset):
         split_idx = self.get_idx_split()
         datalist = []
         for d in self:
-            setattr(d, "train_mask", index_to_mask(split_idx['train'], d.y.shape[0]))
-            setattr(d, "val_mask", index_to_mask(split_idx['valid'], d.y.shape[0]))
-            setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
+            setattr(d, "train_mask", index_to_mask(split_idx["train"], d.y.shape[0]))
+            setattr(d, "val_mask", index_to_mask(split_idx["valid"], d.y.shape[0]))
+            setattr(d, "test_mask", index_to_mask(split_idx["test"], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNproteinsDataset, self).get(idx)
 
 
@@ -86,15 +92,17 @@ class OGBNarxivDataset(PygNodePropPredDataset):
 
         datalist = []
         for d in self:
-            setattr(d, "train_mask", index_to_mask(split_idx['train'], d.y.shape[0]))
-            setattr(d, "val_mask", index_to_mask(split_idx['valid'], d.y.shape[0]))
-            setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
+            setattr(d, "train_mask", index_to_mask(split_idx["train"], d.y.shape[0]))
+            setattr(d, "val_mask", index_to_mask(split_idx["valid"], d.y.shape[0]))
+            setattr(d, "test_mask", index_to_mask(split_idx["test"], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNarxivDataset, self).get(idx)
 
 
@@ -110,15 +118,17 @@ class OGBNpapers100MDataset(PygNodePropPredDataset):
         split_idx = self.get_idx_split()
         datalist = []
         for d in self:
-            setattr(d, "train_mask", index_to_mask(split_idx['train'], d.y.shape[0]))
-            setattr(d, "val_mask", index_to_mask(split_idx['valid'], d.y.shape[0]))
-            setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
+            setattr(d, "train_mask", index_to_mask(split_idx["train"], d.y.shape[0]))
+            setattr(d, "val_mask", index_to_mask(split_idx["valid"], d.y.shape[0]))
+            setattr(d, "test_mask", index_to_mask(split_idx["test"], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNpapers100MDataset, self).get(idx)
 
 
@@ -134,9 +144,10 @@ class OGBNmagDataset(PygNodePropPredDataset):
         rel_data = self[0]
         # We are only interested in paper <-> paper relations.
         self.data = Data(
-            x=rel_data.x_dict['paper'],
-            edge_index=rel_data.edge_index_dict[('paper', 'cites', 'paper')],
-            y=rel_data.y_dict['paper'])
+            x=rel_data.x_dict["paper"],
+            edge_index=rel_data.edge_index_dict[("paper", "cites", "paper")],
+            y=rel_data.y_dict["paper"],
+        )
 
         # self.data = T.ToSparseTensor()(data)
         # self[0].adj_t = self[0].adj_t.to_symmetric()
@@ -147,15 +158,17 @@ class OGBNmagDataset(PygNodePropPredDataset):
 
         datalist = []
         for d in self:
-            setattr(d, "train_mask", index_to_mask(split_idx['train'], d.y.shape[0]))
-            setattr(d, "val_mask", index_to_mask(split_idx['valid'], d.y.shape[0]))
-            setattr(d, "test_mask", index_to_mask(split_idx['test'], d.y.shape[0]))
+            setattr(d, "train_mask", index_to_mask(split_idx["train"], d.y.shape[0]))
+            setattr(d, "val_mask", index_to_mask(split_idx["valid"], d.y.shape[0]))
+            setattr(d, "test_mask", index_to_mask(split_idx["test"], d.y.shape[0]))
             datalist.append(d)
         self.data, self.slices = self.collate(datalist)
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBNmagDataset, self).get(idx)
 
 
@@ -171,10 +184,12 @@ class OGBGmolhivDataset(PygGraphPropPredDataset):
         super(OGBGmolhivDataset, self).__init__(dataset, path)
         setattr(OGBGmolhivDataset, "metric", "ROC-AUC")
         setattr(OGBGmolhivDataset, "loss", "binary_cross_entropy_with_logits")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBGmolhivDataset, self).get(idx)
 
 
@@ -187,10 +202,12 @@ class OGBGmolpcbaDataset(PygGraphPropPredDataset):
         super(OGBGmolpcbaDataset, self).__init__(dataset, path)
         setattr(OGBGmolpcbaDataset, "metric", "AP")
         setattr(OGBGmolpcbaDataset, "loss", "binary_cross_entropy_with_logits")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBGmolpcbaDataset, self).get(idx)
 
 
@@ -203,10 +220,12 @@ class OGBGppaDataset(PygGraphPropPredDataset):
         super(OGBGppaDataset, self).__init__(dataset, path)
         setattr(OGBGppaDataset, "metric", "Accuracy")
         setattr(OGBGppaDataset, "loss", "cross_entropy")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBGppaDataset, self).get(idx)
 
 
@@ -219,10 +238,12 @@ class OGBGcodeDataset(PygGraphPropPredDataset):
         super(OGBGcodeDataset, self).__init__(dataset, path)
         setattr(OGBGcodeDataset, "metric", "F1 score")
         setattr(OGBGcodeDataset, "loss", "cross_entropy")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBGcodeDataset, self).get(idx)
 
 
@@ -238,10 +259,12 @@ class OGBLppaDataset(PygLinkPropPredDataset):
         super(OGBLppaDataset, self).__init__(dataset, path)
         setattr(OGBLppaDataset, "metric", "Hits@100")
         setattr(OGBLppaDataset, "loss", "pos_neg_loss")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLppaDataset, self).get(idx)
 
 
@@ -254,10 +277,12 @@ class OGBLcollabDataset(PygLinkPropPredDataset):
         super(OGBLcollabDataset, self).__init__(dataset, path)
         setattr(OGBLcollabDataset, "metric", "Hits@50")
         setattr(OGBLcollabDataset, "loss", "pos_neg_loss")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLcollabDataset, self).get(idx)
 
 
@@ -270,10 +295,12 @@ class OGBLddiDataset(PygLinkPropPredDataset):
         super(OGBLddiDataset, self).__init__(dataset, path)
         setattr(OGBLddiDataset, "metric", "Hits@20")
         setattr(OGBLddiDataset, "loss", "pos_neg_loss")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLddiDataset, self).get(idx)
 
 
@@ -286,10 +313,12 @@ class OGBLcitationDataset(PygLinkPropPredDataset):
         super(OGBLcitationDataset, self).__init__(dataset, path)
         setattr(OGBLcitationDataset, "metric", "MRR")
         setattr(OGBLcitationDataset, "loss", "pos_neg_loss")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLcitationDataset, self).get(idx)
 
 
@@ -302,10 +331,12 @@ class OGBLwikikgDataset(PygLinkPropPredDataset):
         super(OGBLwikikgDataset, self).__init__(dataset, path)
         setattr(OGBLwikikgDataset, "metric", "MRR")
         setattr(OGBLwikikgDataset, "loss", "pos_neg_loss")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLwikikgDataset, self).get(idx)
 
 
@@ -318,8 +349,10 @@ class OGBLbiokgDataset(PygLinkPropPredDataset):
         super(OGBLbiokgDataset, self).__init__(dataset, path)
         setattr(OGBLbiokgDataset, "metric", "MRR")
         setattr(OGBLbiokgDataset, "loss", "pos_neg_loss")
-    
+
     def get(self, idx):
-        if hasattr(self, '__data_list__'):
-            delattr(self, '__data_list__')
+        if hasattr(self, "__data_list__"):
+            delattr(self, "__data_list__")
+        if hasattr(self, "_data_list"):
+            delattr(self, "_data_list")
         return super(OGBLbiokgDataset, self).get(idx)

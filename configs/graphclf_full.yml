@@ -1,0 +1,53 @@
+ensemble:
+  name: voting
+  size: 2
+hpo:
+  max_evals: 10
+  name: anneal
+models:
+- hp_space:
+  - maxValue: 0.9
+    minValue: 0.1
+    parameterName: ratio
+    scalingType: LINEAR
+    type: DOUBLE
+  - maxValue: 0.9
+    minValue: 0.1
+    parameterName: dropout
+    scalingType: LINEAR
+    type: DOUBLE
+  - feasiblePoints:
+    - leaky_relu
+    - relu
+    - elu
+    - tanh
+    parameterName: act
+    type: CATEGORICAL
+  name: topkpool
+trainer:
+  hp_space:
+  - maxValue: 300
+    minValue: 10
+    parameterName: max_epoch
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 30
+    minValue: 10
+    parameterName: early_stopping_round
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 0.1
+    minValue: 0.0001
+    parameterName: lr
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 0.005
+    minValue: 5.0e-05
+    parameterName: weight_decay
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 128
+    minValue: 48
+    parameterName: batch_size
+    scalingType: LINEAR
+    type: INTEGER

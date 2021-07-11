@@ -1,7 +1,7 @@
 .. _solver documentation:
 
-solver
-======
+autogl.solver
+=============
 
 .. automodule:: autogl.solver
     :members:

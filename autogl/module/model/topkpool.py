@@ -21,10 +21,21 @@ class Topkpool(torch.nn.Module):
         super(Topkpool, self).__init__()
         self.args = args
 
-        missing_keys = list(set(["features_num", "num_class", "num_graph_features",
-                    "ratio", "dropout", "act"]) - set(self.args.keys()))
+        missing_keys = list(
+            set(
+                [
+                    "features_num",
+                    "num_class",
+                    "num_graph_features",
+                    "ratio",
+                    "dropout",
+                    "act",
+                ]
+            )
+            - set(self.args.keys())
+        )
         if len(missing_keys) > 0:
-            raise Exception("Missing keys: %s." % ','.join(missing_keys))
+            raise Exception("Missing keys: %s." % ",".join(missing_keys))
 
         self.num_features = self.args["features_num"]
         self.num_classes = self.args["num_class"]
@@ -45,7 +56,8 @@ class Topkpool(torch.nn.Module):
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
-        graph_feature = data.gf
+        if self.num_graph_features > 0:
+            graph_feature = data.gf
 
         x = F.relu(self.conv1(x, edge_index))
         x, edge_index, _, batch, _, _ = self.pool1(x, edge_index, None, batch)
@@ -60,7 +72,8 @@ class Topkpool(torch.nn.Module):
         x3 = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
 
         x = x1 + x2 + x3
-        x = torch.cat([x, graph_feature], dim=-1)
+        if self.num_graph_features > 0:
+            x = torch.cat([x, graph_feature], dim=-1)
         x = self.lin1(x)
         x = activate_func(x, self.args["act"])
         x = F.dropout(x, p=self.dropout, training=self.training)

@@ -1,29 +1,27 @@
-from . import register_trainer, BaseTrainer, Evaluation, EVALUATE_DICT, EarlyStopping
+from . import register_trainer
+from .base import BaseGraphClassificationTrainer, EarlyStopping, Evaluation
 import torch
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import (
+    StepLR,
+    MultiStepLR,
+    ExponentialLR,
+    ReduceLROnPlateau,
+)
 import torch.nn.functional as F
-from ..model import MODEL_DICT, BaseModel
-from .evaluate import Logloss
+from ..model import BaseModel
+from .evaluation import get_feval, Logloss
 from typing import Union
 from ...datasets import utils
 from copy import deepcopy
+import torch.multiprocessing as mp
 
 from ...utils import get_logger
 
-LOGGER = get_logger('graph classification solver')
-
-def get_feval(feval):
-    if isinstance(feval, str):
-        return EVALUATE_DICT[feval]
-    if isinstance(feval, type) and issubclass(feval, Evaluation):
-        return feval
-    if isinstance(feval, list):
-        return [get_feval(f) for f in feval]
-    raise ValueError("feval argument of type", type(feval), "is not supported!")
+LOGGER = get_logger("graph classification solver")
 
 
-@register_trainer("GraphClassification")
-class GraphClassificationTrainer(BaseTrainer):
+@register_trainer("GraphClassificationFull")
+class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
     """
     The graph classification trainer.
 
@@ -65,32 +63,29 @@ class GraphClassificationTrainer(BaseTrainer):
         lr=None,
         max_epoch=None,
         batch_size=None,
+        num_workers=None,
         early_stopping_round=7,
         weight_decay=1e-4,
-        device=None,
+        device="auto",
         init=True,
         feval=[Logloss],
         loss="nll_loss",
+        lr_scheduler_type=None,
         *args,
         **kwargs
     ):
-        super(GraphClassificationTrainer, self).__init__(model)
+        super().__init__(
+            model,
+            num_features,
+            num_classes,
+            num_graph_features=num_graph_features,
+            device=device,
+            init=init,
+            feval=feval,
+            loss=loss,
+        )
 
-        self.loss_type = loss
-
-        # init model
-        if isinstance(model, str):
-            assert model in MODEL_DICT, "Cannot parse model name " + model
-            self.model = MODEL_DICT[model](
-                num_features,
-                num_classes,
-                device,
-                init=init,
-                num_graph_features=num_graph_features,
-            )
-        elif isinstance(model, BaseModel):
-            self.model = model
-
+        self.opt_received = optimizer
         if type(optimizer) == str and optimizer.lower() == "adam":
             self.optimizer = torch.optim.Adam
         elif type(optimizer) == str and optimizer.lower() == "sgd":
@@ -98,12 +93,14 @@ class GraphClassificationTrainer(BaseTrainer):
         else:
             self.optimizer = torch.optim.Adam
 
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.num_graph_features = num_graph_features
+        self.lr_scheduler_type = lr_scheduler_type
+
         self.lr = lr if lr is not None else 1e-4
         self.max_epoch = max_epoch if max_epoch is not None else 100
         self.batch_size = batch_size if batch_size is not None else 64
+        self.num_workers = num_workers if num_workers is not None else 0
+        if self.num_workers > 0:
+            mp.set_start_method("fork", force=True)
         self.early_stopping_round = (
             early_stopping_round if early_stopping_round is not None else 100
         )
@@ -125,8 +122,6 @@ class GraphClassificationTrainer(BaseTrainer):
         self.valid_score = None
 
         self.initialized = False
-        self.num_features = num_features
-        self.num_classes = num_classes
         self.device = device
 
         self.space = [
@@ -166,8 +161,6 @@ class GraphClassificationTrainer(BaseTrainer):
                 "scalingType": "LOG",
             },
         ]
-        self.space += self.model.space
-        GraphClassificationTrainer.space = self.space
 
         self.hyperparams = {
             "max_epoch": self.max_epoch,
@@ -176,7 +169,6 @@ class GraphClassificationTrainer(BaseTrainer):
             "lr": self.lr,
             "weight_decay": self.weight_decay,
         }
-        self.hyperparams = {**self.hyperparams, **self.model.get_hyper_parameter()}
 
         if init is True:
             self.initialize()
@@ -197,9 +189,9 @@ class GraphClassificationTrainer(BaseTrainer):
         # """Get task name, i.e., `GraphClassification`."""
         return "GraphClassification"
 
-    def to(self, new_device):
-        assert isinstance(new_device, torch.device)
-        self.device = new_device
+    def to(self, device):
+        assert isinstance(device, torch.device)
+        self.device = device
         if self.model is not None:
             self.model.to(self.device)
 
@@ -219,9 +211,24 @@ class GraphClassificationTrainer(BaseTrainer):
 
         """
         optimizer = self.optimizer(
-            self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-        scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+
+        # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        lr_scheduler_type = self.lr_scheduler_type
+        if type(lr_scheduler_type) == str and lr_scheduler_type == "steplr":
+            scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == "multisteplr":
+            scheduler = MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == "exponentiallr":
+            scheduler = ExponentialLR(optimizer, gamma=0.1)
+        elif (
+            type(lr_scheduler_type) == str and lr_scheduler_type == "reducelronplateau"
+        ):
+            scheduler = ReduceLROnPlateau(optimizer, "min")
+        else:
+            scheduler = None
+
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
             loss_all = 0
@@ -230,29 +237,33 @@ class GraphClassificationTrainer(BaseTrainer):
                 optimizer.zero_grad()
                 output = self.model.model(data)
                 # loss = F.nll_loss(output, data.y)
-                if hasattr(F, self.loss_type):
-                    loss = getattr(F, self.loss_type)(output, data.y)
+                if hasattr(F, self.loss):
+                    loss = getattr(F, self.loss)(output, data.y)
                 else:
-                    raise TypeError("PyTorch does not support loss type {}".format(self.loss_type))
+                    raise TypeError(
+                        "PyTorch does not support loss type {}".format(self.loss)
+                    )
                 loss.backward()
                 loss_all += data.num_graphs * loss.item()
                 optimizer.step()
-                scheduler.step()
-
+                if self.lr_scheduler_type:
+                    scheduler.step()
             # loss = loss_all / len(train_loader.dataset)
             # train_loss = self.evaluate(train_loader)
-            eval_func = (
-                self.feval if not isinstance(self.feval, list) else self.feval[0]
-            )
-            val_loss = self._evaluate(valid_loader, eval_func) if valid_loader else 0.0
+            if valid_loader is not None:
+                eval_func = (
+                    self.feval if not isinstance(self.feval, list) else self.feval[0]
+                )
+                val_loss = self._evaluate(valid_loader, eval_func)
 
-            if eval_func.is_higher_better():
-                val_loss = -val_loss
-            self.early_stopping(val_loss, self.model.model)
-            if self.early_stopping.early_stop:
-                LOGGER.debug("Early stopping at", epoch)
-                self.early_stopping.load_checkpoint(self.model.model)
-                break
+                if eval_func.is_higher_better():
+                    val_loss = -val_loss
+                self.early_stopping(val_loss, self.model.model)
+                if self.early_stopping.early_stop:
+                    LOGGER.debug("Early stopping at", epoch)
+                    break
+        if valid_loader is not None:
+            self.early_stopping.load_checkpoint(self.model.model)
 
     def predict_only(self, loader):
         """
@@ -294,10 +305,10 @@ class GraphClassificationTrainer(BaseTrainer):
 
         """
         train_loader = utils.graph_get_split(
-            dataset, "train", batch_size=self.batch_size
+            dataset, "train", batch_size=self.batch_size, num_workers=self.num_workers
         )  # DataLoader(dataset['train'], batch_size=self.batch_size)
         valid_loader = utils.graph_get_split(
-            dataset, "val", batch_size=self.batch_size
+            dataset, "val", batch_size=self.batch_size, num_workers=self.num_workers
         )  # DataLoader(dataset['val'], batch_size=self.batch_size)
         self.train_only(train_loader, valid_loader)
         if keep_valid_result and valid_loader:
@@ -321,7 +332,9 @@ class GraphClassificationTrainer(BaseTrainer):
         -------
         The prediction result of ``predict_proba``.
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        loader = utils.graph_get_split(
+            dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
+        )
         return self._predict_proba(loader, in_log_format=True).max(1)[1]
 
     def predict_proba(self, dataset, mask="test", in_log_format=False):
@@ -342,7 +355,9 @@ class GraphClassificationTrainer(BaseTrainer):
         -------
         The prediction result.
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        loader = utils.graph_get_split(
+            dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
+        )
         return self._predict_proba(loader, in_log_format)
 
     def _predict_proba(self, loader, in_log_format=False):
@@ -382,29 +397,19 @@ class GraphClassificationTrainer(BaseTrainer):
         else:
             return self.valid_score, self.feval.is_higher_better()
 
-    def get_name_with_hp(self):
-        # """Get the name of hyperparameter."""
-        name = "-".join(
-            [
-                str(self.optimizer),
-                str(self.lr),
-                str(self.max_epoch),
-                str(self.early_stopping_round),
-                str(self.model),
-                str(self.device),
-            ]
+    def __repr__(self) -> str:
+        import yaml
+
+        return yaml.dump(
+            {
+                "trainer_name": self.__class__.__name__,
+                "optimizer": self.optimizer,
+                "learning_rate": self.lr,
+                "max_epoch": self.max_epoch,
+                "early_stopping_round": self.early_stopping_round,
+                "model": repr(self.model),
+            }
         )
-        name = (
-            name
-            + "|"
-            + "-".join(
-                [
-                    str(x[0]) + "-" + str(x[1])
-                    for x in self.model.get_hyper_parameter().items()
-                ]
-            )
-        )
-        return name
 
     def evaluate(self, dataset, mask="val", feval=None):
         """
@@ -425,7 +430,9 @@ class GraphClassificationTrainer(BaseTrainer):
         res: The evaluation result on the given dataset.
 
         """
-        loader = utils.graph_get_split(dataset, mask, batch_size=self.batch_size)
+        loader = utils.graph_get_split(
+            dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
+        )
         return self._evaluate(loader, feval)
 
     def _evaluate(self, loader, feval=None):
@@ -532,7 +539,7 @@ class GraphClassificationTrainer(BaseTrainer):
             num_features=self.num_features,
             num_classes=self.num_classes,
             num_graph_features=self.num_graph_features,
-            optimizer=self.optimizer,
+            optimizer=self.opt_received,
             lr=hp["lr"],
             max_epoch=hp["max_epoch"],
             batch_size=hp["batch_size"],
@@ -540,16 +547,14 @@ class GraphClassificationTrainer(BaseTrainer):
             weight_decay=hp["weight_decay"],
             device=self.device,
             feval=self.feval,
+            loss=self.loss,
+            lr_scheduler_type=self.lr_scheduler_type,
             init=True,
             *self.args,
             **self.kwargs
         )
 
         return ret
-
-    def set_feval(self, feval):
-        # """Get the space of hyperparameter."""
-        self.feval = get_feval(feval)
 
     @property
     def hyper_parameter_space(self):
@@ -560,7 +565,6 @@ class GraphClassificationTrainer(BaseTrainer):
     def hyper_parameter_space(self, space):
         # """Set the space of hyperparameter."""
         self.space = space
-        GraphClassificationTrainer.space = space
 
     def get_hyper_parameter(self):
         # """Get the hyperparameter in this trainer."""

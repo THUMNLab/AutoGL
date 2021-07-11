@@ -12,10 +12,10 @@ import yaml
 
 from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT
-from ...module.train import TRAINER_DICT, get_feval
-from ...module import BaseModel
-from ..utils import Leaderboard, set_seed
+from ...module.model import BaseModel, MODEL_DICT
+from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
+from ..base import _initialize_single_model, _parse_hp_space
+from ..utils import LeaderBoard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
 
@@ -74,9 +74,13 @@ class AutoGraphClassifier(BaseClassifier):
         self,
         feature_module=None,
         graph_models=["gin", "topkpool"],
+        # nas_algorithms=None,
+        # nas_spaces=None,
+        # nas_estimators=None,
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
+        default_trainer=None,
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -86,9 +90,13 @@ class AutoGraphClassifier(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
+            nas_algorithms=None,  # nas_algorithms,
+            nas_spaces=None,  # nas_spaces,
+            nas_estimators=None,  # nas_estimators,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
+            default_trainer=default_trainer or "GraphClassificationFull",
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -100,23 +108,25 @@ class AutoGraphClassifier(BaseClassifier):
     def _init_graph_module(
         self,
         graph_models,
-        num_features,
         num_classes,
-        *args,
-        **kwargs,
+        num_features,
+        feval,
+        device,
+        loss,
+        num_graph_features,
     ) -> "AutoGraphClassifier":
         # load graph network module
         self.graph_model_list = []
-        if isinstance(graph_models, list):
+        if isinstance(graph_models, (list, tuple)):
             for model in graph_models:
                 if isinstance(model, str):
                     if model in MODEL_DICT:
                         self.graph_model_list.append(
                             MODEL_DICT[model](
-                                num_features=num_features,
                                 num_classes=num_classes,
-                                *args,
-                                **kwargs,
+                                num_features=num_features,
+                                num_graph_features=num_graph_features,
+                                device=device,
                                 init=False,
                             )
                         )
@@ -125,55 +135,93 @@ class AutoGraphClassifier(BaseClassifier):
                 elif isinstance(model, type) and issubclass(model, BaseModel):
                     self.graph_model_list.append(
                         model(
-                            num_features=num_features,
                             num_classes=num_classes,
-                            *args,
-                            **kwargs,
+                            num_features=num_features,
+                            num_graph_features=num_graph_features,
+                            device=device,
                             init=False,
                         )
                     )
                 elif isinstance(model, BaseModel):
-                    model.set_num_features(num_features)
+                    # setup the hp of num_classes and num_features
                     model.set_num_classes(num_classes)
-                    model.set_num_graph_features(
-                        0
-                        if "num_graph_features" not in kwargs
-                        else kwargs["num_graph_features"]
+                    model.set_num_features(num_features)
+                    model.set_num_graph_features(num_graph_features)
+                    self.graph_model_list.append(model.to(device))
+                elif isinstance(model, BaseGraphClassificationTrainer):
+                    # receive a trainer list, put trainer to list
+                    assert (
+                        model.get_model() is not None
+                    ), "Passed trainer should contain a model"
+                    model.model.set_num_classes(num_classes)
+                    model.model.set_num_features(num_features)
+                    model.model.set_num_graph_features(num_graph_features)
+                    model.update_parameters(
+                        num_classes=num_classes,
+                        num_features=num_features,
+                        num_graph_features=num_graph_features,
+                        loss=loss,
+                        feval=feval,
+                        device=device,
                     )
                     self.graph_model_list.append(model)
                 else:
                     raise KeyError("cannot find graph network %s." % (model))
         else:
             raise ValueError(
-                "need graph network to be str or a BaseModel class/instance, get",
+                "need graph network to be (list of) str or a BaseModel class/instance, get",
                 graph_models,
                 "instead.",
             )
 
         # wrap all model_cls with specified trainer
         for i, model in enumerate(self.graph_model_list):
+            # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    model.hyper_parameter_space = self._model_hp_spaces[i]
-            trainer = TRAINER_DICT["GraphClassification"](
-                model=model,
-                num_features=num_features,
-                num_classes=num_classes,
-                *args,
-                **kwargs,
-                init=False,
-            )
+                    if isinstance(model, BaseGraphClassificationTrainer):
+                        model.model.hyper_parameter_space = self._model_hp_spaces[i]
+                    else:
+                        model.hyper_parameter_space = self._model_hp_spaces[i]
+            # initialize trainer if needed
+            if isinstance(model, BaseModel):
+                name = (
+                    self._default_trainer
+                    if isinstance(self._default_trainer, str)
+                    else self._default_trainer[i]
+                )
+                model = TRAINER_DICT[name](
+                    model=model,
+                    num_features=num_features,
+                    num_classes=num_classes,
+                    loss=loss,
+                    feval=feval,
+                    device=device,
+                    num_graph_features=num_graph_features,
+                    init=False,
+                )
+            # set trainer hp space
             if self._trainer_hp_space is not None:
                 if isinstance(self._trainer_hp_space[0], list):
                     current_hp_for_trainer = self._trainer_hp_space[i]
                 else:
                     current_hp_for_trainer = self._trainer_hp_space
-                trainer.hyper_parameter_space = (
-                    current_hp_for_trainer + model.hyper_parameter_space
-                )
-            self.graph_model_list[i] = trainer
+                model.hyper_parameter_space = current_hp_for_trainer
+            self.graph_model_list[i] = model
 
         return self
+
+    """
+    # currently disabled
+    def _init_nas_module(
+        self, num_features, num_classes, num_graph_features, feval, device, loss
+    ):
+        for algo, space, estimator in zip(
+            self.nas_algorithms, self.nas_spaces, self.nas_estimators
+        ):
+            # TODO: initialize important parameters
+            pass
+    """
 
     # pylint: disable=arguments-differ
     def fit(
@@ -183,8 +231,6 @@ class AutoGraphClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        cross_validation=True,
-        cv_split=10,
         evaluation_method="infer",
         seed=None,
     ) -> "AutoGraphClassifier":
@@ -213,13 +259,6 @@ class AutoGraphClassifier(BaseClassifier):
             The validation ratio (in ``float``) or number (in ``int``) of dataset. If you want to
             use default train/val/test split in dataset, please set this to ``None``.
             Default ``None``.
-
-        cross_validation: bool
-            Whether to use cross validation to fit on train dataset. Default ``True``.
-
-        cv_split: int
-            The cross validation split number. Only be effective when ``cross_validation=True``.
-            Default ``10``.
 
         evaluation_method: (list of) str autogl.module.train.evaluation
             A (list of) evaluation method for current solver. If ``infer``, will automatically
@@ -254,7 +293,7 @@ class AutoGraphClassifier(BaseClassifier):
         assert isinstance(evaluation_method, list)
         evaluator_list = get_feval(evaluation_method)
 
-        self.leaderboard = Leaderboard(
+        self.leaderboard = LeaderBoard(
             [e.get_eval_name() for e in evaluator_list],
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
@@ -266,18 +305,11 @@ class AutoGraphClassifier(BaseClassifier):
                 "Please manually pass train and val ratio."
             )
             LOGGER.info("Use the default train/val/test ratio in given dataset")
-            if hasattr(dataset.train_split, "n_splits"):
-                cross_validation = True
+            # if hasattr(dataset.train_split, "n_splits"):
+            #    cross_validation = True
 
         elif train_split is not None and val_split is not None:
             utils.graph_random_splits(dataset, train_split, val_split, seed=seed)
-            if cross_validation:
-                assert (
-                    val_split > 0
-                ), "You should set val_split > 0 to use cross_validation"
-                utils.graph_cross_validation(
-                    dataset.train_split, cv_split, random_seed=seed
-                )
         else:
             LOGGER.error(
                 "Please set both train_split and val_split explicitly. Detect %s is None.",
@@ -314,91 +346,65 @@ class AutoGraphClassifier(BaseClassifier):
             else dataset.data.gf.size(1),
         )
 
+        # currently disabled
+        """
+        self._init_nas_module(
+            num_features=dataset.num_node_features,
+            num_classes=dataset.num_classes,
+            feval=evaluator_list,
+            device=self.runtime_device,
+            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
+            num_graph_features=0
+            if not hasattr(dataset.data, "gf")
+            else dataset.data.gf.size(1),
+        )
+
+        # neural architecture search
+        if self.nas_algorithms is not None:
+            # perform nas and add them to trainer list
+            for algo, space, estimator in zip(
+                self.nas_algorithms, self.nas_spaces, self.nas_estimators
+            ):
+                trainer = algo.search(space, self.dataset, estimator)
+                self.graph_model_list.append(trainer)
+        """
+
         # train the models and tune hpo
         result_valid = []
         names = []
-        if not cross_validation:
-            for idx, model in enumerate(self.graph_model_list):
-                if time_limit < 0:
-                    time_for_each_model = None
-                else:
-                    time_for_each_model = (time_limit - time.time() + time_begin) / (
-                        len(self.graph_model_list) - idx
-                    )
-                if self.hpo_module is None:
-                    model.initialize()
-                    model.train(dataset, True)
-                    optimized = model
-                else:
-                    optimized, _ = self.hpo_module.optimize(
-                        trainer=model, dataset=dataset, time_limit=time_for_each_model
-                    )
-                # to save memory, all the trainer derived will be mapped to cpu
-                optimized.to(torch.device("cpu"))
-                name = optimized.get_name_with_hp()
-                names.append(name)
-                performance_on_valid, _ = optimized.get_valid_score(return_major=False)
-                result_valid.append(
-                    optimized.get_valid_predict_proba().detach().cpu().numpy()
+        for idx, model in enumerate(self.graph_model_list):
+            if time_limit < 0:
+                time_for_each_model = None
+            else:
+                time_for_each_model = (time_limit - time.time() + time_begin) / (
+                    len(self.graph_model_list) - idx
                 )
-                self.leaderboard.insert_model_performance(
-                    name,
-                    dict(
-                        zip(
-                            [e.get_eval_name() for e in evaluator_list],
-                            performance_on_valid,
-                        )
-                    ),
+            if self.hpo_module is None:
+                model.initialize()
+                model.train(dataset, True)
+                optimized = model
+            else:
+                optimized, _ = self.hpo_module.optimize(
+                    trainer=model, dataset=dataset, time_limit=time_for_each_model
                 )
-                self.trained_models[name] = optimized
-        else:
-            for i in range(dataset.train_split.n_splits):
-                utils.graph_set_fold_id(dataset.train_split, i)
-                if time_limit < 0:
-                    time_for_each_cv = None
-                else:
-                    time_for_each_cv = (time_limit - time.time() + time_begin) / (
-                        dataset.train_split.n_splits - i
+            # to save memory, all the trainer derived will be mapped to cpu
+            optimized.to(torch.device("cpu"))
+            name = str(optimized)
+            names.append(name)
+            performance_on_valid, _ = optimized.get_valid_score(return_major=False)
+            result_valid.append(
+                optimized.get_valid_predict_proba().detach().cpu().numpy()
+            )
+            self.leaderboard.insert_model_performance(
+                name,
+                dict(
+                    zip(
+                        [e.get_eval_name() for e in evaluator_list],
+                        performance_on_valid,
                     )
-                time_cv_begin = time.time()
-                for idx, model in enumerate(self.graph_model_list):
-                    if time_for_each_cv is None:
-                        time_for_each_model = None
-                    else:
-                        time_for_each_model = (
-                            time_for_each_cv - time.time() + time_cv_begin
-                        ) / (len(self.graph_model_list) - idx)
-                    if self.hpo_module is None:
-                        model.train(dataset.train_split, False)
-                        optimized = model
-                    else:
-                        optimized, _ = self.hpo_module.optimize(
-                            trainer=model,
-                            dataset=dataset.train_split,
-                            time_limit=time_for_each_model,
-                        )
-                    # to save memory, all the trainer derived will be mapped to cpu
-                    optimized.to(torch.device("cpu"))
-                    name = optimized.get_name_with_hp() + "_cv%d_idx%d" % (i, idx)
-                    names.append(name)
-                    # evaluate on val_split of input dataset
-                    performance_on_valid = optimized.evaluate(dataset, mask="val")
-                    result_valid.append(
-                        optimized.predict_proba(dataset, mask="val")
-                        .detach()
-                        .cpu()
-                        .numpy()
-                    )
-                    self.leaderboard.insert_model_performance(
-                        name,
-                        dict(
-                            zip(
-                                [e.get_eval_name() for e in evaluator_list],
-                                performance_on_valid,
-                            )
-                        ),
-                    )
-                    self.trained_models[name] = optimized
+                ),
+            )
+            self.trained_models[name] = optimized
 
         # fit the ensemble model
         if self.ensemble_module is not None:
@@ -423,8 +429,6 @@ class AutoGraphClassifier(BaseClassifier):
         inplace=False,
         train_split=None,
         val_split=None,
-        cross_validation=True,
-        cv_split=10,
         evaluation_method="infer",
         seed=None,
         use_ensemble=True,
@@ -457,13 +461,6 @@ class AutoGraphClassifier(BaseClassifier):
             to use default train/val/test split in dataset, please set this to ``None``.
             Default ``None``.
 
-        cross_validation: bool
-            Whether to use cross validation to fit on train dataset. Default ``True``.
-
-        cv_split: int
-            The cross validation split number. Only be effective when ``cross_validation=True``.
-            Default ``10``.
-
         evaluation_method: (list of) str or autogl.module.train.evaluation
             A (list of) evaluation method for current solver. If ``infer``, will automatically
             determine. Default ``infer``.
@@ -495,8 +492,6 @@ class AutoGraphClassifier(BaseClassifier):
             inplace=inplace,
             train_split=train_split,
             val_split=val_split,
-            cross_validation=cross_validation,
-            cv_split=cv_split,
             evaluation_method=evaluation_method,
             seed=seed,
         )
@@ -700,7 +695,7 @@ class AutoGraphClassifier(BaseClassifier):
         )
         if isinstance(path_or_dict, str):
             if filetype == "auto":
-                if path_or_dict.endswith(".yaml"):
+                if path_or_dict.endswith(".yaml") or path_or_dict.endswith(".yml"):
                     filetype = "yaml"
                 elif path_or_dict.endswith(".json"):
                     filetype = "json"
@@ -723,49 +718,70 @@ class AutoGraphClassifier(BaseClassifier):
         # load the dictionary
         path_or_dict = deepcopy(path_or_dict)
         solver = cls(None, [], None, None)
-        fe_list = path_or_dict.pop("feature", [{"name": "deepgl"}])
-        fe_list_ele = []
-        for feature_engineer in fe_list:
-            name = feature_engineer.pop("name")
-            if name is not None:
-                fe_list_ele.append(FEATURE_DICT[name](**feature_engineer))
-        if fe_list_ele != []:
-            solver.set_feature_module(fe_list_ele)
+        fe_list = path_or_dict.pop("feature", None)
+        if fe_list is not None:
+            fe_list_ele = []
+            for feature_engineer in fe_list:
+                name = feature_engineer.pop("name")
+                if name is not None:
+                    fe_list_ele.append(FEATURE_DICT[name](**feature_engineer))
+            if fe_list_ele != []:
+                solver.set_feature_module(fe_list_ele)
 
-        models = path_or_dict.pop("models", {"gcn": None, "gat": None})
-        model_list = list(models.keys())
-        model_hp_space = [models[m] for m in model_list]
-        trainer_space = path_or_dict.pop("trainer", None)
+        models = path_or_dict.pop("models", [{"name": "gin"}, {"name": "topkpool"}])
+        model_hp_space = [
+            _parse_hp_space(model.pop("hp_space", None)) for model in models
+        ]
+        model_list = [
+            _initialize_single_model(model.pop("name"), model) for model in models
+        ]
 
-        # parse lambda function
-        if model_hp_space:
-            for space in model_hp_space:
-                if space is not None:
-                    for keys in space:
-                        if "cutFunc" in keys and isinstance(keys["cutFunc"], str):
-                            keys["cutFunc"] = eval(keys["cutFunc"])
+        trainer = path_or_dict.pop("trainer", None)
+        default_trainer = "GraphClassificationFull"
+        trainer_space = None
+        if isinstance(trainer, dict):
+            # global default
+            default_trainer = trainer.pop("name", "GraphClassificationFull")
+            trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
+            default_kwargs = {"num_features": None, "num_classes": None}
+            default_kwargs.update(trainer)
+            default_kwargs["init"] = False
+            for i in range(len(model_list)):
+                model = model_list[i]
+                trainer_wrapper = TRAINER_DICT[default_trainer](
+                    model=model, **default_kwargs
+                )
+                model_list[i] = trainer_wrapper
+        elif isinstance(trainer, list):
+            # sequential trainer definition
+            assert len(trainer) == len(
+                model_list
+            ), "The number of trainer and model does not match"
+            trainer_space = []
+            for i in range(len(model_list)):
+                train, model = trainer[i], model_list[i]
+                default_trainer = train.pop("name", "GraphClassificationFull")
+                trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
+                default_kwargs = {"num_features": None, "num_classes": None}
+                default_kwargs.update(train)
+                default_kwargs["init"] = False
+                trainer_wrap = TRAINER_DICT[default_trainer](
+                    model=model, **default_kwargs
+                )
+                model_list[i] = trainer_wrap
 
-        if trainer_space:
-            for space in trainer_space:
-                if (
-                    isinstance(space, dict)
-                    and "cutFunc" in space
-                    and isinstance(space["cutFunc"], str)
-                ):
-                    space["cutFunc"] = eval(space["cutFunc"])
-                elif space is not None:
-                    for keys in space:
-                        if "cutFunc" in keys and isinstance(keys["cutFunc"], str):
-                            keys["cutFunc"] = eval(keys["cutFunc"])
-
-        solver.set_graph_models(model_list, trainer_space, model_hp_space)
+        solver.set_graph_models(
+            model_list, default_trainer, trainer_space, model_hp_space
+        )
 
         hpo_dict = path_or_dict.pop("hpo", {"name": "anneal"})
-        name = hpo_dict.pop("name")
-        solver.set_hpo_module(name, **hpo_dict)
+        if hpo_dict is not None:
+            name = hpo_dict.pop("name")
+            solver.set_hpo_module(name, **hpo_dict)
 
         ensemble_dict = path_or_dict.pop("ensemble", {"name": "voting"})
-        name = ensemble_dict.pop("name")
-        solver.set_ensemble_module(name, **ensemble_dict)
+        if ensemble_dict is not None:
+            name = ensemble_dict.pop("name")
+            solver.set_ensemble_module(name, **ensemble_dict)
 
         return solver

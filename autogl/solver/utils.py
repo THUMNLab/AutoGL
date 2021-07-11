@@ -1,23 +1,23 @@
 """
-Util tools used by solver
+Utilities used by the solver
 
-* leaderboard: The leaderboard that maintains the performance of models.
+* LeaderBoard: The LeaderBoard that maintains the performance of models.
 """
 
 import random
-
-import torch
+import typing as _typing
+import torch.backends.cudnn
 import numpy as np
 import pandas as pd
 
 from ..utils import get_logger
 
-LOGGER = get_logger("leaderboard")
+LOGGER = get_logger("LeaderBoard")
 
 
-class Leaderboard:
+class LeaderBoard:
     """
-    The leaderboard that can be used to store / sort the model performance automatically.
+    The leaderBoard that can be used to store / sort the model performance automatically.
 
     Parameters
     ----------
@@ -25,8 +25,8 @@ class Leaderboard:
         A list of field name that shows the model performance. The first field is used as
         the major field for sorting the model performances.
 
-    is_higher_better: list of `bool`
-        A list of indicator that whether the field score is higher better.
+    is_higher_better: `dict` of *field* -> `bool`
+        A mapping of indicator that whether each field is higher better.
     """
 
     def __init__(self, fields, is_higher_better):
@@ -38,7 +38,7 @@ class Leaderboard:
 
     def set_major_field(self, field) -> None:
         """
-        Set the major field of current leaderboard.
+        Set the major field of current LeaderBoard.
 
         Parameters
         ----------
@@ -53,7 +53,7 @@ class Leaderboard:
             self.major_field = field
         else:
             LOGGER.warning(
-                "do not find major field %s in current leaderboard, will ignore.", field
+                f"Field [{field}] NOT found in the current LeaderBoard, will ignore."
             )
 
     def insert_model_performance(self, name, performance) -> None:
@@ -130,26 +130,49 @@ class Leaderboard:
             name_list.remove("ensemble")
         return name_list[index]
 
-    def show(self, top_k=-1) -> None:
+    def show(self, top_k=0) -> None:
         """
-        Show current leaderboard (from good model to bad).
+        Show current LeaderBoard (from best model to worst).
 
         Parameters
         ----------
         top_k: `int`
-            Controls the number model shown. If below `0`, will show all the models. Default `-1`.
+            Controls the number model shown.
+            If less than or equal to `0`, will show all the models. Default to `0`.
 
         Returns
         -------
         None
         """
-        if top_k == -1:
-            top_k = len(self.perform_dict["name"])
+        top_k: int = top_k if top_k > 0 else len(self.perform_dict)
+
+        """
+        reindex self.__performance_data_frame
+        to ensure the columns of name and representation are in left-side of the data frame
+        """
+        _columns = self.perform_dict.columns.tolist()
+        maxcolwidths: _typing.List[_typing.Optional[int]] = []
+        if "name" in _columns:
+            _columns.remove("name")
+            _columns.insert(0, "name")
+            maxcolwidths.append(40)
+        self.perform_dict = self.perform_dict[_columns]
+
+        sorted_performance_df: pd.DataFrame = self.perform_dict.sort_values(
+            self.major_field, ascending=not self.is_higher_better[self.major_field]
+        )
+        sorted_performance_df = sorted_performance_df.head(top_k)
+
+        from tabulate import tabulate
+
+        _columns = sorted_performance_df.columns.tolist()
+        maxcolwidths.extend([None for _ in range(len(_columns) - len(maxcolwidths))])
         print(
-            self.perform_dict.sort_values(
-                by=self.major_field,
-                ascending=not self.is_higher_better[self.major_field],
-            ).head(top_k)
+            tabulate(
+                list(zip(*[sorted_performance_df[column] for column in _columns])),
+                headers=_columns,
+                tablefmt="grid",
+            )
         )
 
 

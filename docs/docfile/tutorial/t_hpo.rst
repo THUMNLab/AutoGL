@@ -52,35 +52,27 @@ Or you can let HPO cut the list to a certain length which is dependent on other 
         
 How given HPO algorithms support search space is listed as follows:
 
-+------------+------------+--------------+-----------+------------+
-| Algorithm  | numerical  |numerical list|categorical| fixed      |
-+============+============+==============+===========+============+
-| Grid       |            |              |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| Random     | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| Anneal     | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| Bayes      | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| TPE        | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| CMAES      | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| MOCMAES    | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-|Quasi random| ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-| AutoNE     | ✓          |  ✓           |  ✓        | ✓          |
-+------------+------------+--------------+-----------+------------+
-
-Here, TPE is from [1], CMAES is from [2], MOCMAES is from [3], quasi random is from [4], AutoNE is from [5].
-
-[1] Bergstra, James S., et al. "Algorithms for hyper-parameter optimization." Advances in neural information processing systems. 2011.
-[2] Arnold, Dirk V., and Nikolaus Hansen. "Active covariance matrix adaptation for the (1+ 1)-CMA-ES." Proceedings of the 12th annual conference on Genetic and evolutionary computation. 2010.
-[3] Voß, Thomas, Nikolaus Hansen, and Christian Igel. "Improved step size adaptation for the MO-CMA-ES." Proceedings of the 12th annual conference on Genetic and evolutionary computation. 2010.
-[4] Bratley, Paul, Bennett L. Fox, and Harald Niederreiter. "Programs to generate Niederreiter's low-discrepancy sequences." ACM Transactions on Mathematical Software (TOMS) 20.4 (1994): 494-495.
-[5] Tu, Ke, et al. "Autone: Hyperparameter optimization for massive network embedding." Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2019.
++------------------+------------+--------------+-----------+------------+
+| Algorithm        | numerical  |numerical list|categorical| fixed      |
++==================+============+==============+===========+============+
+| Grid             |            |              |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
+| Random           | ✓          |  ✓           |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
+| Anneal           | ✓          |  ✓           |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
+| Bayes            | ✓          |  ✓           |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
+| TPE [1]_         | ✓          |  ✓           |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
+| CMAES [2]_       | ✓          |  ✓           |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
+| MOCMAES [3]_     | ✓          |  ✓           |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
+|Quasi random [4]_ | ✓          |  ✓           |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
+| AutoNE  [5]_     | ✓          |  ✓           |  ✓        | ✓          |
++------------------+------------+--------------+-----------+------------+
 
 Add Your HPOptimizer
 --------------------
@@ -149,3 +141,10 @@ If you want to add your own HPOptimizer, the only thing you should do is finishi
 
             # 5. Return the best trainer and parameter.
             return best_trainer, best_para
+
+
+.. [1] Bergstra, James S., et al. "Algorithms for hyper-parameter optimization." Advances in neural information processing systems. 2011.
+.. [2] Arnold, Dirk V., and Nikolaus Hansen. "Active covariance matrix adaptation for the (1+ 1)-CMA-ES." Proceedings of the 12th annual conference on Genetic and evolutionary computation. 2010.
+.. [3] Voß, Thomas, Nikolaus Hansen, and Christian Igel. "Improved step size adaptation for the MO-CMA-ES." Proceedings of the 12th annual conference on Genetic and evolutionary computation. 2010.
+.. [4] Bratley, Paul, Bennett L. Fox, and Harald Niederreiter. "Programs to generate Niederreiter's low-discrepancy sequences." ACM Transactions on Mathematical Software (TOMS) 20.4 (1994): 494-495.
+.. [5] Tu, Ke, et al. "Autone: Hyperparameter optimization for massive network embedding." Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2019.
