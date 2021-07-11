@@ -5,6 +5,34 @@ from .target_dependant_sampler import TargetDependantSampler, TargetDependantSam
 
 
 class NeighborSampler(TargetDependantSampler, _typing.Iterable):
+    """
+    The neighbor sampler from the `"Inductive Representation Learning on
+    Large Graphs" <https://arxiv.org/abs/1706.02216>`_ literature, which allows
+    for mini-batch training of GNNs on large-scale graphs where full-batch
+    training is not feasible.
+
+    Arguments
+    ------------
+    edge_index:
+        A :obj:`torch.LongTensor` that defines the underlying graph
+        connectivity/message passing flow.
+        :obj:`edge_index` holds the indices of a (sparse) adjacency matrix.
+        If :obj:`edge_index` is of type :obj:`torch.LongTensor`, its shape
+        must be defined as :obj:`[2, num_edges]`, where messages from nodes
+        :obj:`edge_index[0]` are sent to nodes in :obj:`edge_index[1]`
+        (in case :obj:`flow="source_to_target"`).
+    target_nodes_indexes:
+        indexes of target nodes to learn representation.
+    sampling_sizes:
+        The number of neighbors to sample for each node in each layer.
+        If set to :obj:`sampling_sizes[l] = -1`, all neighbors are included in layer :obj:`l`.
+    batch_size:
+        number of target nodes for each mini-batch.
+    num_workers:
+        num_workers argument for inner :class:`torch.utils.data.DataLoader`
+    shuffle:
+        whether to shuffle target nodes for mini-batches.
+    """
     class _SequenceDataset(torch.utils.data.Dataset):
         def __init__(self, sequence):
             self.__sequence = sequence
@@ -118,6 +146,31 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
             batch_size: int = 1, num_workers: int = 1,
             shuffle: bool = True, *args, **kwargs
     ) -> TargetDependantSampler:
+        """
+        A static factory method to create instance of :class:`NeighborSampler`
+
+        Arguments
+        ------------
+        edge_index:
+            A :obj:`torch.LongTensor` that defines the underlying graph
+            connectivity/message passing flow.
+            :obj:`edge_index` holds the indices of a (sparse) adjacency matrix.
+            If :obj:`edge_index` is of type :obj:`torch.LongTensor`, its shape
+            must be defined as :obj:`[2, num_edges]`, where messages from nodes
+            :obj:`edge_index[0]` are sent to nodes in :obj:`edge_index[1]`
+            (in case :obj:`flow="source_to_target"`).
+        target_nodes_indexes:
+            indexes of target nodes to learn representation.
+        layer_wise_arguments:
+            The number of neighbors to sample for each node in each layer.
+            If set to :obj:`sampling_sizes[l] = -1`, all neighbors are included in layer :obj:`l`.
+        batch_size:
+            number of target nodes for each mini-batch.
+        num_workers:
+            num_workers argument for inner :class:`torch.utils.data.DataLoader`
+        shuffle:
+            whether to shuffle target nodes for mini-batches.
+        """
         return cls(
             edge_index, target_nodes_indexes, layer_wise_arguments,
             batch_size, num_workers, shuffle, **kwargs

@@ -8,6 +8,9 @@ from . import target_dependant_sampler
 
 
 class _LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTargetDependantSampler):
+    """
+    Obsolete implementation, unused
+    """
     class _Utility:
         @classmethod
         def compute_edge_weights(cls, __all_edge_index_with_self_loops: torch.Tensor) -> torch.Tensor:
@@ -198,6 +201,38 @@ class _LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTa
 
 
 class LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTargetDependantSampler):
+    """
+    The layer-dependent importance sampler from the
+    `"Layer-Dependent Importance Sampling for Training Deep and Large Graph Convolutional Networks"
+    <https://arxiv.org/abs/1911.07323>`_ literature,  which allows
+    for mini-batch training of GNNs on large-scale graphs where full-batch training is not feasible.
+
+    Arguments
+    ------------
+    edge_index:
+        A :obj:`torch.LongTensor` that defines the underlying graph
+        connectivity/message passing flow.
+        :obj:`edge_index` holds the indices of a (sparse) adjacency matrix.
+        If :obj:`edge_index` is of type :obj:`torch.LongTensor`, its shape
+        must be defined as :obj:`[2, num_edges]`, where messages from nodes
+        :obj:`edge_index[0]` are sent to nodes in :obj:`edge_index[1]`
+        (in case :obj:`flow="source_to_target"`).
+    target_nodes_indexes:
+        indexes of target nodes to learn representation.
+    layer_wise_arguments:
+        The number of nodes to sample for each layer.
+        It's noteworthy that the target nodes for a specific layer
+        always be preserved as source nodes for that layer,
+        such that the self loops for those target nodes
+        are generally preserved for representation learning.
+    batch_size:
+        number of target nodes for each mini-batch.
+    num_workers:
+        num_workers argument for inner :class:`torch.utils.data.DataLoader`
+    shuffle:
+        whether to shuffle target nodes for mini-batches.
+    """
+
     @classmethod
     def __compute_edge_weight(cls, edge_index: torch.Tensor) -> torch.Tensor:
         __num_nodes: int = max(int(edge_index[0].max()), int(edge_index[1].max())) + 1
@@ -274,13 +309,27 @@ class LayerDependentImportanceSampler(target_dependant_sampler.BasicLayerWiseTar
             layer_argument: _typing.Any, *args, **kwargs
     ) -> _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]:
         """
-        Sample edges for specific layer
-        :param __current_layer_target_nodes_indexes: target nodes for current layer
-        :param __top_layer_target_nodes_indexes: target nodes for top layer
-        :param layer_argument: sampled_source_nodes_budget
-        :param args: remaining positional arguments
-        :param kwargs: remaining keyword arguments
-        :return: (edge_id_in_integral_graph, edge_weight)
+        Sample edges for one specific layer, expected to be implemented in subclass.
+
+        Parameters
+        ------------
+        __current_layer_target_nodes_indexes:
+            target nodes for current layer
+        __top_layer_target_nodes_indexes:
+            target nodes for top layer
+        layer_argument:
+            argument for current layer
+        args:
+            remaining positional arguments
+        kwargs:
+            remaining keyword arguments
+
+        Returns
+        --------
+        edge_id_in_integral_graph:
+            the corresponding positional indexes for the `edge_index` of integral graph
+        edge_weight:
+            the optional `edge_weight` for aggregation
         """
         __wrapped_result: _typing.Tuple[np.ndarray, np.ndarray, np.ndarray] = self.__sample_edges(
             __current_layer_target_nodes_indexes.numpy(),
