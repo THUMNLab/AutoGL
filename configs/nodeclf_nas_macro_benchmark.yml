@@ -7,9 +7,9 @@ hpo:
   name: random
 nas:
   space:
-    name: graphnas
+    name: graphnasmacro
     hidden_dim: 64
-    layer_number: 4
+    layer_number: 2
   algorithm:
     name: graphnas
     num_epochs: 200
