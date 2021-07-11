@@ -10,7 +10,7 @@ from torch_geometric.datasets import (
     QM9,
     Amazon,
     Coauthor,
-    Flickr
+    Flickr,
 )
 from torch_geometric.utils import remove_self_loops
 from . import register_dataset

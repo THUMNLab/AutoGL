@@ -12,6 +12,7 @@ from ....utils import get_logger
 
 from ...model import AutoGCN
 
+
 @register_nas_space("singlepath")
 class SinglePathNodeClassificationSpace(BaseSpace):
     def __init__(
@@ -21,7 +22,7 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         dropout: _typ.Optional[float] = 0.2,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
-        ops: _typ.Tuple = ['GCNConv', 'GATConv'],
+        ops: _typ.Tuple = ["GCNConv", "GATConv"],
     ):
         super().__init__()
         self.layer_number = layer_number
@@ -38,7 +39,7 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,
-        dropout = None
+        dropout=None,
     ):
         super().instantiate()
         self.hidden_dim = hidden_dim or self.hidden_dim
@@ -59,8 +60,15 @@ class SinglePathNodeClassificationSpace(BaseSpace):
                             self.output_dim
                             if layer == self.layer_number - 1
                             else self.hidden_dim,
-                        ) if isinstance(op, type) else gnn_map(op, self.input_dim if layer == 0 else self.hidden_dim,
-                            self.output_dim if layer == self.layer_number - 1 else self.hidden_dim)
+                        )
+                        if isinstance(op, type)
+                        else gnn_map(
+                            op,
+                            self.input_dim if layer == 0 else self.hidden_dim,
+                            self.output_dim
+                            if layer == self.layer_number - 1
+                            else self.hidden_dim,
+                        )
                         for op in self.ops
                     ],
                 ),
@@ -73,9 +81,9 @@ class SinglePathNodeClassificationSpace(BaseSpace):
             x = getattr(self, f"op_{layer}")(x, edges)
             if layer != self.layer_number - 1:
                 x = F.leaky_relu(x)
-                x = F.dropout(x, p=self.dropout, training = self.training)
+                x = F.dropout(x, p=self.dropout, training=self.training)
         return F.log_softmax(x, dim=1)
 
     def parse_model(self, selection, device) -> BaseModel:
-        #return AutoGCN(self.input_dim, self.output_dim, device)
+        # return AutoGCN(self.input_dim, self.output_dim, device)
         return self.wrap(device).fix(selection)

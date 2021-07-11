@@ -57,7 +57,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str]=None,
+        model: Union[BaseModel, str] = None,
         num_features=None,
         num_classes=None,
         optimizer=None,
@@ -375,6 +375,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     def __repr__(self) -> str:
         import yaml
+
         return yaml.dump(
             {
                 "trainer_name": self.__class__.__name__,
@@ -382,7 +383,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 "learning_rate": self.lr,
                 "max_epoch": self.max_epoch,
                 "early_stopping_round": self.early_stopping_round,
-                "model": repr(self.model)
+                "model": repr(self.model),
             }
         )
 

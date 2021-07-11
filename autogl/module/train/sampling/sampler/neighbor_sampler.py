@@ -33,6 +33,7 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
     shuffle:
         whether to shuffle target nodes for mini-batches.
     """
+
     class _SequenceDataset(torch.utils.data.Dataset):
         def __init__(self, sequence):
             self.__sequence = sequence
@@ -60,11 +61,14 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
         return temp_tensor[0] * temp_tensor[1]
 
     def __init__(
-            self, edge_index: torch.LongTensor,
-            target_nodes_indexes: torch.LongTensor,
-            sampling_sizes: _typing.Sequence[int],
-            batch_size: int = 1, num_workers: int = 0,
-            shuffle: bool = True, **kwargs
+        self,
+        edge_index: torch.LongTensor,
+        target_nodes_indexes: torch.LongTensor,
+        sampling_sizes: _typing.Sequence[int],
+        batch_size: int = 1,
+        num_workers: int = 0,
+        shuffle: bool = True,
+        **kwargs
     ):
         def is_deterministic(__cached: bool = bool(kwargs.get("cached", True))) -> bool:
             if not __cached:
@@ -72,17 +76,25 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
             _deterministic: bool = True
             for _sampling_size in sampling_sizes:
                 if type(_sampling_size) != int:
-                    raise TypeError("The sampling_sizes argument must be a sequence of integer")
+                    raise TypeError(
+                        "The sampling_sizes argument must be a sequence of integer"
+                    )
                 if _sampling_size >= 0:
                     _deterministic = False
                     break
             return _deterministic
+
         self.__edge_weight: torch.Tensor = self.__compute_edge_weight(edge_index)
         self.__pyg_neighbor_sampler: torch_geometric.data.NeighborSampler = (
             torch_geometric.data.NeighborSampler(
-                edge_index, list(sampling_sizes[::-1]), target_nodes_indexes,
-                transform=self._transform, batch_size=batch_size,
-                num_workers=num_workers, shuffle=shuffle, **kwargs
+                edge_index,
+                list(sampling_sizes[::-1]),
+                target_nodes_indexes,
+                transform=self._transform,
+                batch_size=batch_size,
+                num_workers=num_workers,
+                shuffle=shuffle,
+                **kwargs
             )
         )
 
@@ -97,54 +109,78 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
             ] = None
 
     def _transform(
-        self, batch_size: int, n_id: torch.LongTensor,
+        self,
+        batch_size: int,
+        n_id: torch.LongTensor,
         adj_or_adj_list: _typing.Union[
             _typing.Sequence[
-                _typing.Tuple[torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]]
+                _typing.Tuple[
+                    torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]
+                ]
             ],
-            _typing.Tuple[torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]]
-        ]
+            _typing.Tuple[torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]],
+        ],
     ) -> TargetDependantSampledData:
         if (
-                isinstance(adj_or_adj_list[0], _typing.Tuple) and
-                isinstance(adj_or_adj_list, _typing.Sequence) and
-                not isinstance(adj_or_adj_list, _typing.Tuple)
+            isinstance(adj_or_adj_list[0], _typing.Tuple)
+            and isinstance(adj_or_adj_list, _typing.Sequence)
+            and not isinstance(adj_or_adj_list, _typing.Tuple)
         ):
             return TargetDependantSampledData(
                 [
-                    (current_layer[0], current_layer[1], self.__edge_weight[current_layer[1]])
+                    (
+                        current_layer[0],
+                        current_layer[1],
+                        self.__edge_weight[current_layer[1]],
+                    )
                     for current_layer in adj_or_adj_list
                 ],
-                (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]), n_id
+                (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]),
+                n_id,
             )
-        elif isinstance(adj_or_adj_list, _typing.Tuple) and type(adj_or_adj_list[0]) == torch.Tensor:
+        elif (
+            isinstance(adj_or_adj_list, _typing.Tuple)
+            and type(adj_or_adj_list[0]) == torch.Tensor
+        ):
             adj_or_adj_list: _typing.Tuple[
                 torch.LongTensor, torch.LongTensor, _typing.Tuple[int, int]
             ] = adj_or_adj_list
             return TargetDependantSampledData(
-                [(adj_or_adj_list[0], adj_or_adj_list[1], self.__edge_weight[adj_or_adj_list[1]])],
-                (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]), n_id
+                [
+                    (
+                        adj_or_adj_list[0],
+                        adj_or_adj_list[1],
+                        self.__edge_weight[adj_or_adj_list[1]],
+                    )
+                ],
+                (torch.arange(batch_size, dtype=torch.long).long(), n_id[:batch_size]),
+                n_id,
             )
 
     def __iter__(self):
-        if (
-                self.__cached_sampled_data_list is not None and
-                isinstance(self.__cached_sampled_data_list, _typing.Sequence)
+        if self.__cached_sampled_data_list is not None and isinstance(
+            self.__cached_sampled_data_list, _typing.Sequence
         ):
-            return iter(torch.utils.data.DataLoader(
-                self._SequenceDataset(self.__cached_sampled_data_list),
-                collate_fn=lambda x: x[0]
-            ))
+            return iter(
+                torch.utils.data.DataLoader(
+                    self._SequenceDataset(self.__cached_sampled_data_list),
+                    collate_fn=lambda x: x[0],
+                )
+            )
         else:
             return iter(self.__pyg_neighbor_sampler)
 
     @classmethod
     def create_basic_sampler(
-            cls, edge_index: torch.LongTensor,
-            target_nodes_indexes: torch.LongTensor,
-            layer_wise_arguments: _typing.Sequence,
-            batch_size: int = 1, num_workers: int = 1,
-            shuffle: bool = True, *args, **kwargs
+        cls,
+        edge_index: torch.LongTensor,
+        target_nodes_indexes: torch.LongTensor,
+        layer_wise_arguments: _typing.Sequence,
+        batch_size: int = 1,
+        num_workers: int = 1,
+        shuffle: bool = True,
+        *args,
+        **kwargs
     ) -> TargetDependantSampler:
         """
         A static factory method to create instance of :class:`NeighborSampler`
@@ -172,6 +208,11 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
             whether to shuffle target nodes for mini-batches.
         """
         return cls(
-            edge_index, target_nodes_indexes, layer_wise_arguments,
-            batch_size, num_workers, shuffle, **kwargs
+            edge_index,
+            target_nodes_indexes,
+            layer_wise_arguments,
+            batch_size,
+            num_workers,
+            shuffle,
+            **kwargs
         )

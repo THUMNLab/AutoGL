@@ -399,14 +399,17 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
     def __repr__(self) -> str:
         import yaml
-        return yaml.dump({
-            "trainer_name": self.__class__.__name__,
-            "optimizer": self.optimizer,
-            "learning_rate": self.lr,
-            "max_epoch": self.max_epoch,
-            "early_stopping_round": self.early_stopping_round,
-            "model": repr(self.model)
-        })
+
+        return yaml.dump(
+            {
+                "trainer_name": self.__class__.__name__,
+                "optimizer": self.optimizer,
+                "learning_rate": self.lr,
+                "max_epoch": self.max_epoch,
+                "early_stopping_round": self.early_stopping_round,
+                "model": repr(self.model),
+            }
+        )
 
     def evaluate(self, dataset, mask="val", feval=None):
         """

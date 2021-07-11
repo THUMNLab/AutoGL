@@ -19,10 +19,15 @@ class GraphSAINTSamplerFactory:
     With the aim of abstracting a unified sampling module for representative mainstream varieties of
     Node-wise Sampling, Layer-wise Sampling, and Subgraph-wise Sampling.
     """
+
     @classmethod
     def create_node_sampler(
-            cls, data, num_graphs_per_epoch: int, node_budget: int,
-            sample_coverage_factor: int = 50, **kwargs
+        cls,
+        data,
+        num_graphs_per_epoch: int,
+        node_budget: int,
+        sample_coverage_factor: int = 50,
+        **kwargs
     ) -> torch_geometric.data.GraphSAINTNodeSampler:
         """
         A simple static method for instantiating :class:`torch_geometric.data.GraphSAINTNodeSampler`
@@ -48,14 +53,22 @@ class GraphSAINTSamplerFactory:
         Instance of :class:`torch_geometric.data.GraphSAINTNodeSampler`.
         """
         return torch_geometric.data.GraphSAINTNodeSampler(
-            data, node_budget,
-            num_graphs_per_epoch, sample_coverage_factor, log=False, **kwargs
+            data,
+            node_budget,
+            num_graphs_per_epoch,
+            sample_coverage_factor,
+            log=False,
+            **kwargs
         )
 
     @classmethod
     def create_edge_sampler(
-            cls, data, num_graphs_per_epoch: int, edge_budget: int,
-            sample_coverage_factor: int = 50, **kwargs
+        cls,
+        data,
+        num_graphs_per_epoch: int,
+        edge_budget: int,
+        sample_coverage_factor: int = 50,
+        **kwargs
     ) -> torch_geometric.data.GraphSAINTEdgeSampler:
         """
         A simple static method for instantiating :class:`torch_geometric.data.GraphSAINTEdgeSampler`
@@ -81,15 +94,23 @@ class GraphSAINTSamplerFactory:
         Instance of :class:`torch_geometric.data.GraphSAINTEdgeSampler`.
         """
         return torch_geometric.data.GraphSAINTEdgeSampler(
-            data, edge_budget,
-            num_graphs_per_epoch, sample_coverage_factor, log=False, **kwargs
+            data,
+            edge_budget,
+            num_graphs_per_epoch,
+            sample_coverage_factor,
+            log=False,
+            **kwargs
         )
 
     @classmethod
     def create_random_walk_sampler(
-            cls, data, num_graphs_per_epoch: int,
-            num_walks: int, walk_length: int,
-            sample_coverage_factor: int = 50, **kwargs
+        cls,
+        data,
+        num_graphs_per_epoch: int,
+        num_walks: int,
+        walk_length: int,
+        sample_coverage_factor: int = 50,
+        **kwargs
     ) -> torch_geometric.data.GraphSAINTRandomWalkSampler:
         """
         A simple static method for instantiating :class:`torch_geometric.data.GraphSAINTEdgeSampler`
@@ -117,6 +138,11 @@ class GraphSAINTSamplerFactory:
         Instance of :class:`torch_geometric.data.GraphSAINTEdgeSampler`.
         """
         return torch_geometric.data.GraphSAINTRandomWalkSampler(
-            data, num_walks, walk_length,
-            num_graphs_per_epoch, sample_coverage_factor, log=False, **kwargs
+            data,
+            num_walks,
+            walk_length,
+            num_graphs_per_epoch,
+            sample_coverage_factor,
+            log=False,
+            **kwargs
         )

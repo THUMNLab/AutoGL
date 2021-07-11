@@ -11,7 +11,8 @@ from ....utils import get_logger
 
 from ...model import AutoGCN
 
-class OrderedMutable():
+
+class OrderedMutable:
     """
     An abstract class with order, enabling to sort mutables with a certain rank.
 
@@ -20,20 +21,35 @@ class OrderedMutable():
     order : int
         The order of the mutable
     """
+
     def __init__(self, order):
         self.order = order
 
+
 class OrderedLayerChoice(OrderedMutable, mutables.LayerChoice):
-    def __init__(self, order, op_candidates, reduction="sum", return_mask=False, key=None):
+    def __init__(
+        self, order, op_candidates, reduction="sum", return_mask=False, key=None
+    ):
         OrderedMutable.__init__(self, order)
         mutables.LayerChoice.__init__(self, op_candidates, reduction, return_mask, key)
 
+
 class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
-    def __init__(self, order, n_candidates=None, choose_from=None, n_chosen=None,
-                 reduction="sum", return_mask=False, key=None):
+    def __init__(
+        self,
+        order,
+        n_candidates=None,
+        choose_from=None,
+        n_chosen=None,
+        reduction="sum",
+        return_mask=False,
+        key=None,
+    ):
         OrderedMutable.__init__(self, order)
-        mutables.InputChoice.__init__(self, n_candidates, choose_from, n_chosen,
-                 reduction, return_mask, key)
+        mutables.InputChoice.__init__(
+            self, n_candidates, choose_from, n_chosen, reduction, return_mask, key
+        )
+
 
 class StrModule(nn.Module):
     """
@@ -45,15 +61,17 @@ class StrModule(nn.Module):
     name : anything
         the name of module, can be any type
     """
+
     def __init__(self, name):
         super().__init__()
         self.str = name
 
-    def forward(self, *args,**kwargs):
-        return self.str  
+    def forward(self, *args, **kwargs):
+        return self.str
 
     def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__,self.str)
+        return "{}({})".format(self.__class__.__name__, self.str)
+
 
 def map_nn(names):
     """
@@ -66,6 +84,7 @@ def map_nn(names):
     """
     return [StrModule(x) for x in names]
 
+
 class BoxModel(BaseModel):
     """
     The box wrapping a space, can be passed to later procedure or trainer
@@ -77,6 +96,7 @@ class BoxModel(BaseModel):
     device : str or torch.device
         The device to place the model
     """
+
     _logger = get_logger("space model")
 
     def __init__(self, space_model, device=torch.device("cuda")):
@@ -93,7 +113,7 @@ class BoxModel(BaseModel):
 
     def fix(self, selection):
         """
-        To fix self._model with a selection 
+        To fix self._model with a selection
 
         Parameters
         ----------
@@ -128,6 +148,7 @@ class BoxModel(BaseModel):
     @property
     def model(self):
         return self._model
+
 
 class BaseSpace(nn.Module):
     """
@@ -187,7 +208,9 @@ class BaseSpace(nn.Module):
         if not self._initialized:
             self._initialized = True
 
-    def setLayerChoice(self, order, op_candidates, reduction="sum", return_mask=False, key=None):
+    def setLayerChoice(
+        self, order, op_candidates, reduction="sum", return_mask=False, key=None
+    ):
         """
         Give a unique key if not given
         """
@@ -199,8 +222,16 @@ class BaseSpace(nn.Module):
         layer = OrderedLayerChoice(order, op_candidates, reduction, return_mask, orikey)
         return layer
 
-    def setInputChoice(self, order, n_candidates=None, choose_from=None, n_chosen=None,
-                 reduction="sum", return_mask=False, key=None):
+    def setInputChoice(
+        self,
+        order,
+        n_candidates=None,
+        choose_from=None,
+        n_chosen=None,
+        reduction="sum",
+        return_mask=False,
+        key=None,
+    ):
         """
         Give a unique key if not given
         """
@@ -209,8 +240,9 @@ class BaseSpace(nn.Module):
             key = f"default_key_{self._default_key}"
             self._default_key += 1
             orikey = key
-        layer = OrderedInputChoice(order, n_candidates, choose_from, n_chosen,
-                 reduction, return_mask, orikey)
+        layer = OrderedInputChoice(
+            order, n_candidates, choose_from, n_chosen, reduction, return_mask, orikey
+        )
         return layer
 
     def wrap(self, device="cuda"):
@@ -218,8 +250,9 @@ class BaseSpace(nn.Module):
         Return a BoxModel which wrap self as a model
         Used to pass to trainer
         To use this function, must contain `input_dim` and `output_dim`
-        """ 
-        return BoxModel(self, device) 
+        """
+        return BoxModel(self, device)
+
 
 class FixedInputChoice(nn.Module):
     """
@@ -230,6 +263,7 @@ class FixedInputChoice(nn.Module):
     mask : list
         The mask indicating which input to choose
     """
+
     def __init__(self, mask):
         self.mask_len = len(mask)
         for i in range(self.mask_len):
@@ -241,6 +275,7 @@ class FixedInputChoice(nn.Module):
     def forward(self, optional_inputs):
         if len(optional_inputs) == self.mask_len:
             return optional_inputs[self.selected]
+
 
 class CleanFixedArchitecture(FixedArchitecture):
     """
@@ -294,6 +329,7 @@ class CleanFixedArchitecture(FixedArchitecture):
                 setattr(module, name, FixedInputChoice(chosen))
             else:
                 self.replace_all_choice(mutable, global_name)
+
 
 def apply_fixed_architecture(model, fixed_arc, verbose=True):
     """

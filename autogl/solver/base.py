@@ -298,23 +298,65 @@ class BaseSolver:
         if nas_algorithms is None and nas_estimators is None and nas_spaces is None:
             self.nas_algorithms = self.nas_estimators = self.nas_spaces = None
             return
-        assert None not in [nas_algorithms, nas_estimators, nas_spaces], "The algorithms, estimators and spaces should all be set"
+        assert None not in [
+            nas_algorithms,
+            nas_estimators,
+            nas_spaces,
+        ], "The algorithms, estimators and spaces should all be set"
 
-        nas_algorithms = nas_algorithms if isinstance(nas_algorithms, (list, tuple)) else [nas_algorithms]
-        nas_spaces = nas_spaces if isinstance(nas_spaces, (list, tuple)) else [nas_spaces]
-        nas_estimators = nas_estimators if isinstance(nas_estimators, (list, tuple)) else [nas_estimators]
+        nas_algorithms = (
+            nas_algorithms
+            if isinstance(nas_algorithms, (list, tuple))
+            else [nas_algorithms]
+        )
+        nas_spaces = (
+            nas_spaces if isinstance(nas_spaces, (list, tuple)) else [nas_spaces]
+        )
+        nas_estimators = (
+            nas_estimators
+            if isinstance(nas_estimators, (list, tuple))
+            else [nas_estimators]
+        )
 
         # parse all str elements
-        nas_algorithms = [algo if not isinstance(algo, str) else NAS_ALGO_DICT[algo]() for algo in nas_algorithms]
-        nas_spaces = [space if not isinstance(space, str) else NAS_SPACE_DICT[space]() for space in nas_spaces]
-        nas_estimators = [estimator if not isinstance(estimator, str) else NAS_ESTIMATOR_DICT[estimator]() for estimator in nas_estimators]
-        
-        max_number = max([len(x) for x in [nas_algorithms, nas_spaces, nas_estimators]])
-        assert all([len(x) in [1, max_number] for x in [nas_algorithms, nas_spaces, nas_estimators]]), "lengths of algorithms/spaces/estimators do not match!"
+        nas_algorithms = [
+            algo if not isinstance(algo, str) else NAS_ALGO_DICT[algo]()
+            for algo in nas_algorithms
+        ]
+        nas_spaces = [
+            space if not isinstance(space, str) else NAS_SPACE_DICT[space]()
+            for space in nas_spaces
+        ]
+        nas_estimators = [
+            estimator
+            if not isinstance(estimator, str)
+            else NAS_ESTIMATOR_DICT[estimator]()
+            for estimator in nas_estimators
+        ]
 
-        self.nas_algorithms = [deepcopy(nas_algorithms) for _ in range(max_number)] if len(nas_algorithms) == 1 and max_number > 1 else nas_algorithms
-        self.nas_spaces = [deepcopy(nas_spaces) for _ in range(max_number)] if len(nas_spaces) == 1 and max_number > 1 else nas_spaces
-        self.nas_estimators = [deepcopy(nas_estimators) for _ in range(max_number)] if len(nas_estimators) == 1 and max_number > 1 else nas_estimators
+        max_number = max([len(x) for x in [nas_algorithms, nas_spaces, nas_estimators]])
+        assert all(
+            [
+                len(x) in [1, max_number]
+                for x in [nas_algorithms, nas_spaces, nas_estimators]
+            ]
+        ), "lengths of algorithms/spaces/estimators do not match!"
+
+        self.nas_algorithms = (
+            [deepcopy(nas_algorithms) for _ in range(max_number)]
+            if len(nas_algorithms) == 1 and max_number > 1
+            else nas_algorithms
+        )
+        self.nas_spaces = (
+            [deepcopy(nas_spaces) for _ in range(max_number)]
+            if len(nas_spaces) == 1 and max_number > 1
+            else nas_spaces
+        )
+        self.nas_estimators = (
+            [deepcopy(nas_estimators) for _ in range(max_number)]
+            if len(nas_estimators) == 1 and max_number > 1
+            else nas_estimators
+        )
 
         return self
 

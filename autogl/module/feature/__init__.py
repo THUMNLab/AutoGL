@@ -35,14 +35,10 @@ from .generators import (
     PYGGenerator,
     PYGLocalDegreeProfile,
     PYGNormalizeFeatures,
-    PYGOneHotDegree
+    PYGOneHotDegree,
 )
 
-from .selectors import (
-    BaseSelector,
-    SeFilterConstant, 
-    SeGBDT
-)
+from .selectors import BaseSelector, SeFilterConstant, SeGBDT
 
 from .graph import (
     BaseGraph,

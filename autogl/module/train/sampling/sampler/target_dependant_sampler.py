@@ -38,18 +38,18 @@ class TargetDependantSampledData:
         The stored sequence of tuple
         `( edge_index_for_sampled_graph, edge_id_in_integral_graph, (optional)edge_weight )`.
     """
+
     class _LayerSampledEdgeData:
         def __init__(
-                self, edge_index_for_sampled_graph: torch.Tensor,
-                edge_id_in_integral_graph: torch.Tensor,
-                edge_weight: _typing.Optional[torch.Tensor]
+            self,
+            edge_index_for_sampled_graph: torch.Tensor,
+            edge_id_in_integral_graph: torch.Tensor,
+            edge_weight: _typing.Optional[torch.Tensor],
         ):
             self.__edge_index_for_sampled_graph: torch.Tensor = (
                 edge_index_for_sampled_graph
             )
-            self.__edge_id_in_integral_graph: torch.Tensor = (
-                edge_id_in_integral_graph
-            )
+            self.__edge_id_in_integral_graph: torch.Tensor = edge_id_in_integral_graph
             self.__edge_weight: _typing.Optional[torch.Tensor] = edge_weight
 
         @property
@@ -61,9 +61,7 @@ class TargetDependantSampledData:
 
         @property
         def edge_id_in_integral_graph(self) -> torch.LongTensor:
-            edge_id_in_integral_graph: _typing.Any = (
-                self.__edge_id_in_integral_graph
-            )
+            edge_id_in_integral_graph: _typing.Any = self.__edge_id_in_integral_graph
             return edge_id_in_integral_graph
 
         @property
@@ -82,9 +80,9 @@ class TargetDependantSampledData:
             return indexes_in_integral_graph
 
         def __init__(
-                self,
-                indexes_in_sampled_graph: torch.Tensor,
-                indexes_in_integral_graph: torch.Tensor,
+            self,
+            indexes_in_sampled_graph: torch.Tensor,
+            indexes_in_integral_graph: torch.Tensor,
         ):
             self.__indexes_in_sampled_graph: torch.Tensor = indexes_in_sampled_graph
             self.__indexes_in_integral_graph: torch.Tensor = indexes_in_integral_graph
@@ -105,12 +103,12 @@ class TargetDependantSampledData:
         return self.__sampled_edges_for_layers
 
     def __init__(
-            self,
-            sampled_edges_for_layers: _typing.Sequence[
-                _typing.Tuple[torch.Tensor, torch.Tensor, _typing.Optional[torch.Tensor]]
-            ],
-            target_nodes_indexes: _typing.Tuple[torch.Tensor, torch.Tensor],
-            all_sampled_nodes_indexes: torch.Tensor
+        self,
+        sampled_edges_for_layers: _typing.Sequence[
+            _typing.Tuple[torch.Tensor, torch.Tensor, _typing.Optional[torch.Tensor]]
+        ],
+        target_nodes_indexes: _typing.Tuple[torch.Tensor, torch.Tensor],
+        all_sampled_nodes_indexes: torch.Tensor,
     ):
         self.__sampled_edges_for_layers: _typing.Sequence[
             TargetDependantSampledData._LayerSampledEdgeData
@@ -128,13 +126,18 @@ class TargetDependantSampler(torch.utils.data.DataLoader, _typing.Iterable):
     """
     An abstract base class for various target-dependent sampler
     """
+
     @classmethod
     def create_basic_sampler(
-            cls, edge_index: torch.LongTensor,
-            target_nodes_indexes: torch.LongTensor,
-            layer_wise_arguments: _typing.Sequence,
-            batch_size: int = 1, num_workers: int = 0,
-            shuffle: bool = True, *args, **kwargs
+        cls,
+        edge_index: torch.LongTensor,
+        target_nodes_indexes: torch.LongTensor,
+        layer_wise_arguments: _typing.Sequence,
+        batch_size: int = 1,
+        num_workers: int = 0,
+        shuffle: bool = True,
+        *args,
+        **kwargs
     ) -> "TargetDependantSampler":
         """
         :param edge_index: edge index of integral graph
@@ -148,7 +151,7 @@ class TargetDependantSampler(torch.utils.data.DataLoader, _typing.Iterable):
         :return: instance of TargetDependantSampler
         """
         raise NotImplementedError
-    
+
     def __iter__(self):
         return super(TargetDependantSampler, self).__iter__()
 
@@ -175,12 +178,16 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
     kwargs:
         remaining keyword arguments
     """
+
     def __init__(
-            self, edge_index: torch.LongTensor,
-            target_nodes_indexes: torch.LongTensor,
-            layer_wise_arguments: _typing.Sequence,
-            batch_size: _typing.Optional[int] = 1, num_workers: int = 0,
-            shuffle: bool = True, **kwargs
+        self,
+        edge_index: torch.LongTensor,
+        target_nodes_indexes: torch.LongTensor,
+        layer_wise_arguments: _typing.Sequence,
+        batch_size: _typing.Optional[int] = 1,
+        num_workers: int = 0,
+        shuffle: bool = True,
+        **kwargs
     ):
         self._edge_index: torch.LongTensor = edge_index
         self.__layer_wise_arguments: _typing.Sequence = layer_wise_arguments
@@ -188,17 +195,24 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
             del kwargs["collate_fn"]
         super(BasicLayerWiseTargetDependantSampler, self).__init__(
             target_nodes_indexes.unique().numpy(),
-            batch_size, shuffle, num_workers=num_workers,
-            collate_fn=self._collate_fn, **kwargs
+            batch_size,
+            shuffle,
+            num_workers=num_workers,
+            collate_fn=self._collate_fn,
+            **kwargs
         )
 
     @classmethod
     def create_basic_sampler(
-            cls, edge_index: torch.LongTensor,
-            target_nodes_indexes: torch.LongTensor,
-            layer_wise_arguments: _typing.Sequence,
-            batch_size: int = 1, num_workers: int = 0,
-            shuffle: bool = True, *args, **kwargs
+        cls,
+        edge_index: torch.LongTensor,
+        target_nodes_indexes: torch.LongTensor,
+        layer_wise_arguments: _typing.Sequence,
+        batch_size: int = 1,
+        num_workers: int = 0,
+        shuffle: bool = True,
+        *args,
+        **kwargs
     ) -> TargetDependantSampler:
         """
         :param edge_index: edge index of integral graph
@@ -212,14 +226,22 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
         :return: instance of TargetDependantSampler
         """
         return BasicLayerWiseTargetDependantSampler(
-            edge_index, target_nodes_indexes, layer_wise_arguments,
-            batch_size, num_workers, shuffle, **kwargs
+            edge_index,
+            target_nodes_indexes,
+            layer_wise_arguments,
+            batch_size,
+            num_workers,
+            shuffle,
+            **kwargs
         )
 
     def _sample_edges_for_layer(
-            self, __current_layer_target_nodes_indexes: torch.LongTensor,
-            __top_layer_target_nodes_indexes: torch.LongTensor,
-            layer_argument: _typing.Any, *args, **kwargs
+        self,
+        __current_layer_target_nodes_indexes: torch.LongTensor,
+        __top_layer_target_nodes_indexes: torch.LongTensor,
+        layer_argument: _typing.Any,
+        *args,
+        **kwargs
     ) -> _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]:
         """
         Sample edges for one specific layer, expected to be implemented in subclass.
@@ -247,17 +269,21 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
         raise NotImplementedError
 
     def _collate_fn(
-            self, top_layer_target_nodes_indexes_list: _typing.List[int]
+        self, top_layer_target_nodes_indexes_list: _typing.List[int]
     ) -> TargetDependantSampledData:
-        return self.__sample_layers(torch.tensor(top_layer_target_nodes_indexes_list).unique())
+        return self.__sample_layers(
+            torch.tensor(top_layer_target_nodes_indexes_list).unique()
+        )
 
     def __sample_layers(
-            self, __top_layer_target_nodes_indexes: torch.LongTensor
+        self, __top_layer_target_nodes_indexes: torch.LongTensor
     ) -> TargetDependantSampledData:
         sampled_edges_for_layers: _typing.List[
             _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
         ] = list()
-        __current_layer_target_nodes_indexes: torch.LongTensor = __top_layer_target_nodes_indexes
+        __current_layer_target_nodes_indexes: torch.LongTensor = (
+            __top_layer_target_nodes_indexes
+        )
         " Reverse self.__layer_wise_arguments from bottom-up to top-down "
         for layer_argument in self.__layer_wise_arguments[::-1]:
             current_layer_result: _typing.Tuple[
@@ -265,11 +291,11 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
             ] = self._sample_edges_for_layer(
                 __current_layer_target_nodes_indexes,
                 __top_layer_target_nodes_indexes,
-                layer_argument
+                layer_argument,
             )
-            __source_nodes_indexes_for_current_layer: torch.Tensor = (
-                self._edge_index[0, current_layer_result[0]]
-            )
+            __source_nodes_indexes_for_current_layer: torch.Tensor = self._edge_index[
+                0, current_layer_result[0]
+            ]
             __current_layer_target_nodes_indexes: torch.LongTensor = (
                 __source_nodes_indexes_for_current_layer.unique()
             )
@@ -285,49 +311,66 @@ class BasicLayerWiseTargetDependantSampler(TargetDependantSampler):
                 for current_layer_result in sampled_edges_for_layers
             ]
         ).unique()
-        __sampled_nodes_in_sub_graph_mapping: _typing.Dict[int, int] = dict(list(zip(
-            sampled_nodes_in_sub_graph.tolist(),
-            range(sampled_nodes_in_sub_graph.size(0))
-        )))
+        __sampled_nodes_in_sub_graph_mapping: _typing.Dict[int, int] = dict(
+            list(
+                zip(
+                    sampled_nodes_in_sub_graph.tolist(),
+                    range(sampled_nodes_in_sub_graph.size(0)),
+                )
+            )
+        )
 
         __sampled_edge_index_for_layers_in_sub_graph: _typing.Sequence[torch.Tensor] = [
-            torch.stack([
-                torch.tensor(
-                    [
-                        __sampled_nodes_in_sub_graph_mapping.get(node_index)
-                        for node_index in self._edge_index[0, current_layer_result[0]].tolist()
-                    ]
-                ),
-                torch.tensor(
-                    [
-                        __sampled_nodes_in_sub_graph_mapping.get(node_index)
-                        for node_index in self._edge_index[1, current_layer_result[0]].tolist()
-                    ]
-                ),
-            ])
+            torch.stack(
+                [
+                    torch.tensor(
+                        [
+                            __sampled_nodes_in_sub_graph_mapping.get(node_index)
+                            for node_index in self._edge_index[
+                                0, current_layer_result[0]
+                            ].tolist()
+                        ]
+                    ),
+                    torch.tensor(
+                        [
+                            __sampled_nodes_in_sub_graph_mapping.get(node_index)
+                            for node_index in self._edge_index[
+                                1, current_layer_result[0]
+                            ].tolist()
+                        ]
+                    ),
+                ]
+            )
             for current_layer_result in sampled_edges_for_layers
         ]
 
         return TargetDependantSampledData(
             [
-                (temp_tuple[0], temp_tuple[1][0], temp_tuple[1][1]) for temp_tuple
-                in zip(__sampled_edge_index_for_layers_in_sub_graph, sampled_edges_for_layers)
+                (temp_tuple[0], temp_tuple[1][0], temp_tuple[1][1])
+                for temp_tuple in zip(
+                    __sampled_edge_index_for_layers_in_sub_graph,
+                    sampled_edges_for_layers,
+                )
             ],
             (
                 torch.tensor(
                     [
-                        __sampled_nodes_in_sub_graph_mapping.get(current_target_node_index_in_integral_data)
+                        __sampled_nodes_in_sub_graph_mapping.get(
+                            current_target_node_index_in_integral_data
+                        )
                         for current_target_node_index_in_integral_data in __top_layer_target_nodes_indexes.tolist()
-                        if current_target_node_index_in_integral_data in __sampled_nodes_in_sub_graph_mapping
+                        if current_target_node_index_in_integral_data
+                        in __sampled_nodes_in_sub_graph_mapping
                     ]
                 ).long(),  # Remap
                 torch.tensor(
                     [
                         current_target_node_index_in_integral_data
                         for current_target_node_index_in_integral_data in __top_layer_target_nodes_indexes.tolist()
-                        if current_target_node_index_in_integral_data in __sampled_nodes_in_sub_graph_mapping
+                        if current_target_node_index_in_integral_data
+                        in __sampled_nodes_in_sub_graph_mapping
                     ]
-                ).long()
+                ).long(),
             ),
-            sampled_nodes_in_sub_graph
+            sampled_nodes_in_sub_graph,
         )

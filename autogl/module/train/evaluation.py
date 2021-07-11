@@ -28,6 +28,7 @@ class Evaluation:
 
 class EvaluatorUtility:
     """ Auxiliary utilities for evaluation """
+
     class PredictionBatchCumulativeBuilder:
         """
         Batch-cumulative builder for prediction
@@ -37,22 +38,22 @@ class EvaluatorUtility:
         a batch-cumulative prediction collector `PredictionBatchCumulativeBuilder`
         is implemented for prediction in mini-batch manner.
         """
+
         def __init__(self):
             self.__indexes_in_integral_data: _typing.Optional[np.ndarray] = None
             self.__prediction: _typing.Optional[np.ndarray] = None
 
         def clear_batches(
-                self, *__args, **__kwargs
-        ) -> 'EvaluatorUtility.PredictionBatchCumulativeBuilder':
+            self, *__args, **__kwargs
+        ) -> "EvaluatorUtility.PredictionBatchCumulativeBuilder":
             self.__indexes_in_integral_data = None
             self.__prediction = None
             return self
 
         def add_batch(
-                self, indexes_in_integral_data: np.ndarray,
-                batch_prediction: np.ndarray
-        ) -> 'EvaluatorUtility.PredictionBatchCumulativeBuilder':
-            if not(
+            self, indexes_in_integral_data: np.ndarray, batch_prediction: np.ndarray
+        ) -> "EvaluatorUtility.PredictionBatchCumulativeBuilder":
+            if not (
                 isinstance(indexes_in_integral_data, np.ndarray)
                 and isinstance(batch_prediction, np.ndarray)
                 and len(indexes_in_integral_data.shape) == 1
@@ -62,33 +63,50 @@ class EvaluatorUtility:
                 raise ValueError
 
             if self.__indexes_in_integral_data is None:
-                if indexes_in_integral_data.shape != np.unique(indexes_in_integral_data).shape:
+                if (
+                    indexes_in_integral_data.shape
+                    != np.unique(indexes_in_integral_data).shape
+                ):
                     raise ValueError(
                         f"There exists duplicate index "
                         f"in the argument indexes_in_integral_data {indexes_in_integral_data}"
                     )
                 else:
-                    self.__indexes_in_integral_data: np.ndarray = np.unique(indexes_in_integral_data)
+                    self.__indexes_in_integral_data: np.ndarray = np.unique(
+                        indexes_in_integral_data
+                    )
             else:
                 __indexes_in_integral_data = np.concatenate(
                     (self.__indexes_in_integral_data, indexes_in_integral_data)
                 )
-                if __indexes_in_integral_data.shape != np.unique(__indexes_in_integral_data).shape:
+                if (
+                    __indexes_in_integral_data.shape
+                    != np.unique(__indexes_in_integral_data).shape
+                ):
                     raise ValueError
                 else:
-                    self.__indexes_in_integral_data: np.ndarray = __indexes_in_integral_data
+                    self.__indexes_in_integral_data: np.ndarray = (
+                        __indexes_in_integral_data
+                    )
 
             if self.__prediction is None:
                 self.__prediction: np.ndarray = batch_prediction
             else:
-                self.__prediction: np.ndarray = np.concatenate((self.__prediction, batch_prediction))
+                self.__prediction: np.ndarray = np.concatenate(
+                    (self.__prediction, batch_prediction)
+                )
 
             return self
 
-        def compose(self, __sorted: bool = True, **__kwargs) -> _typing.Tuple[np.ndarray, np.ndarray]:
+        def compose(
+            self, __sorted: bool = True, **__kwargs
+        ) -> _typing.Tuple[np.ndarray, np.ndarray]:
             if __sorted:
                 sorted_index = np.argsort(self.__indexes_in_integral_data)
-                return self.__indexes_in_integral_data[sorted_index], self.__prediction[sorted_index]
+                return (
+                    self.__indexes_in_integral_data[sorted_index],
+                    self.__prediction[sorted_index],
+                )
             else:
                 return self.__indexes_in_integral_data, self.__prediction
 
@@ -260,4 +278,4 @@ class MicroF1(Evaluation):
 
     @staticmethod
     def evaluate(predict, label) -> float:
-        return f1_score(label, np.argmax(predict, axis=1), average='micro')
+        return f1_score(label, np.argmax(predict, axis=1), average="micro")

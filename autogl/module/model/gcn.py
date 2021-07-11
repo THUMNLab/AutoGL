@@ -14,36 +14,40 @@ LOGGER = get_logger("GCNModel")
 class GCN(ClassificationSupportedSequentialModel):
     class _GCNLayer(torch.nn.Module):
         def __init__(
-                self, input_channels: int, output_channels: int,
-                add_self_loops: bool = True, normalize: bool = True,
-                activation_name: _typing.Optional[str] = ...,
-                dropout_probability: _typing.Optional[float] = ...
+            self,
+            input_channels: int,
+            output_channels: int,
+            add_self_loops: bool = True,
+            normalize: bool = True,
+            activation_name: _typing.Optional[str] = ...,
+            dropout_probability: _typing.Optional[float] = ...,
         ):
             super().__init__()
             self._convolution: GCNConv = GCNConv(
-                input_channels, output_channels,
+                input_channels,
+                output_channels,
                 add_self_loops=bool(add_self_loops),
-                normalize=bool(normalize)
+                normalize=bool(normalize),
             )
             if (
-                    activation_name is not Ellipsis and
-                    activation_name is not None and
-                    type(activation_name) == str
+                activation_name is not Ellipsis
+                and activation_name is not None
+                and type(activation_name) == str
             ):
                 self._activation_name: _typing.Optional[str] = activation_name
             else:
                 self._activation_name: _typing.Optional[str] = None
             if (
-                    dropout_probability is not Ellipsis and
-                    dropout_probability is not None and
-                    type(dropout_probability) == float
+                dropout_probability is not Ellipsis
+                and dropout_probability is not None
+                and type(dropout_probability) == float
             ):
                 if dropout_probability < 0:
                     dropout_probability = 0
                 if dropout_probability > 1:
                     dropout_probability = 1
-                self._dropout: _typing.Optional[torch.nn.Dropout] = (
-                    torch.nn.Dropout(dropout_probability)
+                self._dropout: _typing.Optional[torch.nn.Dropout] = torch.nn.Dropout(
+                    dropout_probability
                 )
             else:
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
@@ -51,13 +55,15 @@ class GCN(ClassificationSupportedSequentialModel):
         def forward(self, data, enable_activation: bool = True) -> torch.Tensor:
             x: torch.Tensor = getattr(data, "x")
             edge_index: torch.LongTensor = getattr(data, "edge_index")
-            edge_weight: _typing.Optional[torch.Tensor] = getattr(data, "edge_weight", None)
+            edge_weight: _typing.Optional[torch.Tensor] = getattr(
+                data, "edge_weight", None
+            )
             """ Validate the arguments """
             if not type(x) == type(edge_index) == torch.Tensor:
                 raise TypeError
             if edge_weight is not None and (
-                    type(edge_weight) != torch.Tensor or
-                    edge_index.size() != (2, edge_weight.size(0))
+                type(edge_weight) != torch.Tensor
+                or edge_index.size() != (2, edge_weight.size(0))
             ):
                 edge_weight: _typing.Optional[torch.Tensor] = None
 
@@ -69,15 +75,16 @@ class GCN(ClassificationSupportedSequentialModel):
             return x
 
     def __init__(
-            self,
-            num_features: int,
-            num_classes: int,
-            hidden_features: _typing.Sequence[int],
-            activation_name: str,
-            dropout: _typing.Union[
-                _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
-            ] = None,
-            add_self_loops: bool = True, normalize: bool = True
+        self,
+        num_features: int,
+        num_classes: int,
+        hidden_features: _typing.Sequence[int],
+        activation_name: str,
+        dropout: _typing.Union[
+            _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
+        ] = None,
+        add_self_loops: bool = True,
+        normalize: bool = True,
     ):
         if isinstance(dropout, _typing.Sequence):
             if len(dropout) != len(hidden_features) + 1:
@@ -97,9 +104,9 @@ class GCN(ClassificationSupportedSequentialModel):
                 dropout = 0
             if dropout > 1:
                 dropout = 1
-            dropout_list: _typing.Sequence[_typing.Optional[float]] = (
-                [dropout for _ in range(len(hidden_features))] + [None]
-            )
+            dropout_list: _typing.Sequence[_typing.Optional[float]] = [
+                dropout for _ in range(len(hidden_features))
+            ] + [None]
         elif dropout in (None, Ellipsis, ...):
             dropout_list: _typing.Sequence[_typing.Optional[float]] = [
                 None for _ in range(len(hidden_features) + 1)
@@ -111,60 +118,86 @@ class GCN(ClassificationSupportedSequentialModel):
             )
         super().__init__()
         if len(hidden_features) == 0:
-            self.__sequential_encoding_layers: torch.nn.ModuleList = torch.nn.ModuleList(
-                (
-                    self._GCNLayer(
-                        num_features, num_classes, add_self_loops, normalize,
-                        dropout_probability=dropout_list[0]
-                    ),
+            self.__sequential_encoding_layers: torch.nn.ModuleList = (
+                torch.nn.ModuleList(
+                    (
+                        self._GCNLayer(
+                            num_features,
+                            num_classes,
+                            add_self_loops,
+                            normalize,
+                            dropout_probability=dropout_list[0],
+                        ),
+                    )
                 )
             )
         else:
-            self.__sequential_encoding_layers: torch.nn.ModuleList = torch.nn.ModuleList()
-            self.__sequential_encoding_layers.append(self._GCNLayer(
-                num_features, hidden_features[0], add_self_loops,
-                normalize, activation_name, dropout_list[0]
-            ))
+            self.__sequential_encoding_layers: torch.nn.ModuleList = (
+                torch.nn.ModuleList()
+            )
+            self.__sequential_encoding_layers.append(
+                self._GCNLayer(
+                    num_features,
+                    hidden_features[0],
+                    add_self_loops,
+                    normalize,
+                    activation_name,
+                    dropout_list[0],
+                )
+            )
             for hidden_feature_index in range(len(hidden_features)):
                 if hidden_feature_index + 1 < len(hidden_features):
-                    self.__sequential_encoding_layers.append(self._GCNLayer(
-                        hidden_features[hidden_feature_index],
-                        hidden_features[hidden_feature_index + 1],
-                        add_self_loops, normalize, activation_name,
-                        dropout_list[hidden_feature_index + 1]
-                    ))
+                    self.__sequential_encoding_layers.append(
+                        self._GCNLayer(
+                            hidden_features[hidden_feature_index],
+                            hidden_features[hidden_feature_index + 1],
+                            add_self_loops,
+                            normalize,
+                            activation_name,
+                            dropout_list[hidden_feature_index + 1],
+                        )
+                    )
                 else:
-                    self.__sequential_encoding_layers.append(self._GCNLayer(
-                        hidden_features[hidden_feature_index], num_classes,
-                        add_self_loops, normalize,
-                        dropout_list[-1]
-                    ))
+                    self.__sequential_encoding_layers.append(
+                        self._GCNLayer(
+                            hidden_features[hidden_feature_index],
+                            num_classes,
+                            add_self_loops,
+                            normalize,
+                            dropout_list[-1],
+                        )
+                    )
 
     @property
     def sequential_encoding_layers(self) -> torch.nn.ModuleList:
         return self.__sequential_encoding_layers
 
-    def __extract_edge_indexes_and_weights(self, data) -> _typing.Union[
-        _typing.Sequence[_typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]],
-        _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
+    def __extract_edge_indexes_and_weights(
+        self, data
+    ) -> _typing.Union[
+        _typing.Sequence[
+            _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
+        ],
+        _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]],
     ]:
         def __compose_edge_index_and_weight(
-                _edge_index: torch.LongTensor,
-                _edge_weight: _typing.Optional[torch.Tensor] = None
+            _edge_index: torch.LongTensor,
+            _edge_weight: _typing.Optional[torch.Tensor] = None,
         ) -> _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]:
             if type(_edge_index) != torch.Tensor or _edge_index.dtype != torch.int64:
                 raise TypeError
             if _edge_weight is not None and (
-                    type(_edge_weight) != torch.Tensor or
-                    _edge_index.size() != (2, _edge_weight.size(0))
+                type(_edge_weight) != torch.Tensor
+                or _edge_index.size() != (2, _edge_weight.size(0))
             ):
                 _edge_weight: _typing.Optional[torch.Tensor] = None
             return _edge_index, _edge_weight
 
         if not (
-                hasattr(data, "edge_indexes") and
-                isinstance(getattr(data, "edge_indexes"), _typing.Sequence) and
-                len(getattr(data, "edge_indexes")) == len(self.__sequential_encoding_layers)
+            hasattr(data, "edge_indexes")
+            and isinstance(getattr(data, "edge_indexes"), _typing.Sequence)
+            and len(getattr(data, "edge_indexes"))
+            == len(self.__sequential_encoding_layers)
         ):
             return __compose_edge_index_and_weight(
                 getattr(data, "edge_index"), getattr(data, "edge_weight", None)
@@ -176,14 +209,16 @@ class GCN(ClassificationSupportedSequentialModel):
                 )
 
         if (
-                hasattr(data, "edge_weights") and
-                isinstance(getattr(data, "edge_weights"), _typing.Sequence) and
-                len(getattr(data, "edge_weights")) == len(self.__sequential_encoding_layers)
+            hasattr(data, "edge_weights")
+            and isinstance(getattr(data, "edge_weights"), _typing.Sequence)
+            and len(getattr(data, "edge_weights"))
+            == len(self.__sequential_encoding_layers)
         ):
             return [
                 __compose_edge_index_and_weight(_edge_index, _edge_weight)
-                for _edge_index, _edge_weight
-                in zip(getattr(data, "edge_indexes"), getattr(data, "edge_weights"))
+                for _edge_index, _edge_weight in zip(
+                    getattr(data, "edge_indexes"), getattr(data, "edge_weights")
+                )
             ]
         else:
             return [
@@ -193,19 +228,22 @@ class GCN(ClassificationSupportedSequentialModel):
 
     def cls_encode(self, data) -> torch.Tensor:
         edge_indexes_and_weights: _typing.Union[
-            _typing.Sequence[_typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]],
-            _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
+            _typing.Sequence[
+                _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
+            ],
+            _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]],
         ] = self.__extract_edge_indexes_and_weights(data)
 
-        if (
-                (not isinstance(edge_indexes_and_weights, tuple))
-                and isinstance(edge_indexes_and_weights[0], tuple)
+        if (not isinstance(edge_indexes_and_weights, tuple)) and isinstance(
+            edge_indexes_and_weights[0], tuple
         ):
             """ edge_indexes_and_weights is sequence of (edge_index, edge_weight) """
-            assert len(edge_indexes_and_weights) == len(self.__sequential_encoding_layers)
+            assert len(edge_indexes_and_weights) == len(
+                self.__sequential_encoding_layers
+            )
             x: torch.Tensor = getattr(data, "x")
             for _edge_index_and_weight, gcn in zip(
-                    edge_indexes_and_weights, self.__sequential_encoding_layers
+                edge_indexes_and_weights, self.__sequential_encoding_layers
             ):
                 _temp_data = autogl.data.Data(x=x, edge_index=_edge_index_and_weight[0])
                 _temp_data.edge_weight = _edge_index_and_weight[1]
@@ -215,7 +253,9 @@ class GCN(ClassificationSupportedSequentialModel):
             """ edge_indexes_and_weights is (edge_index, edge_weight) """
             x = getattr(data, "x")
             for gcn in self.__sequential_encoding_layers:
-                _temp_data = autogl.data.Data(x=x, edge_index=edge_indexes_and_weights[0])
+                _temp_data = autogl.data.Data(
+                    x=x, edge_index=edge_indexes_and_weights[0]
+                )
                 _temp_data.edge_weight = edge_indexes_and_weights[1]
                 x = gcn(_temp_data)
             return x
@@ -364,5 +404,5 @@ class AutoGCN(BaseModel):
             self.hyperparams.get("act"),
             self.hyperparams.get("dropout", None),
             bool(self.hyperparams.get("add_self_loops", True)),
-            bool(self.hyperparams.get("normalize", True))
+            bool(self.hyperparams.get("normalize", True)),
         ).to(self.device)

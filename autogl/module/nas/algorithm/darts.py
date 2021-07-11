@@ -17,6 +17,7 @@ from nni.retiarii.oneshot.pytorch.darts import DartsLayerChoice, DartsInputChoic
 
 _logger = logging.getLogger(__name__)
 
+
 @register_nas_algo("darts")
 class Darts(BaseNAS):
     """
@@ -42,7 +43,17 @@ class Darts(BaseNAS):
         The device of the whole process
     """
 
-    def __init__(self, num_epochs=5, workers = 4, gradient_clip = 5.0, model_lr = 1e-3, model_wd = 5e-4, arch_lr = 3e-4, arch_wd = 1e-3, device="cuda"):
+    def __init__(
+        self,
+        num_epochs=5,
+        workers=4,
+        gradient_clip=5.0,
+        model_lr=1e-3,
+        model_wd=5e-4,
+        arch_lr=3e-4,
+        arch_wd=1e-3,
+        device="cuda",
+    ):
         super().__init__(device=device)
         self.num_epochs = num_epochs
         self.workers = workers

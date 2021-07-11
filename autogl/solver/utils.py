@@ -52,7 +52,9 @@ class LeaderBoard:
         if field in self.keys and not field == "name":
             self.major_field = field
         else:
-            LOGGER.warning(f"Field [{field}] NOT found in the current LeaderBoard, will ignore.")
+            LOGGER.warning(
+                f"Field [{field}] NOT found in the current LeaderBoard, will ignore."
+            )
 
     def insert_model_performance(self, name, performance) -> None:
         """
@@ -144,10 +146,10 @@ class LeaderBoard:
         """
         top_k: int = top_k if top_k > 0 else len(self.perform_dict)
 
-        '''
+        """
         reindex self.__performance_data_frame
         to ensure the columns of name and representation are in left-side of the data frame
-        '''
+        """
         _columns = self.perform_dict.columns.tolist()
         maxcolwidths: _typing.List[_typing.Optional[int]] = []
         if "name" in _columns:
@@ -157,18 +159,19 @@ class LeaderBoard:
         self.perform_dict = self.perform_dict[_columns]
 
         sorted_performance_df: pd.DataFrame = self.perform_dict.sort_values(
-            self.major_field,
-            ascending=not self.is_higher_better[self.major_field]
+            self.major_field, ascending=not self.is_higher_better[self.major_field]
         )
         sorted_performance_df = sorted_performance_df.head(top_k)
 
         from tabulate import tabulate
+
         _columns = sorted_performance_df.columns.tolist()
         maxcolwidths.extend([None for _ in range(len(_columns) - len(maxcolwidths))])
         print(
             tabulate(
                 list(zip(*[sorted_performance_df[column] for column in _columns])),
-                headers=_columns, tablefmt="grid"
+                headers=_columns,
+                tablefmt="grid",
             )
         )
 

@@ -302,8 +302,11 @@ class ClassificationModel(_BaseModel):
         if "initialize" in kwargs:
             del kwargs["initialize"]
         super(ClassificationModel, self).__init__(
-            initialize=init, hyper_parameter_space=hyper_parameter_space,
-            hyper_parameter=hyper_parameter, device=device, **kwargs
+            initialize=init,
+            hyper_parameter_space=hyper_parameter_space,
+            hyper_parameter=hyper_parameter,
+            device=device,
+            **kwargs
         )
         if num_classes != Ellipsis and type(num_classes) == int:
             self.__num_classes: int = num_classes if num_classes > 0 else 0
@@ -323,6 +326,7 @@ class ClassificationModel(_BaseModel):
 
     def __repr__(self) -> str:
         import yaml
+
         return yaml.dump(self.hyper_parameter)
 
     @property

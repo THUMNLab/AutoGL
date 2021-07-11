@@ -10,7 +10,12 @@ from .operation import act_map
 
 from torch.nn import Parameter
 from torch_geometric.nn.inits import glorot, zeros
-from torch_geometric.utils import remove_self_loops, add_self_loops, add_remaining_self_loops, softmax
+from torch_geometric.utils import (
+    remove_self_loops,
+    add_self_loops,
+    add_remaining_self_loops,
+    softmax,
+)
 from torch_scatter import scatter_add
 import torch_scatter
 
@@ -18,13 +23,21 @@ import inspect
 import sys
 
 special_args = [
-    'edge_index', 'edge_index_i', 'edge_index_j', 'size', 'size_i', 'size_j'
+    "edge_index",
+    "edge_index_i",
+    "edge_index_j",
+    "size",
+    "size_i",
+    "size_j",
 ]
-__size_error_msg__ = ('All tensors which should get mapped to the same source '
-                      'or target nodes must be of same size in dimension 0.')
+__size_error_msg__ = (
+    "All tensors which should get mapped to the same source "
+    "or target nodes must be of same size in dimension 0."
+)
 
 is_python2 = sys.version_info[0] < 3
 getargspec = inspect.getargspec if is_python2 else inspect.getfullargspec
+
 
 def scatter_(name, src, index, dim_size=None):
     r"""Aggregates all values from the :attr:`src` tensor at the indices
@@ -45,35 +58,37 @@ def scatter_(name, src, index, dim_size=None):
     :rtype: :class:`Tensor`
     """
 
-    assert name in ['add', 'mean', 'max']
+    assert name in ["add", "mean", "max"]
 
-    op = getattr(torch_scatter, 'scatter_{}'.format(name))
-    fill_value = -1e9 if name == 'max' else 0
+    op = getattr(torch_scatter, "scatter_{}".format(name))
+    fill_value = -1e9 if name == "max" else 0
 
     out = op(src, index, 0, None, dim_size)
     if isinstance(out, tuple):
         out = out[0]
 
-    if name == 'max':
+    if name == "max":
         out[out == fill_value] = 0
 
     return out
 
-class MessagePassing(torch.nn.Module):
 
-    def __init__(self, aggr='add', flow='source_to_target'):
+class MessagePassing(torch.nn.Module):
+    def __init__(self, aggr="add", flow="source_to_target"):
         super(MessagePassing, self).__init__()
 
         self.aggr = aggr
-        assert self.aggr in ['add', 'mean', 'max']
+        assert self.aggr in ["add", "mean", "max"]
 
         self.flow = flow
-        assert self.flow in ['source_to_target', 'target_to_source']
+        assert self.flow in ["source_to_target", "target_to_source"]
 
         self.__message_args__ = getargspec(self.message)[0][1:]
-        self.__special_args__ = [(i, arg)
-                                 for i, arg in enumerate(self.__message_args__)
-                                 if arg in special_args]
+        self.__special_args__ = [
+            (i, arg)
+            for i, arg in enumerate(self.__message_args__)
+            if arg in special_args
+        ]
         self.__message_args__ = [
             arg for arg in self.__message_args__ if arg not in special_args
         ]
@@ -96,7 +111,7 @@ class MessagePassing(torch.nn.Module):
         size = [None, None] if size is None else list(size)
         assert len(size) == 2
 
-        i, j = (0, 1) if self.flow == 'target_to_source' else (1, 0)
+        i, j = (0, 1) if self.flow == "target_to_source" else (1, 0)
         ij = {"_i": i, "_j": j}
 
         message_args = []
@@ -129,8 +144,8 @@ class MessagePassing(torch.nn.Module):
         size[0] = size[1] if size[0] is None else size[0]
         size[1] = size[0] if size[1] is None else size[1]
 
-        kwargs['edge_index'] = edge_index
-        kwargs['size'] = size
+        kwargs["edge_index"] = edge_index
+        kwargs["size"] = size
 
         for (idx, arg) in self.__special_args__:
             if arg[-2:] in ij.keys():
@@ -168,21 +183,23 @@ class MessagePassing(torch.nn.Module):
 
         return aggr_out
 
-class GeoLayer(MessagePassing):
 
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 heads=1,
-                 concat=True,
-                 negative_slope=0.2,
-                 dropout=0,
-                 bias=True,
-                 att_type="gat",
-                 agg_type="sum",
-                 pool_dim=0):
+class GeoLayer(MessagePassing):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        heads=1,
+        concat=True,
+        negative_slope=0.2,
+        dropout=0,
+        bias=True,
+        att_type="gat",
+        agg_type="sum",
+        pool_dim=0,
+    ):
         if agg_type in ["sum", "mlp"]:
-            super(GeoLayer, self).__init__('add')
+            super(GeoLayer, self).__init__("add")
         elif agg_type in ["mean", "max"]:
             super(GeoLayer, self).__init__(agg_type)
         self.in_channels = in_channels
@@ -197,8 +214,7 @@ class GeoLayer(MessagePassing):
         # GCN weight
         self.gcn_weight = None
 
-        self.weight = Parameter(
-            torch.Tensor(in_channels, heads * out_channels))
+        self.weight = Parameter(torch.Tensor(in_channels, heads * out_channels))
         self.att = Parameter(torch.Tensor(1, heads, 2 * out_channels))
 
         if bias and concat:
@@ -206,7 +222,7 @@ class GeoLayer(MessagePassing):
         elif bias and not concat:
             self.bias = Parameter(torch.Tensor(out_channels))
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
 
         if self.att_type in ["generalized_linear"]:
             self.general_att_layer = torch.nn.Linear(out_channels, 1, bias=False)
@@ -226,18 +242,19 @@ class GeoLayer(MessagePassing):
     @staticmethod
     def norm(edge_index, num_nodes, edge_weight, improved=False, dtype=None):
         if edge_weight is None:
-            edge_weight = torch.ones((edge_index.size(1), ),
-                                     dtype=dtype,
-                                     device=edge_index.device)
+            edge_weight = torch.ones(
+                (edge_index.size(1),), dtype=dtype, device=edge_index.device
+            )
 
         fill_value = 1 if not improved else 2
         edge_index, edge_weight = add_remaining_self_loops(
-            edge_index, edge_weight, fill_value, num_nodes)
+            edge_index, edge_weight, fill_value, num_nodes
+        )
 
         row, col = edge_index
         deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
         deg_inv_sqrt = deg.pow(-0.5)
-        deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+        deg_inv_sqrt[deg_inv_sqrt == float("inf")] = 0
 
         return edge_index, deg_inv_sqrt[row] * edge_weight * deg_inv_sqrt[col]
 
@@ -269,14 +286,16 @@ class GeoLayer(MessagePassing):
                 x_j = F.dropout(x_j, p=self.dropout, training=True)
             neighbor = x_j
         elif self.att_type == "gcn":
-            if self.gcn_weight is None or self.gcn_weight.size(0) != x_j.size(0):  # 对于不同的图gcn_weight需要重新计算
+            if self.gcn_weight is None or self.gcn_weight.size(0) != x_j.size(
+                0
+            ):  # 对于不同的图gcn_weight需要重新计算
                 _, norm = self.norm(edge_index, num_nodes, None)
                 self.gcn_weight = norm
             neighbor = self.gcn_weight.view(-1, 1, 1) * x_j
         else:
             # Compute attention coefficients.
             alpha = self.apply_attention(edge_index, num_nodes, x_i, x_j)
-            alpha = softmax(alpha, edge_index[0], num_nodes = num_nodes)
+            alpha = softmax(alpha, edge_index[0], num_nodes=num_nodes)
             # Sample attention coefficients stochastically.
             if self.training and self.dropout > 0:
                 alpha = F.dropout(alpha, p=self.dropout, training=True)
@@ -293,28 +312,30 @@ class GeoLayer(MessagePassing):
             alpha = F.leaky_relu(alpha, self.negative_slope)
 
         elif self.att_type == "gat_sym":
-            wl = self.att[:, :, :self.out_channels]  # weight left
-            wr = self.att[:, :, self.out_channels:]  # weight right
+            wl = self.att[:, :, : self.out_channels]  # weight left
+            wr = self.att[:, :, self.out_channels :]  # weight right
             alpha = (x_i * wl).sum(dim=-1) + (x_j * wr).sum(dim=-1)
             alpha_2 = (x_j * wl).sum(dim=-1) + (x_i * wr).sum(dim=-1)
-            alpha = F.leaky_relu(alpha, self.negative_slope) + F.leaky_relu(alpha_2, self.negative_slope)
+            alpha = F.leaky_relu(alpha, self.negative_slope) + F.leaky_relu(
+                alpha_2, self.negative_slope
+            )
 
         elif self.att_type == "linear":
-            wl = self.att[:, :, :self.out_channels]  # weight left
-            wr = self.att[:, :, self.out_channels:]  # weight right
+            wl = self.att[:, :, : self.out_channels]  # weight left
+            wr = self.att[:, :, self.out_channels :]  # weight right
             al = x_j * wl
             ar = x_j * wr
             alpha = al.sum(dim=-1) + ar.sum(dim=-1)
             alpha = torch.tanh(alpha)
         elif self.att_type == "cos":
-            wl = self.att[:, :, :self.out_channels]  # weight left
-            wr = self.att[:, :, self.out_channels:]  # weight right
+            wl = self.att[:, :, : self.out_channels]  # weight left
+            wr = self.att[:, :, self.out_channels :]  # weight right
             alpha = x_i * wl * x_j * wr
             alpha = alpha.sum(dim=-1)
 
         elif self.att_type == "generalized_linear":
-            wl = self.att[:, :, :self.out_channels]  # weight left
-            wr = self.att[:, :, self.out_channels:]  # weight right
+            wl = self.att[:, :, : self.out_channels]  # weight left
+            wr = self.att[:, :, self.out_channels :]  # weight right
             al = x_i * wl
             ar = x_j * wr
             alpha = al + ar
@@ -335,9 +356,9 @@ class GeoLayer(MessagePassing):
         return aggr_out
 
     def __repr__(self):
-        return '{}({}, {}, heads={})'.format(self.__class__.__name__,
-                                             self.in_channels,
-                                             self.out_channels, self.heads)
+        return "{}({}, {}, heads={})".format(
+            self.__class__.__name__, self.in_channels, self.out_channels, self.heads
+        )
 
     def get_param_dict(self):
         params = {}
@@ -374,6 +395,7 @@ class GeoLayer(MessagePassing):
         if agg_key in params and hasattr(self, "pool_layer"):
             self.pool_layer.load_state_dict(params[agg_key])
 
+
 @register_nas_space("graphnasmacro")
 class GraphNasMacroNodeClassificationSpace(BaseSpace):
     def __init__(
@@ -384,7 +406,7 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,
-        search_act_con=False
+        search_act_con=False,
     ):
         super().__init__()
         self.layer_number = layer_number
@@ -393,7 +415,7 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
         self.output_dim = output_dim
         self.ops = ops
         self.dropout = dropout
-        self.search_act_con=search_act_con
+        self.search_act_con = search_act_con
 
     def instantiate(
         self,
@@ -402,7 +424,7 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = None,
-        dropout = None
+        dropout=None,
     ):
         super().instantiate()
         self.hidden_dim = hidden_dim or self.hidden_dim
@@ -421,32 +443,145 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
         # build hidden layer
         for i in range(layer_nums):
             # extract layer information
-            setattr(self,f"attention_{i}",self.setLayerChoice(i * state_num + 0, map_nn(["gat", "gcn", "cos", "const", "gat_sym", 'linear', 'generalized_linear']), key = f"attention_{i}"))
-            setattr(self,f"aggregator_{i}",self.setLayerChoice(i * state_num + 1, map_nn(["sum", "mean", "max", "mlp", ]), key = f"aggregator_{i}"))
-            setattr(self,f"act_{i}",self.setLayerChoice(i * state_num + 0, map_nn(["sigmoid", "tanh", "relu", "linear",
-                                      "softplus", "leaky_relu", "relu6", "elu"]), key=f"act_{i}"))
-            setattr(self,f"head_{i}",self.setLayerChoice(i * state_num + 0, map_nn([1, 2, 4, 6, 8, 16]), key= f"head_{i}"))
+            setattr(
+                self,
+                f"attention_{i}",
+                self.setLayerChoice(
+                    i * state_num + 0,
+                    map_nn(
+                        [
+                            "gat",
+                            "gcn",
+                            "cos",
+                            "const",
+                            "gat_sym",
+                            "linear",
+                            "generalized_linear",
+                        ]
+                    ),
+                    key=f"attention_{i}",
+                ),
+            )
+            setattr(
+                self,
+                f"aggregator_{i}",
+                self.setLayerChoice(
+                    i * state_num + 1,
+                    map_nn(
+                        [
+                            "sum",
+                            "mean",
+                            "max",
+                            "mlp",
+                        ]
+                    ),
+                    key=f"aggregator_{i}",
+                ),
+            )
+            setattr(
+                self,
+                f"act_{i}",
+                self.setLayerChoice(
+                    i * state_num + 0,
+                    map_nn(
+                        [
+                            "sigmoid",
+                            "tanh",
+                            "relu",
+                            "linear",
+                            "softplus",
+                            "leaky_relu",
+                            "relu6",
+                            "elu",
+                        ]
+                    ),
+                    key=f"act_{i}",
+                ),
+            )
+            setattr(
+                self,
+                f"head_{i}",
+                self.setLayerChoice(
+                    i * state_num + 0, map_nn([1, 2, 4, 6, 8, 16]), key=f"head_{i}"
+                ),
+            )
             if i < layer_nums - 1:
-                setattr(self,f"out_channels_{i}",self.setLayerChoice(i * state_num + 0, map_nn([4, 8, 16, 32, 64, 128, 256]), key=f"out_channels_{i}"))
+                setattr(
+                    self,
+                    f"out_channels_{i}",
+                    self.setLayerChoice(
+                        i * state_num + 0,
+                        map_nn([4, 8, 16, 32, 64, 128, 256]),
+                        key=f"out_channels_{i}",
+                    ),
+                )
 
     def parse_model(self, selection, device) -> BaseModel:
         sel_list = []
         for i in range(self.layer_number):
-            sel_list.append(["gat", "gcn", "cos", "const", "gat_sym", 'linear', 'generalized_linear'][selection[f"attention_{i}"]])
-            sel_list.append(["sum", "mean", "max", "mlp", ][selection[f"aggregator_{i}"]])
-            sel_list.append(["sigmoid", "tanh", "relu", "linear","softplus", "leaky_relu", "relu6", "elu"][selection[f"act_{i}"]])
+            sel_list.append(
+                [
+                    "gat",
+                    "gcn",
+                    "cos",
+                    "const",
+                    "gat_sym",
+                    "linear",
+                    "generalized_linear",
+                ][selection[f"attention_{i}"]]
+            )
+            sel_list.append(
+                [
+                    "sum",
+                    "mean",
+                    "max",
+                    "mlp",
+                ][selection[f"aggregator_{i}"]]
+            )
+            sel_list.append(
+                [
+                    "sigmoid",
+                    "tanh",
+                    "relu",
+                    "linear",
+                    "softplus",
+                    "leaky_relu",
+                    "relu6",
+                    "elu",
+                ][selection[f"act_{i}"]]
+            )
             sel_list.append([1, 2, 4, 6, 8, 16][selection[f"head_{i}"]])
             if i < self.layer_number - 1:
-                sel_list.append([4, 8, 16, 32, 64, 128, 256][selection[f"out_channels_{i}"]])
+                sel_list.append(
+                    [4, 8, 16, 32, 64, 128, 256][selection[f"out_channels_{i}"]]
+                )
         sel_list.append(self.output_dim)
-        #sel_list = ['const', 'sum', 'relu6', 2, 128, 'gat', 'sum', 'linear', 2, 7]
-        model = GraphNet(sel_list, self.input_dim, self.output_dim, self.dropout, multi_label=False, batch_normal=False, layers = self.layer_number).wrap(device)
+        # sel_list = ['const', 'sum', 'relu6', 2, 128, 'gat', 'sum', 'linear', 2, 7]
+        model = GraphNet(
+            sel_list,
+            self.input_dim,
+            self.output_dim,
+            self.dropout,
+            multi_label=False,
+            batch_normal=False,
+            layers=self.layer_number,
+        ).wrap(device)
         return model
 
-class GraphNet(BaseSpace):
 
-    def __init__(self, actions, num_feat, num_label, drop_out=0.6, multi_label=False, batch_normal=True, state_num=5,
-                 residual=False, layers = 2):
+class GraphNet(BaseSpace):
+    def __init__(
+        self,
+        actions,
+        num_feat,
+        num_label,
+        drop_out=0.6,
+        multi_label=False,
+        batch_normal=True,
+        state_num=5,
+        residual=False,
+        layers=2,
+    ):
         self.residual = residual
         self.batch_normal = batch_normal
         self.layer_nums = layers
@@ -456,11 +591,15 @@ class GraphNet(BaseSpace):
         self.input_dim = num_feat
         self.output_dim = num_label
         self.dropout = drop_out
-        
-        super().__init__()
-        self.build_model(actions, batch_normal, drop_out, num_feat, num_label, state_num)
 
-    def build_model(self, actions, batch_normal, drop_out, num_feat, num_label, state_num):
+        super().__init__()
+        self.build_model(
+            actions, batch_normal, drop_out, num_feat, num_label, state_num
+        )
+
+    def build_model(
+        self, actions, batch_normal, drop_out, num_feat, num_label, state_num
+    ):
         if self.residual:
             self.fcs = torch.nn.ModuleList()
         if self.batch_normal:
@@ -468,9 +607,26 @@ class GraphNet(BaseSpace):
         self.layers = torch.nn.ModuleList()
         self.acts = []
         self.gates = torch.nn.ModuleList()
-        self.build_hidden_layers(actions, batch_normal, drop_out, self.layer_nums, num_feat, num_label, state_num)
+        self.build_hidden_layers(
+            actions,
+            batch_normal,
+            drop_out,
+            self.layer_nums,
+            num_feat,
+            num_label,
+            state_num,
+        )
 
-    def build_hidden_layers(self, actions, batch_normal, drop_out, layer_nums, num_feat, num_label, state_num=6):
+    def build_hidden_layers(
+        self,
+        actions,
+        batch_normal,
+        drop_out,
+        layer_nums,
+        num_feat,
+        num_label,
+        state_num=6,
+    ):
 
         # build hidden layer
         for i in range(layer_nums):
@@ -492,17 +648,27 @@ class GraphNet(BaseSpace):
             if self.batch_normal:
                 self.bns.append(torch.nn.BatchNorm1d(in_channels, momentum=0.5))
             self.layers.append(
-                GeoLayer(in_channels, out_channels, head_num, concat, dropout=self.dropout,
-                         att_type=attention_type, agg_type=aggregator_type, ))
+                GeoLayer(
+                    in_channels,
+                    out_channels,
+                    head_num,
+                    concat,
+                    dropout=self.dropout,
+                    att_type=attention_type,
+                    agg_type=aggregator_type,
+                )
+            )
             self.acts.append(act_map(act))
             if self.residual:
                 if concat:
-                    self.fcs.append(torch.nn.Linear(in_channels, out_channels * head_num))
+                    self.fcs.append(
+                        torch.nn.Linear(in_channels, out_channels * head_num)
+                    )
                 else:
                     self.fcs.append(torch.nn.Linear(in_channels, out_channels))
 
     def forward(self, data):
-        output, edge_index_all = data.x, data.edge_index # x [2708,1433] ,[2, 10556]
+        output, edge_index_all = data.x, data.edge_index  # x [2708,1433] ,[2, 10556]
         if self.residual:
             for i, (act, layer, fc) in enumerate(zip(self.acts, self.layers, self.fcs)):
                 output = F.dropout(output, p=self.dropout, training=self.training)

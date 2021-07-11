@@ -30,7 +30,9 @@ class BaseHPOptimizer:
             raise WrongDependedParameterError("The depended parameter does not exist.")
 
         for para in config:
-            if para["type"] in ("NUMERICAL_LIST", "CATEGORICAL_LIST") and para.get("cutPara", None):
+            if para["type"] in ("NUMERICAL_LIST", "CATEGORICAL_LIST") and para.get(
+                "cutPara", None
+            ):
                 self._depend_map[para["parameterName"]] = para
                 if type(para["cutPara"]) == str:
                     get_depended_para(para["cutPara"])

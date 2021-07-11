@@ -14,33 +14,36 @@ LOGGER = get_logger("SAGEModel")
 class GraphSAGE(ClassificationSupportedSequentialModel):
     class _SAGELayer(torch.nn.Module):
         def __init__(
-                self, input_channels: int, output_channels: int, aggr: str,
-                activation_name: _typing.Optional[str] = ...,
-                dropout_probability: _typing.Optional[float] = ...
+            self,
+            input_channels: int,
+            output_channels: int,
+            aggr: str,
+            activation_name: _typing.Optional[str] = ...,
+            dropout_probability: _typing.Optional[float] = ...,
         ):
             super().__init__()
             self._convolution: SAGEConv = SAGEConv(
                 input_channels, output_channels, aggr=aggr
             )
             if (
-                    activation_name is not Ellipsis and
-                    activation_name is not None and
-                    type(activation_name) == str
+                activation_name is not Ellipsis
+                and activation_name is not None
+                and type(activation_name) == str
             ):
                 self._activation_name: _typing.Optional[str] = activation_name
             else:
                 self._activation_name: _typing.Optional[str] = None
             if (
-                    dropout_probability is not Ellipsis and
-                    dropout_probability is not None and
-                    type(dropout_probability) == float
+                dropout_probability is not Ellipsis
+                and dropout_probability is not None
+                and type(dropout_probability) == float
             ):
                 if dropout_probability < 0:
                     dropout_probability = 0
                 if dropout_probability > 1:
                     dropout_probability = 1
-                self._dropout: _typing.Optional[torch.nn.Dropout] = (
-                    torch.nn.Dropout(dropout_probability)
+                self._dropout: _typing.Optional[torch.nn.Dropout] = torch.nn.Dropout(
+                    dropout_probability
                 )
             else:
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
@@ -59,13 +62,15 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
             return x
 
     def __init__(
-            self, num_features: int, num_classes: int,
-            hidden_features: _typing.Sequence[int],
-            activation_name: str,
-            layers_dropout: _typing.Union[
-                _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
-            ] = None,
-            aggr: str = "mean"
+        self,
+        num_features: int,
+        num_classes: int,
+        hidden_features: _typing.Sequence[int],
+        activation_name: str,
+        layers_dropout: _typing.Union[
+            _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
+        ] = None,
+        aggr: str = "mean",
     ):
         super().__init__()
         if not type(num_features) == type(num_classes) == int:
@@ -85,9 +90,9 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
                     raise TypeError
             _layers_dropout: _typing.Sequence[_typing.Optional[float]] = layers_dropout
         elif layers_dropout is None or type(layers_dropout) == float:
-            _layers_dropout: _typing.Sequence[_typing.Optional[float]] = (
-                [layers_dropout for _ in range(len(hidden_features))] + [None]
-            )
+            _layers_dropout: _typing.Sequence[_typing.Optional[float]] = [
+                layers_dropout for _ in range(len(hidden_features))
+            ] + [None]
         else:
             raise TypeError
         if not type(activation_name) == type(aggr) == str:
@@ -96,32 +101,51 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
             aggr = "mean"
 
         if len(hidden_features) == 0:
-            self.__sequential_encoding_layers: torch.nn.ModuleList = torch.nn.ModuleList([
-                self._SAGELayer(
-                    num_features, num_classes,
-                    aggr, activation_name, _layers_dropout[0]
+            self.__sequential_encoding_layers: torch.nn.ModuleList = (
+                torch.nn.ModuleList(
+                    [
+                        self._SAGELayer(
+                            num_features,
+                            num_classes,
+                            aggr,
+                            activation_name,
+                            _layers_dropout[0],
+                        )
+                    ]
                 )
-            ])
+            )
         else:
-            self.__sequential_encoding_layers: torch.nn.ModuleList = torch.nn.ModuleList([
-                self._SAGELayer(
-                    num_features, hidden_features[0],
-                    aggr, activation_name, _layers_dropout[0]
+            self.__sequential_encoding_layers: torch.nn.ModuleList = (
+                torch.nn.ModuleList(
+                    [
+                        self._SAGELayer(
+                            num_features,
+                            hidden_features[0],
+                            aggr,
+                            activation_name,
+                            _layers_dropout[0],
+                        )
+                    ]
                 )
-            ])
+            )
             for i in range(len(hidden_features)):
                 if i + 1 < len(hidden_features):
                     self.__sequential_encoding_layers.append(
                         self._SAGELayer(
-                            hidden_features[i], hidden_features[i + 1], aggr,
-                            activation_name, _layers_dropout[i + 1]
+                            hidden_features[i],
+                            hidden_features[i + 1],
+                            aggr,
+                            activation_name,
+                            _layers_dropout[i + 1],
                         )
                     )
                 else:
                     self.__sequential_encoding_layers.append(
                         self._SAGELayer(
-                            hidden_features[i], num_classes, aggr,
-                            _layers_dropout[i + 1]
+                            hidden_features[i],
+                            num_classes,
+                            aggr,
+                            _layers_dropout[i + 1],
                         )
                     )
 
@@ -131,9 +155,10 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
 
     def cls_encode(self, data) -> torch.Tensor:
         if (
-                hasattr(data, "edge_indexes") and
-                isinstance(getattr(data, "edge_indexes"), _typing.Sequence) and
-                len(getattr(data, "edge_indexes")) == len(self.__sequential_encoding_layers)
+            hasattr(data, "edge_indexes")
+            and isinstance(getattr(data, "edge_indexes"), _typing.Sequence)
+            and len(getattr(data, "edge_indexes"))
+            == len(self.__sequential_encoding_layers)
         ):
             for __edge_index in getattr(data, "edge_indexes"):
                 if type(__edge_index) != torch.Tensor:
@@ -272,9 +297,10 @@ class AutoSAGE(BaseModel):
             return
         self.initialized = True
         self.model = GraphSAGE(
-            self.num_features, self.num_classes,
+            self.num_features,
+            self.num_classes,
             self.hyperparams.get("hidden"),
             self.hyperparams.get("act", "relu"),
             self.hyperparams.get("dropout", None),
-            self.hyperparams.get("agg", "mean")
+            self.hyperparams.get("agg", "mean"),
         ).to(self.device)

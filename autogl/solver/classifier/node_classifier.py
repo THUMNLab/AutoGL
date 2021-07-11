@@ -43,13 +43,13 @@ class AutoNodeClassifier(BaseClassifier):
 
     graph_models: list of autogl.module.model.BaseModel or list of str
         The (name of) models to be optimized as backbone. Default ``['gat', 'gcn']``.
-    
+
     nas_algorithms: (list of) autogl.module.nas.algorithm.BaseNAS or str (Optional)
         The (name of) nas algorithms used. Default ``None``.
-    
+
     nas_spaces: (list of) autogl.module.nas.space.BaseSpace or str (Optional)
         The (name of) nas spaces used. Default ``None``.
-    
+
     nas_estimators: (list of) autogl.module.nas.estimator.BaseEstimator or str (Optional)
         The (name of) nas estimators used. Default ``None``.
 
@@ -167,7 +167,6 @@ class AutoNodeClassifier(BaseClassifier):
                         loss=loss,
                         feval=feval,
                         device=device,
-                    
                     )
                     self.graph_model_list.append(model)
                 else:
@@ -365,7 +364,11 @@ class AutoNodeClassifier(BaseClassifier):
                 loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
             )
 
-            assert not isinstance(self._default_trainer, list) or len(self.nas_algorithms) == len(self._default_trainer) - len(self.graph_model_list), "length of default trainer should match total graph models and nas models passed"
+            assert not isinstance(self._default_trainer, list) or len(
+                self.nas_algorithms
+            ) == len(self._default_trainer) - len(
+                self.graph_model_list
+            ), "length of default trainer should match total graph models and nas models passed"
 
             # perform nas and add them to model list
             idx_trainer = len(self.graph_model_list)
@@ -384,7 +387,9 @@ class AutoNodeClassifier(BaseClassifier):
                         model=model,
                         num_features=self.dataset[0].x.shape[1],
                         num_classes=self.dataset.num_classes,
-                        loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
+                        loss="nll_loss"
+                        if not hasattr(dataset, "loss")
+                        else dataset.loss,
                         feval=evaluator_list,
                         device=self.runtime_device,
                         init=False,
@@ -395,10 +400,11 @@ class AutoNodeClassifier(BaseClassifier):
                     trainer.update_parameters(
                         num_classes=self.dataset.num_classes,
                         num_features=self.dataset[0].x.shape[1],
-                        loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
+                        loss="nll_loss"
+                        if not hasattr(dataset, "loss")
+                        else dataset.loss,
                         feval=evaluator_list,
                         device=self.runtime_device,
-                    
                     )
                 self.graph_model_list.append(trainer)
 
@@ -814,25 +820,29 @@ class AutoNodeClassifier(BaseClassifier):
         if ensemble_dict is not None:
             name = ensemble_dict.pop("name")
             solver.set_ensemble_module(name, **ensemble_dict)
-        
+
         nas_dict = path_or_dict.pop("nas", None)
         if nas_dict is not None:
             keys: set = set(nas_dict.keys())
-            needed = {'space', 'algorithm', 'estimator'}
+            needed = {"space", "algorithm", "estimator"}
             if keys != needed:
-                LOGGER.error('Key mismatch, we need %s, you give %s', needed, keys)
-                raise KeyError('Key mismatch, we need %s, you give %s' % (needed, keys))
+                LOGGER.error("Key mismatch, we need %s, you give %s", needed, keys)
+                raise KeyError("Key mismatch, we need %s, you give %s" % (needed, keys))
 
             spaces, algorithms, estimators = [], [], []
 
-            for container, indexer, k in zip([spaces, algorithms, estimators], [NAS_SPACE_DICT, NAS_ALGO_DICT, NAS_ESTIMATOR_DICT], ['space', 'algorithm', 'estimator']):
+            for container, indexer, k in zip(
+                [spaces, algorithms, estimators],
+                [NAS_SPACE_DICT, NAS_ALGO_DICT, NAS_ESTIMATOR_DICT],
+                ["space", "algorithm", "estimator"],
+            ):
                 configs = nas_dict[k]
                 if isinstance(configs, list):
                     for item in configs:
-                        container.append(indexer[item.pop('name')](**item))
+                        container.append(indexer[item.pop("name")](**item))
                 else:
-                    container.append(indexer[configs.pop('name')](**configs))
-            
+                    container.append(indexer[configs.pop("name")](**configs))
+
             solver.set_nas_module(algorithms, spaces, estimators)
 
         return solver
