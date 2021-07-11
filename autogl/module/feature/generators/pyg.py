@@ -36,13 +36,11 @@ class PYGGenerator(BaseGenerator):
 
 def pygfunc(func):
     r"""A decorator for pyg transforms. You may want to use it to quickly wrap a feature transform function object.
-
     Examples
     --------
     @register_pyg
     @pygfunc(local_degree_profile)
     class PYGLocalDegreeProfile(local_degree_profile):pass
-
     """
 
     def decorator_func(cls):

@@ -6,7 +6,7 @@ AutoGL
 
 *Actively under development by @THUMNLab*
 
-AutoGL is developed for researchers and developers to quickly conduct autoML on the graph datasets & tasks. See our documentation for detailed information!
+AutoGL is developed for researchers and developers to quickly conduct autoML on the graph datasets & tasks.
 
 The workflow below shows the overall framework of AutoGL.
 
@@ -15,7 +15,7 @@ The workflow below shows the overall framework of AutoGL.
 
 AutoGL uses ``AutoGL Dataset`` to maintain datasets for graph-based machine learning, which is based on the dataset in PyTorch Geometric with some support added to corporate with the auto solver framework.
 
-Different graph-based machine learning tasks are solved by different ``AutoGL Solvers`` , which make use of four main modules to automatically solve given tasks, namely ``Auto Feature Engineer``, ``Auto Model``, ``HyperParameter Optimization``, and ``Auto Ensemble``. 
+Different graph-based machine learning tasks are solved by different ``AutoGL Solvers`` , which make use of four main modules to automatically solve given tasks, namely ``Auto Feature Engineer``, ``Auto Model``, ``Neural Architecture Search``, ``HyperParameter Optimization``, and ``Auto Ensemble``. 
 
 Installation
 ------------
@@ -27,11 +27,11 @@ Please make sure you meet the following requirements before installing AutoGL.
 
 1. Python >= 3.6.0
 
-2. PyTorch (>=1.5.1)
+2. PyTorch (>=1.6.0)
 
     see `PyTorch <https://pytorch.org/>`_ for installation.
 
-3. PyTorch Geometric
+3. PyTorch Geometric (>=1.7.0)
 
     see `PyTorch Geometric <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html>`_ for installation.
 
@@ -45,7 +45,7 @@ Run the following command to install this package through pip.
 
 .. code-block:: shell
 
-   pip install auto-graph-learning
+   pip install autogl
 
 Install from source
 ^^^^^^^^^^^^^^^^^^^
@@ -71,9 +71,11 @@ If you are a developer of the AutoGL project, please use the following command t
 Modules
 -------
 
-In AutoGL, the tasks are solved by corresponding learners, which in general do the following things:
+In AutoGL, the tasks are solved by corresponding solvers, which in general do the following things:
 
 1. Preprocess and feature engineer the given datasets. This is done by the module named **auto feature engineer**, which can automatically add/delete useful/useless attributes in the given datasets. Some topological features may also be extracted & combined to form stronger features for current tasks.
+
+2. Find the best suitable model architectures through neural architecture search. This is done by modules named **nas**. AutoGL provides several search spaces, algorithms and estimators for finding the best architectures.
 
 2. Automatically train and tune popular models specified by users. This is done by modules named **auto model** and **hyperparameter optimization**. In the auto model, several commonly used graph deep models are provided, together with their hyperparameter spaces. These kinds of models can be tuned using **hyperparameter optimization** module to find the best hyperparameter for the current task.
 
@@ -99,7 +101,12 @@ In AutoGL, the tasks are solved by corresponding learners, which in general do t
 
    docfile/documentation/data
    docfile/documentation/dataset
-   docfile/documentation/module
+   docfile/documentation/feature
+   docfile/documentation/model
+   docfile/documentation/train
+   docfile/documentation/hpo
+   docfile/documentation/nas
+   docfile/documentation/ensemble
    docfile/documentation/solver
 
 Indices and tables

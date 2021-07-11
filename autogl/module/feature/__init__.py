@@ -1,6 +1,4 @@
-import importlib
-import os
-from .base import BaseFeatureAtom
+from .base import BaseFeature
 from .base import BaseFeatureEngineer
 
 FEATURE_DICT = {}
@@ -13,7 +11,7 @@ def register_feature(name):
                 "Cannot register duplicate feature engineer ({})".format(name)
             )
         # if not issubclass(cls, BaseFeatureEngineer):
-        if not issubclass(cls, BaseFeatureAtom):
+        if not issubclass(cls, BaseFeature):
             raise ValueError(
                 "Trainer ({}: {}) must extend BaseFeatureEngineer".format(
                     name, cls.__name__
@@ -26,15 +24,84 @@ def register_feature(name):
 
 
 from .auto_feature import AutoFeatureEngineer
-from .base import BaseFeatureEngineer
 
-from .generators import BaseGenerator
-from .selectors import BaseSelector
+from .generators import (
+    BaseGenerator,
+    GeGraphlet,
+    GeEigen,
+    GePageRank,
+    register_pyg,
+    pygfunc,
+    PYGGenerator,
+    PYGLocalDegreeProfile,
+    PYGNormalizeFeatures,
+    PYGOneHotDegree
+)
 
-from .subgraph import BaseSubgraph
+from .selectors import (
+    BaseSelector,
+    SeFilterConstant, 
+    SeGBDT
+)
+
+from .graph import (
+    BaseGraph,
+    SgNetLSD,
+    register_nx,
+    NxGraph,
+    nxfunc,
+    NxLargeCliqueSize,
+    NxAverageClusteringApproximate,
+    NxDegreeAssortativityCoefficient,
+    NxDegreePearsonCorrelationCoefficient,
+    NxHasBridge,
+    NxGraphCliqueNumber,
+    NxGraphNumberOfCliques,
+    NxTransitivity,
+    NxAverageClustering,
+    NxIsConnected,
+    NxNumberConnectedComponents,
+    NxIsDistanceRegular,
+    NxLocalEfficiency,
+    NxGlobalEfficiency,
+    NxIsEulerian,
+)
 
 __all__ = [
     "BaseFeatureEngineer",
     "AutoFeatureEngineer",
-    "BaseFeatureAtom",
+    "BaseFeature",
+    "BaseGenerator",
+    "GeGraphlet",
+    "GeEigen",
+    "GePageRank",
+    "register_pyg",
+    "pygfunc",
+    "PYGGenerator",
+    "PYGLocalDegreeProfile",
+    "PYGNormalizeFeatures",
+    "PYGOneHotDegree",
+    "BaseSelector",
+    "SeFilterConstant",
+    "SeGBDT",
+    "BaseGraph",
+    "SgNetLSD",
+    "register_nx",
+    "NxGraph",
+    "nxfunc",
+    "NxLargeCliqueSize",
+    "NxAverageClusteringApproximate",
+    "NxDegreeAssortativityCoefficient",
+    "NxDegreePearsonCorrelationCoefficient",
+    "NxHasBridge",
+    "NxGraphCliqueNumber",
+    "NxGraphNumberOfCliques",
+    "NxTransitivity",
+    "NxAverageClustering",
+    "NxIsConnected",
+    "NxNumberConnectedComponents",
+    "NxIsDistanceRegular",
+    "NxLocalEfficiency",
+    "NxGlobalEfficiency",
+    "NxIsEulerian",
 ]

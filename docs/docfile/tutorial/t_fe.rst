@@ -3,7 +3,7 @@
 AutoGL Feature Engineering
 ==========================
 
-We provide a series of node and subgraph feature engineers for 
+We provide a series of node and graph feature engineers for 
 you to compose within a feature engineering pipeline. An automatic
 feature engineering algorithm is also provided.
 
@@ -16,12 +16,12 @@ Quick Start
     data = build_dataset_from_name('cora')
 
     # 2. Compose a feature engineering pipeline
-    from autogl.module.feature import BaseFeatureAtom,AutoFeatureEngineer
+    from autogl.module.feature import BaseFeature,AutoFeatureEngineer
     from autogl.module.feature.generators import GeEigen
     from autogl.module.feature.selectors import SeGBDT
-    from autogl.module.feature.subgraph import SgNetLSD
-    # you may compose feature engineering atoms through BaseFeatureAtom.compose
-    fe = BaseFeatureAtom.compose([
+    from autogl.module.feature.graph import SgNetLSD
+    # you may compose feature engineering bases through BaseFeature.compose
+    fe = BaseFeature.compose([
     GeEigen(size=32) ,
     SeGBDT(fixlen=100),
     SgNetLSD()
@@ -33,16 +33,16 @@ Quick Start
     fe.fit(data)
     data1=fe.transform(data,inplace=False)
 
-List of FE atom names
+List of FE base names
 ---------------------
-Now three kinds of feature engineering atoms are supported,namely ``generators``, ``selectors`` , ``subgraph``.You can import 
-atoms from according module as is mentioned in the ``Quick Start`` part. Or you may want to just list names of atoms
+Now three kinds of feature engineering bases are supported,namely ``generators``, ``selectors`` , ``graph``.You can import 
+bases from according module as is mentioned in the ``Quick Start`` part. Or you may want to just list names of bases
 in configurations or as arguments of the autogl solver. 
 
 1. ``generators``
 
 +---------------------------+-------------------------------------------------+
-|           Atom            |                   Description                   |
+|           Base            |                   Description                   |
 +===========================+=================================================+
 | ``graphlet``              | concatenate local graphlet numbers as features. |
 +---------------------------+-------------------------------------------------+
@@ -62,31 +62,31 @@ in configurations or as arguments of the autogl solver.
 2. ``selectors``
 
 +----------------------+--------------------------------------------------------------------------------+
-|         Atom         |                                  Description                                   |
+|         Base         |                                  Description                                   |
 +======================+================================================================================+
 | ``SeFilterConstant`` | delete all constant and one-hot encoding node features.                        |
 +----------------------+--------------------------------------------------------------------------------+
 | ``gbdt``             | select top-k important node features ranked by Gradient Descent Decision Tree. |
 +----------------------+--------------------------------------------------------------------------------+
 
-3. ``subgraph``
+3. ``graph``
 
-``netlsd`` is a subgraph feature generation method. please refer to the according document.
+``netlsd`` is a graph feature generation method. please refer to the according document.
 
-A set of subgraph feature extractors implemented in NetworkX are wrapped, please refer to NetworkX for details.  (``NxLargeCliqueSize``, ``NxAverageClusteringApproximate``, ``NxDegreeAssortativityCoefficient``, ``NxDegreePearsonCorrelationCoefficient``, ``NxHasBridge``
+A set of graph feature extractors implemented in NetworkX are wrapped, please refer to NetworkX for details.  (``NxLargeCliqueSize``, ``NxAverageClusteringApproximate``, ``NxDegreeAssortativityCoefficient``, ``NxDegreePearsonCorrelationCoefficient``, ``NxHasBridge``
 ,``NxGraphCliqueNumber``, ``NxGraphNumberOfCliques``, ``NxTransitivity``, ``NxAverageClustering``, ``NxIsConnected``, ``NxNumberConnectedComponents``, 
 ``NxIsDistanceRegular``, ``NxLocalEfficiency``, ``NxGlobalEfficiency``, ``NxIsEulerian``)
 
-The taxonomy of atom types is based on the way of transforming features. ``generators`` concatenate the original features with ones newly generated
+The taxonomy of base types is based on the way of transforming features. ``generators`` concatenate the original features with ones newly generated
 or just overwrite the original ones. Instead of generating new features , ``selectors`` try to select useful features and keep learned selecting methods
-in the atom itself. The former two types of atoms can be exploited in node or edge level (modification upon each
-node or edge feature) ,while ``subgraph`` focuses on feature engineering  in graph level (modification upon each graph feature). 
+in the base itself. The former two types of bases can be exploited in node or edge level (modification upon each
+node or edge feature) ,while ``graph`` focuses on feature engineering  in graph level (modification upon each graph feature). 
 For your convenience in further development,you may want to design a new item by inheriting one of them. 
-Of course, you can directly inherit the ``BaseFeatureAtom`` as well.
+Of course, you can directly inherit the ``BaseFeature`` as well.
 
 Create Your Own FE
 ------------------
-You can create your own feature engineering object by simply inheriting one of feature engineering atom types ,namely ``generators``, ``selectors`` , ``subgraph``,
+You can create your own feature engineering object by simply inheriting one of feature engineering base types ,namely ``generators``, ``selectors`` , ``graph``,
 and overloading methods ``_fit`` and ``_transform``.
 
 .. code-block :: python
@@ -108,4 +108,3 @@ and overloading methods ``_fit`` and ``_transform``.
             fe=np.eye(data.x.shape[0])
             data.x=np.concatenate([data.x,fe],axis=1)
             return data 
-

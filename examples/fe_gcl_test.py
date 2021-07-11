@@ -1,9 +1,8 @@
 import sys
-
-from networkx.algorithms.reciprocity import reciprocity
 sys.path.append('../')
+
 from autogl.datasets import build_dataset_from_name
-from autogl.solver import AutoNodeClassifier,AutoGraphClassifier
+from autogl.solver import AutoGraphClassifier
 from autogl.module import Acc
 import yaml
 import random
@@ -12,22 +11,12 @@ import numpy as np
 
 import logging
 logging.basicConfig(level=logging.INFO)
-import sys
-from numpy.core.defchararray import index
-from torch.utils.data import dataset
-
-from yaml import compose, load
-sys.path.append('../')
 import random
 import numpy as np
 import torch
 import os
 import yaml
-import re
-from autogl.module.feature.base import BaseFeatureAtom
 from autogl.module.feature import FEATURE_DICT
-import pandas as pd
-import copy
 from argparse import ArgumentParser
 parser = ArgumentParser()
 # parser.add_argument('--device', default=0, type=int)
@@ -69,8 +58,6 @@ def run_gcl(dataset,configs,features,seed):
         cross_validation=True,
         cv_split=10, 
     )
-    val = autoClassifier.get_model_by_performance(0)[0].get_valid_score()[0]
-
     # test
     predict_result = autoClassifier.predict_proba()
     acc=Acc.evaluate(predict_result, dataset.data.y[dataset.test_index].cpu().detach().numpy())
@@ -95,7 +82,7 @@ if __name__ == "__main__":
     feature_set=[
             '',
             'netlsd',
-            'NxSubgraph', 'NxLargeCliqueSize', 'NxAverageClusteringApproximate', 'NxDegreeAssortativityCoefficient', 'NxDegreePearsonCorrelationCoefficient', 'NxHasBridge', 'NxGraphCliqueNumber', 'NxGraphNumberOfCliques', 'NxTransitivity', 'NxAverageClustering', 'NxIsConnected', 'NxNumberConnectedComponents', 'NxIsDistanceRegular', 'NxLocalEfficiency', 'NxGlobalEfficiency', 'NxIsEulerian'
+            'NxGraph', 'NxLargeCliqueSize', 'NxAverageClusteringApproximate', 'NxDegreeAssortativityCoefficient', 'NxDegreePearsonCorrelationCoefficient', 'NxHasBridge', 'NxGraphCliqueNumber', 'NxGraphNumberOfCliques', 'NxTransitivity', 'NxAverageClustering', 'NxIsConnected', 'NxNumberConnectedComponents', 'NxIsDistanceRegular', 'NxLocalEfficiency', 'NxGlobalEfficiency', 'NxIsEulerian'
         ]
     datasets=[
         'mutag',
@@ -113,7 +100,7 @@ if __name__ == "__main__":
                     cnt+=1
                     if cnt<=0:
                         continue
-                    fs=['onlyconst',f] if f !='' else ['onlyconst','subgraph']
+                    fs=['onlyconst',f] if f !='' else ['onlyconst','graph']
                     try:
                         # queue_configs.append([d,f'../configs/gcl_{m}.yaml',fs,seed])
                         acc=run_gcl(d,f'../configs/gcl_{m}.yaml',fs,seed)   
@@ -122,15 +109,3 @@ if __name__ == "__main__":
                         acc=-1
                     record_file.write(f'{cnt},{acc},{m},{d},{f},{seed}\n')
                     record_file.flush()
-    
-
-
-                
-
-
-
-    
-
-
-
-

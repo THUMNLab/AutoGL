@@ -3,10 +3,11 @@
 AutoGL Solver
 =============
 
-Our AutoGL project use ``solver`` to handle the auto-solvation of tasks. Currently, we support the following tasks:
+AutoGL project use ``solver`` to handle the auto-solvation of tasks. Currently, we support the following tasks:
 
 * ``AutoNodeClassifier`` for semi-supervised node classification
 * ``AutoGraphClassifier`` for supervised graph classification
+* ``AutoLinkPredictor`` for link prediction
 
 Initialization
 --------------
@@ -16,7 +17,7 @@ A solver can either be initialized from its ``__init__()`` or from a config dict
 Initialize from ``__init__()``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want to build a solver by ``__init__()``, you need to pass the four key modules to it, namely as ``auto feature engineer``, ``auto model list``, ``hyperparameter optimizer`` and ``auto ensemble``. You can either pass the keywords of corresponding modules or the initialized instances:
+If you want to build a solver by ``__init__()``, you need to pass the key modules to it. You can either pass the keywords of corresponding modules or the initialized instances:
 
 .. code-block:: python
 
@@ -43,13 +44,13 @@ If you want to build a solver by ``__init__()``, you need to pass the four key m
 
 Where, the argument ``device`` means where to perform the training and searching, by setting to ``auto``, the ``cuda`` is used when it is available.
 
-If you want to disable one module (except graphModuleList), you can set it to ``None``:
+If you want to disable one module, you can set it to ``None``:
 
 .. code-block:: python
 
     solver = AutoNodeClassifier(feature_module=None, hpo_module=None, ensemble_module=None)
 
-You can also pass some important arguments of modules directly to solver, which will automatically set them for you:
+You can also pass some important arguments of modules directly to solver, which will automatically be set for you:
 
 .. code-block:: python
 
@@ -89,9 +90,9 @@ You can use ``fit()`` or ``fit_predict()`` to perform optimization, which shares
 
     # load your dataset here
     dataset = some_dataset()
-    solver.fit(dataset, inplace=True, time_limit=3600)
+    solver.fit(dataset, inplace=True)
 
-The inplace argument is used for saving memory if set to ``True``. It will modify your dataset in an inplace manner during feature engineering. You can also set ``time_limit`` to limit the time cost of the whole auto process.
+The inplace argument is used for saving memory if set to ``True``. It will modify your dataset in an inplace manner during feature engineering.
 
 You can also specify the ``train_split`` and ``val_split`` arguments to let solver auto-split the given dataset. If these arguments are given, the split dataset will be used instead of the default split specified by the dataset provided. All the models will be trained on ``train dataset``. Their hyperparameters will be optimized based on the performance of ``valid dataset``, as well as the final ensemble method. For example:
 
@@ -107,16 +108,7 @@ You can also specify the ``train_split`` and ``val_split`` arguments to let solv
 
 For the node classification problem, we also support balanced sampling of train and valid: force the number of sampled nodes in different classes to be the same. The balanced mode can be turned on by setting ``balanced=True`` in ``fit()``, which is by default set to ``True``.
 
-For the graph classification problem, we also provide a way to conduct cross-validation. You can enable cross-validation by specifying ``cross_validation=True``. ``cv_fold`` is also provided to determine the number of folds. Then, the ``train dataset`` will be further split into ``cv_fold`` folds for each model to be trained and optimized hyperparameters on. The auto ensemble will base on the model performance of ``valid dataset``.
-
-.. note:: 
-
-    If you want to use cross validation, please make sure the ``dataset`` receives train/val/test split before cross validated. By default, the graph dataset derived directly from ``build_dataset_from_name`` is not splitted yet. To split the dataset, you can:
-    
-    * use ``autogl.datasets.utils.graph_random_split`` to pre-split ``dataset`` outside of ``solver``.
-    * pass ``train_split`` and ``val_split`` directly to ``solver``, which will pre-split the ``dataset`` for you.
-
-.. note:: Solver will maintain the models with the best hyper-parameter of each model architecture you pass to solver (the ``graphModelList`` argument when initialized). The maintained models will then be ensembled by ensemble module. When cross-validation is used, solver will maintain ``cv_fold`` models of each model architecture for each fold.
+.. note:: Solver will maintain the models with the best hyper-parameter of each model architecture you pass to solver (the ``graph_models`` argument when initialized). The maintained models will then be ensembled by ensemble module.
 
 After ``fit()``, solver maintains the performances of every single model and the ensemble model in one leaderboard instance. You can output the performances on valid dataset by:
 

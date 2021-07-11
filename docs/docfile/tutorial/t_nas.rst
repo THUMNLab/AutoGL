@@ -8,11 +8,59 @@ To be more flexible, we modulize NAS process with three part: algorithm, space a
 Different models in different parts can be composed in some certain constrains.
 If you want to design your own NAS process, you can change any of those parts according to your demand.
 
+Usage
+-----
+
+You can directly enable architecture search for node classification tasks by passing the algorithms, spaces and estimators to
+solver. Following shows an example:
+
+.. code-block:: python
+
+    # Use graphnas to solve cora
+    from autogl.datasets import build_dataset_from_name
+    from autogl.solver import AutoNodeClassifier
+
+    solver = AutoNodeClassifier(
+        feature = 'PYGNormalizeFeatures',
+        graph_models = (),
+        hpo = 'tpe',
+        ensemble = None,
+        nas_algorithms='rl',
+        nas_spaces='graphnasmacro',
+        nas_estimators='scratch'
+    )
+
+    cora = build_dataset_from_name('cora')
+    solver.fit(cora)
+
+The code above will first find the best architecture in space ``graphnasmacro`` using ``rl`` search algorithm.
+Then the searched architecture will be further optimized through hyperparameter-optimization ``tpe``.
+
+.. note:: The ``graph_models`` argument is not conflict with nas module. You can set ``graph_models`` to
+    other hand-crafted models beside the ones found by nas. Once the architectures are derived from nas module,
+    they act in the same way as hand-crafted models directly passed through graph_models.
+
 Search Space
 ------------
 
 The space definition is base on mutable fashion used in NNI, which is defined as a model inheriting BaseSpace
 There are mainly two ways to define your search space, one can be performed with one-shot fashion while the other cannot.
+Currently, we support following search space:
+
++------------------------+-----------------------------------------------------------------+
+| Space                  | Description                                                     |
++========================+=================================================================+
+| ``singlepath`` [4]_    | Architectures with several sequential layers with each layer    |
+|                        | choosing only one path                                          |
++------------------------+-----------------------------------------------------------------+
+| ``graphnas``   [1]_    | The graph nas micro search space designed for fully supervised  |
+|                        | node classification models                                      |
++------------------------+-----------------------------------------------------------------+
+| ``graphnasmacro`` [1]_ | The graph nas macro search space designed for semi-superwised   |
+|                        | node classification models                                      |
++------------------------+-----------------------------------------------------------------+
+
+You can also define your own nas search space. 
 If you need one-shot fashion, you should use the function ``setLayerChoice`` and ``setInputChoice`` to construct the super network.
 Here is an example.
 
@@ -111,8 +159,17 @@ But you can only use sample-based search strategy.
 Performance Estimator
 ---------------------
 
-The performance estimator estimates the performance of an architecture.
-Here is an example of estimating an architecture without training (used in one-shot space).
+The performance estimator estimates the performance of an architecture. Currently we support following estimators:
+
++-------------------------+-------------------------------------------------------+
+| Estimator               | Description                                           |
++=========================+=======================================================+
+| ``oneshot``             | Directly evaluating the given models without training |
++-------------------------+-------------------------------------------------------+
+| ``scratch``             | Train the models from scratch and then evaluate them  |
++-------------------------+-------------------------------------------------------+
+
+You can also write your own estimator. Here is an example of estimating an architecture without training (used in one-shot space).
 
 .. code-block:: python
 
@@ -135,7 +192,20 @@ Here is an example of estimating an architecture without training (used in one-s
 Search Strategy
 ---------------
 
-The space strategy defines how to find an architecture.
+The space strategy defines how to find an architecture. We currently support following search strategies:
+
++-------------------------+-------------------------------------------------------+
+| Strategy                | Description                                           |
++=========================+=======================================================+
+| ``random``              | Random search by uniform sampling                     |
++-------------------------+-------------------------------------------------------+
+| ``rl`` [1]_             | Use rl as architecture generator agent                |
++-------------------------+-------------------------------------------------------+
+| ``enas`` [2]_           | efficient neural architecture search                  |
++-------------------------+-------------------------------------------------------+
+| ``darts`` [3]_          | differentiable neural architecture search             |
++-------------------------+-------------------------------------------------------+
+
 
 Sample-based strategy without weight sharing is simpler than strategies with weight sharing.
 We show how to define your strategy here with DFS as an example.
@@ -227,3 +297,4 @@ Different search strategies should be combined with different search spaces and 
 .. [1] Gao, Yang, et al. "Graph neural architecture search." IJCAI. Vol. 20. 2020.
 .. [2] Pham, Hieu, et al. "Efficient neural architecture search via parameters sharing." International Conference on Machine Learning. PMLR, 2018.
 .. [3] Liu, Hanxiao, Karen Simonyan, and Yiming Yang. "DARTS: Differentiable Architecture Search." International Conference on Learning Representations. 2018.
+.. [4] Guo, Zichao, et al. “Single Path One-Shot Neural Architecture Search with Uniform Sampling.” European Conference on Computer Vision, 2019, pp. 544–560.

@@ -3,20 +3,16 @@ HPO Module for tuning hyper parameters
 """
 
 import time
-import json
-import math
 import numpy as np
 from tqdm import trange
 from . import register_hpo
-from .suggestion.models import Study
 from .base import BaseHPOptimizer, TimeTooLimitedError
 
 from .autone_file import utils
 
 from torch_geometric.data import GraphSAINTRandomWalkSampler
 
-from ..feature.subgraph.nx import NxSubgraph, NxLargeCliqueSize
-from ..feature.subgraph import nx, SgNetLSD
+from ..feature.graph import SgNetLSD
 
 from torch_geometric.data import InMemoryDataset
 
@@ -86,7 +82,7 @@ class AutoNE(BaseHPOptimizer):
 
         def get_wne(graph):
             graph = func.fit_transform(graph)
-            # transform = nx.NxSubgraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
+            # transform = nx.NxGraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
             # print(type(graph))
             # gf = transform.fit_transform(graph).data.gf
             gf = graph.data.gf
