@@ -40,7 +40,7 @@ with open("README.md", 'r') as fh:
 ''' https://setuptools.readthedocs.io/en/latest/ '''
 setup(
     name='autogl',
-    version='0.2.0',
+    version='0.2.0-pre',
     author='THUMNLab/aglteam',
     maintainer='THUMNLab/aglteam',
     author_email='autogl@tsinghua.edu.cn',
@@ -80,6 +80,7 @@ setup(
         'torch-geometric',
         'torch-scatter',
         'torch-sparse',
-        'tqdm'
+        'tqdm',
+        'nni'
     ]
 )
