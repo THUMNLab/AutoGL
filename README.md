@@ -11,6 +11,7 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 
 ## News!
 
+- 2021.07.11 New version! v0.2.0-pre is here! In new version, AutoGL support neural architecture search to customize the architectures for the given datasets and tasks. AutoGL also support sampling now to perform tasks on large datasets, including node-wise sampling, layer-wise sampling and sub-graph sampling. Link prediction task is now also supported! Learn more in our [tutorial](https://autogl.readthedocs.io/en/latest/index.html).
 - 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987) are accepted in _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
 
 ## Introduction
