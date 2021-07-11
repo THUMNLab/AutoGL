@@ -82,7 +82,7 @@ class AutoNE(BaseHPOptimizer):
 
         def get_wne(graph):
             graph = func.fit_transform(graph)
-            # transform = nx.NxSubgraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
+            # transform = nx.NxGraph.compose(map(lambda x: x(), nx.NX_EXTRACTORS))
             # print(type(graph))
             # gf = transform.fit_transform(graph).data.gf
             gf = graph.data.gf

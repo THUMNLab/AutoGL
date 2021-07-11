@@ -48,11 +48,13 @@ class NxGraph(BaseGraph):
 
 def nxfunc(func):
     r"""A decorator for networkx Graph transforms. You may want to use it to quickly wrap a nx Graph feature function object.
+
     Examples
     --------
     @register_nx
     @nxfunc(large_clique_size)
     class NxLargeCliqueSize(NxGraph):pass
+
     """
 
     def decorator_func(cls):
