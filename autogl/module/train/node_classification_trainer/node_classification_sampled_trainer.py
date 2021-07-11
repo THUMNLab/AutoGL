@@ -166,7 +166,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         self.__num_graphs_per_epoch: int = num_graphs_per_epoch
 
         " Set sampled_budget "
-        sampled_budget: int = kwargs.get("sampled_budget")
+        sampled_budget: int = kwargs.get("sampled_budget", 1e4)
         # todo: This is a version caused by current unreasonable initialization process
         # todo: Refactor the framework for trainer to fix in future version
         # if type(sampled_budget) != int:
@@ -197,11 +197,16 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
             __cpu_count: _typing.Optional[int] = os.cpu_count()
             return __cpu_count if __cpu_count else 0
 
-        self.__training_sampler_num_workers: int = kwargs.get(
-            "training_sampler_num_workers", _cpu_count()
-        )
-        if not 0 <= self.__training_sampler_num_workers <= _cpu_count():
-            self.__training_sampler_num_workers: int = _cpu_count()
+        # self.__training_sampler_num_workers: int = kwargs.get(
+        #     "training_sampler_num_workers", _cpu_count()
+        # )
+        
+        # if not 0 <= self.__training_sampler_num_workers <= _cpu_count():
+        #     self.__training_sampler_num_workers: int = _cpu_count()
+
+        # force to be 0 to be compactible with current pyg solution.
+        self.__training_sampler_num_workers: int = 0
+        
         super(NodeClassificationGraphSAINTTrainer, self).__init__(
             model, num_features, num_classes, device, init, feval, loss
         )
