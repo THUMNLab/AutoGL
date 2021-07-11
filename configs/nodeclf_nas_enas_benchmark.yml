@@ -7,14 +7,16 @@ hpo:
   name: random
 nas:
   space:
-    name: graphnas
+    name: singlepath
     hidden_dim: 64
-    layer_number: 4
+    layer_number: 2
+    dropout: 0.8
+    ops: ['gcn', 'gat', 'linear'] 
   algorithm:
-    name: graphnas
+    name: enas
     num_epochs: 200
   estimator:
-    name: scratch
+    name: oneshot
 models: []
 trainer:
   hp_space:
