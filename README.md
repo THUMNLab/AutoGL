@@ -47,11 +47,11 @@ Currently, the following algorithms are supported in AutoGL:
         <b>Algorithms</b><br>
         Random<br>
         RL<br>
-        <a href='#'>more ...</a><br><br>
+        <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
         <b>Spaces</b><br>
         SinglePath<br>
         GraphNas<br>
-        <a href='#'>more ...</a><br><br>
+        <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
         <b>Estimators</b><br>
         Oneshot<br>
         Scratch<br>
