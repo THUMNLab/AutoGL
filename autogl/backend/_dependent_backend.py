@@ -107,6 +107,11 @@ def _generate_backend_config() -> _BackendConfig:
 
 
 class _DependentBackendMetaclass(type):
+    """
+    Metaclass for ``DependentBackend``.
+    To ensure the backend config is unique in diverse threads for multiprocessing runtime,
+    the backend config is instantiated in the metaclass during interpretation phase.
+    """
     def __new__(
             mcs, name: str, bases: _typing.Tuple[type, ...],
             namespace: _typing.Dict[str, _typing.Any]
@@ -135,13 +140,13 @@ class DependentBackend(metaclass=_DependentBackendMetaclass):
         raise RuntimeError(f"The class {DependentBackend} should not be instantiated")
 
     @classmethod
-    def __is(cls, name: str) -> bool:
-        return name.lower() == str(cls._backend_config).lower()
+    def get_backend_name(cls) -> str:
+        return str(cls._backend_config)
 
     @classmethod
     def is_dgl(cls) -> bool:
-        return cls.__is("dgl")
+        return isinstance(cls._backend_config, _DGLConfig)
 
     @classmethod
     def is_pyg(cls) -> bool:
-        return cls.__is("pyg")
+        return isinstance(cls._backend_config, _PyGConfig)
