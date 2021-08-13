@@ -9,15 +9,15 @@ from copy import deepcopy
 
 import torch
 
-from ..module.feature import FEATURE_DICT
-from ..module.hpo import HPO_DICT
-from ..module.model import MODEL_DICT
-from ..module.nas.algorithm import NAS_ALGO_DICT
-from ..module.nas.estimator import NAS_ESTIMATOR_DICT
-from ..module.nas.space import NAS_SPACE_DICT
-from ..module import BaseFeature, BaseHPOptimizer, BaseTrainer
-from .utils import LeaderBoard
-from ..utils import get_logger
+from ...module.feature import FEATURE_DICT
+from ...module.hpo import HPO_DICT
+from ...module.model import MODEL_DICT
+from ...module.nas.algorithm import NAS_ALGO_DICT
+from ...module.nas.estimator import NAS_ESTIMATOR_DICT
+from ...module.nas.space import NAS_SPACE_DICT
+from ...module import BaseFeature, BaseHPOptimizer, BaseTrainer
+from ..utils import LeaderBoard
+from ...utils import get_logger
 
 LOGGER = get_logger("BaseSolver")
 

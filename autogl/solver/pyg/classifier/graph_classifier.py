@@ -11,12 +11,12 @@ import numpy as np
 import yaml
 
 from .base import BaseClassifier
-from ...module.feature import FEATURE_DICT
-from ...module.model import BaseModel, MODEL_DICT
-from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
+from ....module.feature import FEATURE_DICT
+from ....module.model import BaseModel, MODEL_DICT
+from ....module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space
-from ..utils import LeaderBoard, set_seed
-from ...datasets import utils
+from ...utils import LeaderBoard, set_seed
+from ....datasets import utils
 from ...utils import get_logger
 
 LOGGER = get_logger("GraphClassifier")
