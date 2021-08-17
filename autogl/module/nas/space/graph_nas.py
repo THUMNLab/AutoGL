@@ -12,6 +12,8 @@ from ...model import BaseModel
 from torch import nn
 from .operation import act_map, gnn_map
 
+from ..backend import *
+
 GRAPHNAS_DEFAULT_GNN_OPS = [
     "gat_8",  # GAT with 8 heads
     "gat_6",  # GAT with 6 heads
@@ -158,13 +160,16 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         self.classifier2 = nn.Linear(self.hidden_dim, self.output_dim)
 
     def forward(self, data):
-        x, edges = data.x, data.edge_index  # x [2708,1433] ,[2, 10556]
+        # x, edges = data.x, data.edge_index  # x [2708,1433] ,[2, 10556]
+        x= bk_feat(data)
+
         x = F.dropout(x, p=self.dropout, training=self.training)
         pprev_, prev_ = self.preproc0(x), self.preproc1(x)
         prev_nodes_out = [pprev_, prev_]
         for layer in range(2, self.layer_number + 2):
             node_in = getattr(self, f"in_{layer}")(prev_nodes_out)
-            node_out = getattr(self, f"op_{layer}")(node_in, edges)
+            op=getattr(self, f"op_{layer}")
+            node_out = bk_gconv(op,data,node_in)
             prev_nodes_out.append(node_out)
         act = getattr(self, "act")
         con = getattr(self, "concat")()

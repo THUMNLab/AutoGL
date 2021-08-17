@@ -19,7 +19,7 @@ from datetime import datetime
 import numpy as np
 from ....utils import get_logger
 
-LOGGER = get_logger("random_search_NAS")
+LOGGER = get_logger("RL_NAS")
 
 
 def _get_mask(sampled, total):
@@ -342,7 +342,7 @@ class RL(BaseNAS):
         n_warmup=100,
         model_lr=5e-3,
         model_wd=5e-4,
-        disable_progress=True,
+        disable_progress=False,
     ):
         super().__init__(device)
         self.device = device
@@ -413,7 +413,7 @@ class RL(BaseNAS):
                 self._resample()
                 metric, loss = self._infer(mask="val")
                 bar.set_postfix(acc=metric, loss=loss.item())
-                LOGGER.info(f"{self.arch}\n{self.selection}\n{metric},{loss}")
+                LOGGER.debug(f"{self.arch}\n{self.selection}\n{metric},{loss}")
                 reward = metric
                 rewards.append(reward)
                 if self.entropy_weight:
@@ -441,7 +441,7 @@ class RL(BaseNAS):
                     self.log_frequency is not None
                     and ctrl_step % self.log_frequency == 0
                 ):
-                    LOGGER.info(
+                    LOGGER.debug(
                         "RL Epoch [%d/%d] Step [%d/%d]  %s",
                         epoch + 1,
                         self.num_epochs,
@@ -522,7 +522,7 @@ class GraphNasRL(BaseNAS):
         model_lr=5e-3,
         model_wd=5e-4,
         topk=5,
-        disable_progress=True,
+        disable_progress=False,
     ):
         super().__init__(device)
         self.device = device
