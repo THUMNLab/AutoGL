@@ -6,7 +6,7 @@ from torch_geometric.nn.conv import GCNConv
 import autogl.data
 from . import register_model
 from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
-from ...utils import get_logger
+from ....utils import get_logger
 
 LOGGER = get_logger("GCNModel")
 
