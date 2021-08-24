@@ -4,8 +4,8 @@ Base solver for classification problems
 
 from typing import Any
 from ..base import BaseSolver
-from ....module.ensemble import ENSEMBLE_DICT
-from ....module import BaseEnsembler
+from ...module.ensemble import ENSEMBLE_DICT
+from ...module import BaseEnsembler
 
 
 class BaseClassifier(BaseSolver):

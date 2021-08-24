@@ -4,20 +4,20 @@ Solver base class
 Provide some standard solver interface.
 """
 
-from typing import Any, Tuple
+from typing import Any, Iterable, Tuple
 from copy import deepcopy
 
 import torch
 
-from ...module.feature import FEATURE_DICT
-from ...module.hpo import HPO_DICT
-from ...module.model import MODEL_DICT
-from ...module.nas.algorithm import NAS_ALGO_DICT
-from ...module.nas.estimator import NAS_ESTIMATOR_DICT
-from ...module.nas.space import NAS_SPACE_DICT
-from ...module import BaseFeature, BaseHPOptimizer, BaseTrainer
-from ..utils import LeaderBoard
-from ...utils import get_logger
+from ..module.feature import FEATURE_DICT
+from ..module.hpo import HPO_DICT
+from ..module.model import MODEL_DICT
+from ..module.nas.algorithm import NAS_ALGO_DICT
+from ..module.nas.estimator import NAS_ESTIMATOR_DICT
+from ..module.nas.space import NAS_SPACE_DICT
+from ..module import BaseFeature, BaseHPOptimizer, BaseTrainer
+from .utils import LeaderBoard
+from ..utils import get_logger
 
 LOGGER = get_logger("BaseSolver")
 
@@ -175,7 +175,7 @@ class BaseSolver:
             self.feature_module = None
         elif isinstance(feature_module, (BaseFeature, str)):
             self.feature_module = get_feature(feature_module)
-        elif isinstance(feature_module, list):
+        elif isinstance(feature_module, Iterable):
             self.feature_module = get_feature(feature_module[0])
             for feature_engineer in feature_module[1:]:
                 self.feature_module &= get_feature(feature_engineer)
@@ -306,15 +306,15 @@ class BaseSolver:
 
         nas_algorithms = (
             nas_algorithms
-            if isinstance(nas_algorithms, (list, tuple))
+            if isinstance(nas_algorithms, Iterable)
             else [nas_algorithms]
         )
         nas_spaces = (
-            nas_spaces if isinstance(nas_spaces, (list, tuple)) else [nas_spaces]
+            nas_spaces if isinstance(nas_spaces, Iterable) else [nas_spaces]
         )
         nas_estimators = (
             nas_estimators
-            if isinstance(nas_estimators, (list, tuple))
+            if isinstance(nas_estimators, Iterable)
             else [nas_estimators]
         )
 
