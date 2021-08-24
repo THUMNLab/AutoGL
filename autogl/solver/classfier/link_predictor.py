@@ -12,16 +12,17 @@ import yaml
 
 from .base import BaseClassifier
 from ..base import _parse_hp_space, _initialize_single_model
-from ....module.feature import FEATURE_DICT
-from ....module.model import MODEL_DICT, BaseModel
-from ....module.train import TRAINER_DICT, BaseLinkPredictionTrainer
-from ....module.train import get_feval
-from ...utils import LeaderBoard, set_seed
-from ....datasets import utils
-from ...utils import get_logger
+from ...module.feature import FEATURE_DICT
+from ...module.model import MODEL_DICT, BaseModel
+from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
+from ...module.train import get_feval
+from ..utils import LeaderBoard, set_seed
+from ...datasets import utils
+from ..utils import get_logger
+from ...backend import DependentBackend
 
 LOGGER = get_logger("LinkPredictor")
-
+__backend = DependentBackend.get_backend_name()
 
 class AutoLinkPredictor(BaseClassifier):
     """
@@ -280,22 +281,29 @@ class AutoLinkPredictor(BaseClassifier):
         if train_split is not None and val_split is not None:
             utils.split_edges(dataset, train_split, val_split)
         else:
-            assert all(
-                [
-                    hasattr(dataset.data, f"{name}")
-                    for name in [
-                        "train_pos_edge_index",
-                        "train_neg_adj_mask",
-                        "val_pos_edge_index",
-                        "val_neg_edge_index",
-                        "test_pos_edge_index",
-                        "test_neg_edge_index",
+            if __backend == 'pyg':
+                assert all(
+                    [
+                        hasattr(dataset.data, f"{name}")
+                        for name in [
+                            "train_pos_edge_index",
+                            "train_neg_adj_mask",
+                            "val_pos_edge_index",
+                            "val_neg_edge_index",
+                            "test_pos_edge_index",
+                            "test_neg_edge_index",
+                        ]
                     ]
-                ]
-            ), (
-                "The dataset has no default train/val split! Please manually pass "
-                "train and val ratio."
-            )
+                ), (
+                    "The dataset has no default train/val split! Please manually pass "
+                    "train and val ratio."
+                )
+            elif __backend == 'dgl':
+                assert hasattr(dataset[0], 'edata') and "train_mask" in dataset[0].edata and "val_mask" in dataset[0].edata, (
+                    "The dataset has no default train/val split! Please manually pass "
+                    "train and val ratio."
+                )
+
             LOGGER.info("Use the default train/val/test ratio in given dataset")
 
         # feature engineering
@@ -303,16 +311,31 @@ class AutoLinkPredictor(BaseClassifier):
             dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
 
         self.dataset = dataset
-        assert self.dataset[0].x is not None, (
-            "Does not support fit on non node-feature dataset!"
-            " Please add node features to dataset or specify feature engineers that generate"
-            " node features."
-        )
+
+        # check whether the dataset has features.
+        # currently we only support graph classification with features.
+        
+        if __backend == 'pyg':
+            assert dataset[0].x is not None, (
+                "Does not support fit on non node-feature dataset!"
+                " Please add node features to dataset or specify feature engineers that generate"
+                " node features."
+            )
+        elif __backend == 'dgl':
+            # TODO: how can we get features?
+            assert 'feat' in dataset[0].ndata['feat'], (
+                "Does not support fit on non node-feature dataset!"
+                " Please add node features to dataset or specify feature engineers that generate"
+                " node features."
+            )
+        
+        # TODO: how can we get num_features?
+        num_features = self.dataset[0].x.shape[1] if __backend == 'pyg' else self.dataset[0].ndata['feat'].size(-1)
 
         # initialize graph networks
         self._init_graph_module(
             self.gml,
-            num_features=self.dataset[0].x.shape[1],
+            num_features=num_features,
             feval=evaluator_list,
             device=self.runtime_device,
             loss="binary_cross_entropy_with_logits"
@@ -356,20 +379,25 @@ class AutoLinkPredictor(BaseClassifier):
 
         # fit the ensemble model
         if self.ensemble_module is not None:
-            pos_edge_index, neg_edge_index = (
-                self.dataset[0].val_pos_edge_index,
-                self.dataset[0].val_neg_edge_index,
-            )
-            E = pos_edge_index.size(1) + neg_edge_index.size(1)
-            link_labels = torch.zeros(E, dtype=torch.float)
-            link_labels[: pos_edge_index.size(1)] = 1.0
+            if __backend == 'pyg':
+                pos_edge_index, neg_edge_index = (
+                    self.dataset[0].val_pos_edge_index,
+                    self.dataset[0].val_neg_edge_index,
+                )
+                E = pos_edge_index.size(1) + neg_edge_index.size(1)
+                link_labels = torch.zeros(E, dtype=torch.float)
+                link_labels[: pos_edge_index.size(1)] = 1.0
+            elif __backend == 'dgl':
+                val_mask = self.dataset[0].edata["val_mask"]
+                val_index = torch.nonzero(val_mask, as_tuple=False).squeeze()
+                link_labels = self.dataset[0].edata['etype'][val_index]
 
             performance = self.ensemble_module.fit(
                 result_valid,
                 link_labels.detach().cpu().numpy(),
                 names,
                 evaluator_list,
-                n_classes=dataset.num_classes,
+                n_classes=2
             )
             self.leaderboard.insert_model_performance(
                 "ensemble",
