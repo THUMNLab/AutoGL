@@ -739,3 +739,8 @@ class GraphNet(BaseSpace):
                 key = f"layer_{i}_fc_{bn.weight.size(0)}"
                 if key in param:
                     self.bns[i] = param[key]
+
+    def get_model_info(self):
+        param_size = sum(x.numel() for x in self.parameters())
+        info = {"param": param_size}
+        return info
