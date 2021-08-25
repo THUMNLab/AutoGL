@@ -45,8 +45,8 @@ class AutoNE(BaseHPOptimizer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.max_evals = kwargs.get("max_evals", 100)
-        self.subgraphs = kwargs.get("subgraphs", 5)
-        self.sub_evals = kwargs.get("sub_evals", 5)
+        self.subgraphs = kwargs.get("subgraphs", 2)
+        self.sub_evals = kwargs.get("sub_evals", 2)
         self.sample_batch_size = kwargs.get("sample_batch_size", 150)
         self.sample_walk_length = kwargs.get("sample_walk_length", 2)
 
@@ -92,6 +92,7 @@ class AutoNE(BaseHPOptimizer):
         start_time = time.time()
 
         def fn(dset, para):
+            para['dropout'] = float(para['dropout'])
             current_trainer = trainer.duplicate_from_hyper_parameter(para)
             current_trainer.train(dset)
             loss, self.is_higher_better = current_trainer.get_valid_score(dset)
