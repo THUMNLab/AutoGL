@@ -145,6 +145,9 @@ class BoxModel(BaseModel):
         ret_self.to(self.device)
         return ret_self
 
+    def __repr__(self) -> str:
+        return str(self.model.get_model_info())
+
     @property
     def model(self):
         return self._model
@@ -199,6 +202,10 @@ class BaseSpace(nn.Module):
             model to be exported.
         """
         raise NotImplementedError()
+
+    def get_model_info(self):
+        # TODO: write zhushi
+        return {}
 
     def instantiate(self):
         """
