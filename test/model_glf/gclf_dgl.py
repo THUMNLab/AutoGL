@@ -16,6 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from autogl.module.model.ginparser import Parser
 from autogl.module.model.dataloader_gin import GINDataLoader
 from autogl.module.model import GIN
@@ -39,6 +40,7 @@ def train(args, net, trainloader, optimizer, criterion, epoch):
         labels = labels.to(args.device)
         graphs = graphs.to(args.device)
         feat = graphs.ndata.pop('attr')
+        set_trace()
         outputs = net(graphs, feat)
 
         loss = criterion(outputs, labels)
@@ -86,7 +88,7 @@ def eval_net(args, net, dataloader, criterion):
     return loss, acc
 
 
-def main(args):
+def main(args, args_autogl):
 
     # set up seeds, args.seed supported
     torch.manual_seed(seed=args.seed)
@@ -107,8 +109,9 @@ def main(args):
         seed=args.seed, shuffle=True,
         split_name='fold10', fold_idx=args.fold_idx).train_valid_loader()
     # or split_name='rand', split_ratio=0.7
+    set_trace()
 
-    model = GIN(
+    model = GIN(args_autogl,
         args.num_layers, args.num_mlp_layers,
         dataset.dim_nfeats, args.hidden_dim, dataset.gclasses,
         args.final_dropout, args.learn_eps,
@@ -168,9 +171,26 @@ def main(args):
 
 
 if __name__ == '__main__':
+    parser = ArgumentParser(
+        "auto graph classification", formatter_class=ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--dataset",
+        default="mutag",
+        type=str,
+        help="graph classification dataset",
+        choices=["mutag", "imdb-b", "imdb-m", "proteins", "collab"],
+    )
+    parser.add_argument(
+        "--configs", default="../configs/graphclf_full.yml", help="config files"
+    )
+    parser.add_argument("--device", type=int, default=0, help="device to run on")
+    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    args_autogl = parser.parse_args()
+
     args = Parser(description='GIN').args
     print('show all arguments configuration...')
     print(args)
-
-    main(args)
+    print(args_autogl)
+    main(args, args_autogl)
 
