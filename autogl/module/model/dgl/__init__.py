@@ -9,6 +9,9 @@ from .gcn import AutoGCN
 from .gat import AutoGAT
 from .gin import AutoGIN
 from .gin_dgl import GIN
+from .gcn_dgl import GCN
+from .graphsage_dgl import GraphSAGE
+from .gat_dgl import GAT
 
 __all__ = [
     "ModelUniversalRegistry",
@@ -21,4 +24,7 @@ __all__ = [
     "AutoGAT",
     "AutoGIN",
     "GIN",
+    "GCN",
+    "GraphSAGE",
+    "GAT"
 ]
