@@ -23,7 +23,7 @@ def register_nas_estimator(name):
 
 from .one_shot import OneShotEstimator
 from .train_scratch import TrainEstimator
-
+from .train_scratch_hardware_aware import TrainEstimator_HardwareAware
 
 def build_nas_estimator_from_name(name: str) -> BaseEstimator:
     """
@@ -46,4 +46,4 @@ def build_nas_estimator_from_name(name: str) -> BaseEstimator:
     return NAS_ESTIMATOR_DICT[name]()
 
 
-__all__ = ["BaseEstimator", "OneShotEstimator", "TrainEstimator"]
+__all__ = ["BaseEstimator", "OneShotEstimator", "TrainEstimator", "TrainEstimator_HardwareAware"]

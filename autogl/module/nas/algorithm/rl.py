@@ -634,10 +634,13 @@ class GraphNasRL(BaseNAS):
                 # diff: not do reward shaping as in graphnas code
                 reward = metric
                 # TODO: change
-                model_info = self.arch.model.get_model_info()
-                print(f"model_info: {model_info}")
-                if self.param_size_weight is not None:
-                    reward -= self.param_size_weight * model_info["param"]
+                #model_info = self.arch.model.get_model_info()
+                #print(f"model_info: {model_info}")
+                #if self.param_size_weight is not None:
+                #    reward -= self.param_size_weight * #model_info["param"]
+                print(reward)
+                if self.param_size_weight and (len(reward) > 1):
+                    reward[0] = reward[0] - reward[1] * self.param_size_weight
                 if (
                     self.param_size_limit is None
                     or model_info["param"] < self.param_size_limit

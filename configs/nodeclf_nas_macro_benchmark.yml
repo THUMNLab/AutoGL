@@ -7,14 +7,14 @@ hpo:
   name: random
 nas:
   space:
-    name: graphnasmacro
+    name: graphnas
     hidden_dim: 64
     layer_number: 2
   algorithm:
     name: graphnas
     num_epochs: 200
   estimator:
-    name: scratch
+    name: scratch_hardware
 models: []
 trainer:
   hp_space:

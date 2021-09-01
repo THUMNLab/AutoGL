@@ -5,7 +5,7 @@ logging.basicConfig(level=logging.INFO)
 
 sys.path.append("../../")
 print(os.getcwd())
-os.environ["AUTOGL_BACKEND"] = "dgl"
+os.environ["AUTOGL_BACKEND"] = "pyg"
 from autogl.backend import DependentBackend
 import dgl
 from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset

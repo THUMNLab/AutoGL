@@ -51,5 +51,7 @@ class OneShotEstimator(BaseEstimator):
         # acc=sum(pred.max(1)[1]==y).item()/y.size(0)
         probs = F.softmax(pred, dim=1).detach().cpu().numpy()
         y = y.cpu()
-        metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
+        model_info = model.get_model_info()
+        metrics = [model_info[eva] if isinstance(eva, str) else eva.evaluate(probs, y) for eva in self.evaluation]
+        #metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
         return metrics, loss
