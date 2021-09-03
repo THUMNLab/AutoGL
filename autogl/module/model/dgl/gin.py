@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Linear, ReLU, Sequential, LeakyReLU, Tanh, ELU
-#from torch_geometric.nn import GINConv, global_add_pool
 from dgl.nn.pytorch.conv import GINConv
+from dgl.nn.pytorch.glob import SumPooling, AvgPooling, MaxPooling
 from torch.nn import BatchNorm1d
 from . import register_model
 from .base import BaseModel, activate_func
@@ -33,152 +33,184 @@ class ApplyNodeFunc(nn.Module):
         h = F.relu(h)
         return h
 
+
+class MLP(nn.Module):
+    """MLP with linear output"""
+    def __init__(self, num_layers, input_dim, hidden_dim, output_dim):
+        """MLP layers construction
+
+        Paramters
+        ---------
+        num_layers: int
+            The number of linear layers
+        input_dim: int
+            The dimensionality of input features
+        hidden_dim: int
+            The dimensionality of hidden units at ALL layers
+        output_dim: int
+            The number of classes for prediction
+
+        """
+        super(MLP, self).__init__()
+        self.linear_or_not = True  # default is linear model
+        self.num_layers = num_layers
+        self.output_dim = output_dim
+
+        if num_layers < 1:
+            raise ValueError("number of layers should be positive!")
+        elif num_layers == 1:
+            # Linear model
+            self.linear = nn.Linear(input_dim, output_dim)
+        else:
+            # Multi-layer model
+            self.linear_or_not = False
+            self.linears = torch.nn.ModuleList()
+            self.batch_norms = torch.nn.ModuleList()
+
+            self.linears.append(nn.Linear(input_dim, hidden_dim))
+            for layer in range(num_layers - 2):
+                self.linears.append(nn.Linear(hidden_dim, hidden_dim))
+            self.linears.append(nn.Linear(hidden_dim, output_dim))
+
+            for layer in range(num_layers - 1):
+                self.batch_norms.append(nn.BatchNorm1d((hidden_dim)))
+
+    def forward(self, x):
+        if self.linear_or_not:
+            # If linear model
+            return self.linear(x)
+        else:
+            # If MLP
+            h = x
+            for i in range(self.num_layers - 1):
+                h = F.relu(self.batch_norms[i](self.linears[i](h)))
+            return self.linears[-1](h)
+
+
+
 class GIN(torch.nn.Module):
-    #def __init__(self, args):
-    def __init__(self, args, num_layers, num_mlp_layers, input_dim, hidden_dim,
-                 output_dim, final_dropout, learn_eps, graph_pooling_type,
-                 neighbor_pooling_type):
+    """GIN model"""
+    def __init__(self, args):
+        """model parameters setting
+
+        Paramters
+        ---------
+        num_layers: int
+            The number of linear layers in the neural network
+        num_mlp_layers: int
+            The number of linear layers in mlps
+        input_dim: int
+            The dimensionality of input features
+        hidden_dim: int
+            The dimensionality of hidden units at ALL layers
+        output_dim: int
+            The number of classes for prediction
+        final_dropout: float
+            dropout ratio on the final linear layer
+        learn_eps: boolean
+            If True, learn epsilon to distinguish center nodes from neighbors
+            If False, aggregate neighbors and center nodes altogether.
+        neighbor_pooling_type: str
+            how to aggregate neighbors (sum, mean, or max)
+        graph_pooling_type: str
+            how to aggregate entire nodes in a graph (sum, mean or max)
+
+        """
         super(GIN, self).__init__()
         self.args = args
-        #self.num_layer = int(self.args["num_layers"])
-        self.num_layer = num_layers
-        assert self.num_layer > 2, "Number of layers in GIN should not less than 3"
 
-        #missing_keys = list(
-        #    set(
-        #        [
-        #            "features_num",
-        #            "num_class",
-        #            "num_graph_features",
-        #            "num_layers",
-        #            "hidden",
-        #            "dropout",
-        #            "act",
-        #            "mlp_layers",
-        #            "eps",
-        #        ]
-        #    )
-        #    - set(self.args.keys())
-        #)
-        #if len(missing_keys) > 0:
-        #    raise Exception("Missing keys: %s." % ",".join(missing_keys))
+        missing_keys = list(
+            set(
+                [
+                    "features_num",
+                    "num_class",
+                    "num_graph_features",
+                    "num_layers",
+                    "hidden",
+                    "dropout",
+                    "act",
+                    "mlp_layers",
+                    "eps",
+                ]
+            )
+            - set(self.args.keys())
+        )
+        if len(missing_keys) > 0:
+            raise Exception("Missing keys: %s." % ",".join(missing_keys))
         #if not self.num_layer == len(self.args["hidden"]) + 1:
         #    LOGGER.warn("Warning: layer size does not match the length of hidden units")
-        #self.num_graph_features = self.args["num_graph_features"]
-        self.num_graph_features = 0
 
-        #if self.args["act"] == "leaky_relu":
-        #    act = LeakyReLU()
-        #elif self.args["act"] == "relu":
-        #    act = ReLU()
-        #elif self.args["act"] == "elu":
-        #    act = ELU()
-        #elif self.args["act"] == "tanh":
-        #    act = Tanh()
-        #else:
-        #    act = ReLU()
+
+        self.num_graph_features = self.args["num_graph_features"]
+        self.num_layers = self.args["num_layers"]
+        assert self.num_layers > 2, "Number of layers in GIN should not less than 3"
+
+        self.learn_eps = self.args["eps"]
+        self.num_mlp_layers = self.args["mlp_layers"]
+        input_dim = self.args["features_num"]
+        hidden_dim = self.args["hidden"][0]
+        neighbor_pooling_type = self.args["neighbor_pooling_type"]
+        graph_pooling_type = self.args["graph_pooling_type"]
+        if self.args["act"] == "leaky_relu":
+            act = LeakyReLU()
+        elif self.args["act"] == "relu":
             act = ReLU()
-            act_str = "relu"
+        elif self.args["act"] == "elu":
+            act = ELU()
+        elif self.args["act"] == "tanh":
+            act = Tanh()
+        else:
+            act = ReLU()
+        learn_eps = True if self.args["eps"] == "True" else False
+        final_dropout = self.args["dropout"]
+        output_dim = self.args["num_class"]
 
-        #train_eps = True if self.args["eps"] == "True" else False
-        train_eps = learn_eps
+        # List of MLPs
+        self.ginlayers = torch.nn.ModuleList()
+        self.batch_norms = torch.nn.ModuleList()
 
-        self.convs = torch.nn.ModuleList()
-        self.bns = torch.nn.ModuleList()
+        for layer in range(self.num_layers - 1):
+            if layer == 0:
+                mlp = MLP(self.num_mlp_layers, input_dim, hidden_dim, hidden_dim)
+            else:
+                mlp = MLP(self.num_mlp_layers, hidden_dim, hidden_dim, hidden_dim)
 
-        #nn = [Linear(self.args["features_num"], self.args["hidden"][0])]
-        nn = [Linear(input_dim, hidden_dim)]
-        #for _ in range(self.args["mlp_layers"] - 1):
-        for _ in range(num_layers - 1):
-            nn.append(act)
-            #nn.append(Linear(self.args["hidden"][0], self.args["hidden"][0]))
-            nn.append(Linear(hidden_dim, hidden_dim))
-        # nn.append(BatchNorm1d(self.args['hidden'][0]))
-        # self.convs.append(GINConv(Sequential(*nn), learn_eps=train_eps))
-        self.convs.append(GINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, train_eps))
-        #self.bns.append(BatchNorm1d(self.args["hidden"][0]))
-        self.bns.append(BatchNorm1d(hidden_dim))
+            self.ginlayers.append(
+                GINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, self.learn_eps))
+            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
 
-        #for i in range(self.num_layer - 3):
-        for i in range(num_layers - 3):
-            #nn = [Linear(self.args["hidden"][i], self.args["hidden"][i + 1])]
-            nn = [Linear(hidden_dim, hidden_dim)]
-            #for _ in range(self.args["mlp_layers"] - 1):
-            for _ in range(num_mlp_layers - 1):
-                nn.append(act)
-                nn.append(
-                    #Linear(self.args["hidden"][i + 1], self.args["hidden"][i + 1])
-                    Linear(hidden_dim, hidden_dim)
-                )
-            # nn.append(BatchNorm1d(self.args['hidden'][i+1]))
-            self.convs.append(GINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, train_eps))
-            #self.convs.append(GINConv(Sequential(*nn), learn_eps=train_eps))
-            #self.bns.append(BatchNorm1d(self.args["hidden"][i + 1]))
-            self.bns.append(BatchNorm1d(hidden_dim))
+        # Linear function for graph poolings of output of each layer
+        # which maps the output of different layers into a prediction score
+        self.linears_prediction = torch.nn.ModuleList()
 
-        #self.fc1 = Linear(
-        #    self.args["hidden"][self.num_layer - 3] + self.num_graph_features,
-        #    self.args["hidden"][self.num_layer - 2],
-        #)
-        #self.fc2 = Linear(
-        #    self.args["hidden"][self.num_layer - 2], self.args["num_class"]
-        #)
-
-
-        self.fc1 = Linear(
-            hidden_dim + self.num_graph_features,
-            hidden_dim,
-        )
-        self.fc2 = Linear(
-            hidden_dim, output_dim
-        )
-
+        for layer in range(self.num_layers):
+            if layer == 0:
+                self.linears_prediction.append(
+                    nn.Linear(input_dim, output_dim))
+            else:
+                self.linears_prediction.append(
+                    nn.Linear(hidden_dim, output_dim))
 
         self.drop = nn.Dropout(final_dropout)
 
-#    def forward(self, data):
-#        x, edge_index, batch = data.x, data.edge_index, data.batch
-#
-#        if self.num_graph_features > 0:
-#            graph_feature = data.gf
-#
-#        for i in range(self.num_layer - 2):
-#            x = self.convs[i](x, edge_index)
-#            x = activate_func(x, self.args["act"])
-#            x = self.bns[i](x)
-#
-#        #x = global_add_pool(x, batch)
-#        if self.num_graph_features > 0:
-#            x = torch.cat([x, graph_feature], dim=-1)
-#        x = self.fc1(x)
-#        x = activate_func(x, self.args["act"])
-#        x = F.dropout(x, p=self.args["dropout"], training=self.training)
-#
-#        x = self.fc2(x)
-#
-#        return F.log_softmax(x, dim=1)
+        if graph_pooling_type == 'sum':
+            self.pool = SumPooling()
+        elif graph_pooling_type == 'mean':
+            self.pool = AvgPooling()
+        elif graph_pooling_type == 'max':
+            self.pool = MaxPooling()
+        else:
+            raise NotImplementedError
 
     def forward(self, g, h):
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 
-        if self.num_graph_features > 0:
-            graph_feature = data.gf
-
-        for i in range(self.num_layer - 2):
-            x = self.convs[i](g, h)
-            x = activate_func(x, act_str)
-            x = self.bns[i](x)
+        for i in range(self.num_layers - 1):
+            h = self.ginlayers[i](g, h)
+            h = self.batch_norms[i](h)
+            h = F.relu(h)
             hidden_rep.append(h)
-
-        #x = global_add_pool(x, batch)
-        #if self.num_graph_features > 0:
-        #    x = torch.cat([x, graph_feature], dim=-1)
-        #x = self.fc1(x)
-        #x = activate_func(x, act_str)
-        ##x = F.dropout(x, p=self.args["dropout"], training=self.training)
-        #x = F.dropout(x, p=final_dropout, training=self.training)
-        #x = self.fc2(x)
 
         score_over_layer = 0
 
@@ -188,8 +220,6 @@ class GIN(torch.nn.Module):
             score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
 
         return score_over_layer
-        return F.log_softmax(x, dim=1)
-
 
 
 @register_model("gin")
@@ -291,12 +321,14 @@ class AutoGIN(BaseModel):
         ]
 
         self.hyperparams = {
-            "num_layers": 3,
-            "hidden": [64, 32],
+            "num_layers": 5,
+            "hidden": [64],
             "dropout": 0.5,
             "act": "relu",
-            "eps": "True",
+            "eps": "False",
             "mlp_layers": 2,
+            "neighbor_pooling_type": "sum",
+            "graph_pooling_type": "sum"
         }
 
         self.initialized = False
