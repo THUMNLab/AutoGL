@@ -90,3 +90,10 @@ class SinglePathNodeClassificationSpace(BaseSpace):
     def parse_model(self, selection, device) -> BaseModel:
         # return AutoGCN(self.input_dim, self.output_dim, device)
         return self.wrap(device).fix(selection)
+
+    def get_model_info(self):
+        total_params = sum(p.numel() for p in self.parameters())
+        print(f'{total_params:,} total parameters.')
+        total_trainable_params = sum(
+            p.numel() for p in self.parameters() if p.requires_grad)
+        return {"parameter": total_params, "trainable_parameter": total_trainable_params}

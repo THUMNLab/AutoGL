@@ -288,6 +288,15 @@ class ReinforceController(nn.Module):
         return sampled
 
 
+def _process_hardware_aware_metrics(metric, weight):
+    if len(metric) == 1:
+        return metric[0]
+    elif len(metric) == 2:
+        return metric[0] - metric[1] * weight
+    else:
+        raise ValueError("only one or two metric allowed")
+
+
 @register_nas_algo("rl")
 class RL(BaseNAS):
     """
@@ -343,6 +352,7 @@ class RL(BaseNAS):
         model_lr=5e-3,
         model_wd=5e-4,
         disable_progress=False,
+        param_size_weight=0,
     ):
         super().__init__(device)
         self.device = device
@@ -360,6 +370,7 @@ class RL(BaseNAS):
         self.model_lr = model_lr
         self.model_wd = model_wd
         self.disable_progress = disable_progress
+        self.param_size_weight = param_size_weight
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -411,10 +422,9 @@ class RL(BaseNAS):
         ) as bar:
             for ctrl_step in bar:
                 self._resample()
-                metric, loss = self._infer(mask="val")
+                metric, loss, reward = self._infer(mask="val")
                 bar.set_postfix(acc=metric, loss=loss.item())
                 LOGGER.debug(f"{self.arch}\n{self.selection}\n{metric},{loss}")
-                reward = metric
                 rewards.append(reward)
                 if self.entropy_weight:
                     reward += (
@@ -462,7 +472,8 @@ class RL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        return metric[0], loss
+        return metric[0], loss, _process_hardware_aware_metrics(metric, self.param_size_weight)
+
 
 
 @register_nas_algo("graphnas")
@@ -523,7 +534,7 @@ class GraphNasRL(BaseNAS):
         model_wd=5e-4,
         topk=5,
         disable_progress=False,
-        param_size_weight=None,
+        param_size_weight=0,
         param_size_limit=None,
     ):
         super().__init__(device)
@@ -627,23 +638,14 @@ class GraphNasRL(BaseNAS):
         ) as bar:
             for ctrl_step in bar:
                 self._resample()
-                metric, loss = self._infer(mask="val")
+                metric, loss, reward, param_size = self._infer(mask="val")
 
                 # bar.set_postfix(acc=metric,loss=loss.item())
                 LOGGER.debug(f"{self.arch}\n{self.selection}\n{metric},{loss}")
                 # diff: not do reward shaping as in graphnas code
-                reward = metric
-                # TODO: change
-                #model_info = self.arch.model.get_model_info()
-                #print(f"model_info: {model_info}")
-                #if self.param_size_weight is not None:
-                #    reward -= self.param_size_weight * #model_info["param"]
-                print(reward)
-                if self.param_size_weight and (len(reward) > 1):
-                    reward[0] = reward[0] - reward[1] * self.param_size_weight
                 if (
                     self.param_size_limit is None
-                    or model_info["param"] < self.param_size_limit
+                    or param_size[0] < self.param_size_limit
                 ):
                     self.hist.append([-metric, self.selection])
                     if len(self.hist) > self.topk:
@@ -684,4 +686,4 @@ class GraphNasRL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        return metric[0], loss
+        return metric[0], loss, _process_hardware_aware_metrics(metric, self.param_size_weight), metric[1:]

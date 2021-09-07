@@ -981,6 +981,8 @@ class GraphNet(BaseSpace):
                     self.bns[i] = param[key]
 
     def get_model_info(self):
-        param_size = sum(x.numel() for x in self.parameters())
-        info = {"param": param_size}
-        return info
+        total_params = sum(p.numel() for p in self.parameters())
+        total_trainable_params = sum(p.numel()
+                                     for p in self.parameters() if p.requires_grad)
+        return {"parameter": total_params,
+                "trainable_parameter": total_trainable_params}
