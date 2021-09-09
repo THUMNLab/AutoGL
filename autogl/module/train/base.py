@@ -3,7 +3,9 @@ import typing as _typing
 
 import torch
 import pickle
-from ..model import BaseModel, ModelUniversalRegistry
+# from ..model import BaseModel, ModelUniversalRegistry
+from ..model.dgl.base import BaseModel
+from ..model.dgl._model_registry import ModelUniversalRegistry
 from .evaluation import Evaluation, get_feval, Acc
 from ...utils import get_logger
 

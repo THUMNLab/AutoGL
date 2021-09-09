@@ -1,13 +1,13 @@
 TRAINER_DICT = {}
 from .base import (
     BaseTrainer,
-    Evaluation,
-    BaseNodeClassificationTrainer,
-    BaseGraphClassificationTrainer,
-    BaseLinkPredictionTrainer,
+#     Evaluation,
+#     BaseNodeClassificationTrainer,
+#     BaseGraphClassificationTrainer,
+#     BaseLinkPredictionTrainer,
 )
-
-
+#
+#
 def register_trainer(name):
     def register_trainer_cls(cls):
         if name in TRAINER_DICT:
@@ -20,30 +20,30 @@ def register_trainer(name):
         return cls
 
     return register_trainer_cls
-
-
-from .graph_classification_full import GraphClassificationFullTrainer
-from .node_classification_full import NodeClassificationFullTrainer
-from .link_prediction import LinkPredictionTrainer
-from .node_classification_trainer import *
-from .evaluation import get_feval, Acc, Auc, Logloss, Mrr, MicroF1
-
-__all__ = [
-    "BaseTrainer",
-    "Evaluation",
-    "BaseGraphClassificationTrainer",
-    "BaseNodeClassificationTrainer",
-    "BaseLinkPredictionTrainer",
-    "GraphClassificationFullTrainer",
-    "NodeClassificationFullTrainer",
-    "NodeClassificationGraphSAINTTrainer",
-    "NodeClassificationLayerDependentImportanceSamplingTrainer",
-    "NodeClassificationNeighborSamplingTrainer",
-    "LinkPredictionTrainer",
-    "Acc",
-    "Auc",
-    "Logloss",
-    "Mrr",
-    "MicroF1",
-    "get_feval",
-]
+#
+#
+# from .graph_classification_full import GraphClassificationFullTrainer
+# from .node_classification_full import NodeClassificationFullTrainer
+# from .link_prediction import LinkPredictionTrainer
+# from .node_classification_trainer import *
+# from .evaluation import get_feval, Acc, Auc, Logloss, Mrr, MicroF1
+#
+# __all__ = [
+#     "BaseTrainer",
+#     "Evaluation",
+#     "BaseGraphClassificationTrainer",
+#     "BaseNodeClassificationTrainer",
+#     "BaseLinkPredictionTrainer",
+#     "GraphClassificationFullTrainer",
+#     "NodeClassificationFullTrainer",
+#     "NodeClassificationGraphSAINTTrainer",
+#     "NodeClassificationLayerDependentImportanceSamplingTrainer",
+#     "NodeClassificationNeighborSamplingTrainer",
+#     "LinkPredictionTrainer",
+#     "Acc",
+#     "Auc",
+#     "Logloss",
+#     "Mrr",
+#     "MicroF1",
+#     "get_feval",
+# ]
