@@ -22,7 +22,7 @@ from .rl import (
     ReinforceField,
     ReinforceController,
 )
-from ....utils import get_logger
+from ....utils import get_logger, process_hardware_aware_metrics
 
 LOGGER = get_logger("ENAS")
 
@@ -80,6 +80,7 @@ class Enas(BaseNAS):
         model_wd=5e-4,
         disable_progress=True,
         device="cuda",
+        param_size_weight=0
     ):
         super().__init__(device)
         self.device = device
@@ -97,6 +98,7 @@ class Enas(BaseNAS):
         self.model_lr = model_lr
         self.model_wd = model_wd
         self.disable_progress = disable_progress
+        self.param_size_weight = param_size_weight
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -177,8 +179,7 @@ class Enas(BaseNAS):
         for ctrl_step in range(self.ctrl_steps_aggregate):
             self._resample()
             with torch.no_grad():
-                metric, loss = self._infer(mask="val")
-            reward = metric
+                metric, loss, reward = self._infer(mask="val")
             rewards.append(reward)
             if self.entropy_weight:
                 reward += self.entropy_weight * self.controller.sample_entropy.item()
@@ -221,4 +222,4 @@ class Enas(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.model, self.dataset, mask=mask)
-        return metric[0], loss
+        return metric[0], loss, process_hardware_aware_metrics(metric, self.param_size_weight)

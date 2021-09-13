@@ -17,7 +17,7 @@ from nni.nas.pytorch.fixed import apply_fixed_architecture
 from tqdm import tqdm
 from datetime import datetime
 import numpy as np
-from ....utils import get_logger
+from ....utils import get_logger, process_hardware_aware_metrics
 
 LOGGER = get_logger("RL_NAS")
 
@@ -287,16 +287,6 @@ class ReinforceController(nn.Module):
             sampled = sampled[0]
         return sampled
 
-
-def _process_hardware_aware_metrics(metric, weight):
-    if len(metric) == 1:
-        return metric[0]
-    elif len(metric) == 2:
-        return metric[0] - metric[1] * weight
-    else:
-        raise ValueError("only one or two metric allowed")
-
-
 @register_nas_algo("rl")
 class RL(BaseNAS):
     """
@@ -472,7 +462,7 @@ class RL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        return metric[0], loss, _process_hardware_aware_metrics(metric, self.param_size_weight)
+        return metric[0], loss, process_hardware_aware_metrics(metric, self.param_size_weight)
 
 
 
@@ -686,4 +676,4 @@ class GraphNasRL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        return metric[0], loss, _process_hardware_aware_metrics(metric, self.param_size_weight), metric[1:]
+        return metric[0], loss, process_hardware_aware_metrics(metric, self.param_size_weight), metric[1:]

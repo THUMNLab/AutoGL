@@ -12,6 +12,15 @@ from nni.nas.pytorch.mutables import Mutable, InputChoice, LayerChoice
 _logger = logging.getLogger(__name__)
 
 
+def process_hardware_aware_metrics(metric, weight):
+    if len(metric) == 1:
+        return metric[0]
+    elif len(metric) == 2:
+        return metric[0] - metric[1] * weight
+    else:
+        raise ValueError("only one or two metric allowed")
+
+
 def to_device(obj, device):
     """
     Move a tensor, tuple, list, or dict onto device.
