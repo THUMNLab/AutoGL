@@ -6,7 +6,6 @@ from tqdm import tqdm
 import time
 
 sys.path.append("../../")
-print(os.getcwd())
 os.environ["AUTOGL_BACKEND"] = "dgl"
 # os.environ["AUTOGL_BACKEND"] = "pyg"
 from autogl.backend import DependentBackend
@@ -17,13 +16,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from autogl.module.model import GCN
+from autogl.module.model import GAT,GraphSAGE
 
 from pdb import set_trace
 import numpy as np
 from autogl.solver.utils import set_seed
 set_seed(202106)
-
+import argparse
 
 def evaluate(model, graph, labels, mask):
     model.eval()
@@ -37,6 +36,7 @@ def evaluate(model, graph, labels, mask):
 
 
 def main():
+    
 
     # set up seeds, args.seed supported
     torch.manual_seed(seed=202106)
@@ -59,12 +59,23 @@ def main():
     labels = data.ndata['label']
     n_edges = data.number_of_edges()
 
-    model = GCN(data.ndata['x'].size(1), dataset.num_classes, [16], activation_name='relu',
-                dropout = 0.5).to(device)
+    args={}
+    args["features_num"]=data.ndata['x'].size(1)
+    args['hidden']=[16]
+    args["heads"]=8
+    args['dropout']=0.6
+    args["num_class"]=dataset.num_classes
+    args["num_layers"]=2
+    args['act']='relu'
+
+
+    # model = GAT(args)
+    model = GraphSAGE(args["features_num"],
+                      args["num_class"],
+                      [16],'relu',0.5)
 
     criterion = nn.CrossEntropyLoss()  # defaul reduce is true
     optimizer = optim.Adam(model.parameters(), lr=0.01)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
 
     dur = []
     for epoch in range(200):

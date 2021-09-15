@@ -1,6 +1,7 @@
 import torch
 import typing as _typing
 
+import torch.nn.functional as F
 from dgl.nn.pytorch.conv import SAGEConv
 import torch.nn.functional
 import autogl.data
@@ -48,11 +49,10 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
             else:
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
 
-        def forward(self, data, enable_activation: bool = True) -> torch.Tensor:
-            x: torch.Tensor = data.ndata['x']
-            
+        def forward(self, data, x, enable_activation: bool = True) -> torch.Tensor:
+            # x = data.ndata['x']
             x: torch.Tensor = self._convolution.forward(data, x)
-            if self._activation_name is not None and enable_activation:
+            if (self._activation_name is not None) and enable_activation:
                 x: torch.Tensor = activate_func(x, self._activation_name)
             if self._dropout is not None:
                 x: torch.Tensor = self._dropout.forward(x)
@@ -142,7 +142,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
                             hidden_features[i],
                             num_classes,
                             aggr,
-                            _layers_dropout[i + 1],
+                            dropout_probability=_layers_dropout[i + 1],
                         )
                     )
 
@@ -197,6 +197,15 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
     def lp_decode_all(self, z):
         prob_adj = z @ z.t()
         return (prob_adj > 0).nonzero(as_tuple=False).t()
+    
+    def forward(self, data):
+        # only for test 
+        x = data.ndata['x']
+        for i in range(len(self.__sequential_encoding_layers)):
+            x = self.__sequential_encoding_layers[i](data,x)
+
+        return F.log_softmax(x, dim=1)
+
 
 
 @register_model("sage")

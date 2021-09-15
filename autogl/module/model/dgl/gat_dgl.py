@@ -78,9 +78,7 @@ class GAT(torch.nn.Module):
         
         for i in range(self.num_layer):
             x = F.dropout(x, p=self.args["dropout"], training=self.training)
-            x = self.convs[i](data, x)
-            # concat
-            x = x.view(-1, self.heads * self.out_channels)
+            x = self.convs[i](data, x).flatten(1)
             if i != self.num_layer - 1:
                 x = activate_func(x, self.args["act"])
 
@@ -89,9 +87,7 @@ class GAT(torch.nn.Module):
     def lp_encode(self, data):
         x = data.ndata['x']
         for i in range(self.num_layer - 1):
-            x = self.convs[i](x, data.train_pos_edge_index)
-            # concat
-            x = x.view(-1, self.heads * self.out_channels)
+            x = self.convs[i](x, data.train_pos_edge_index).flatten(1)
             if i != self.num_layer - 2:
                 x = activate_func(x, self.args["act"])
                 # x = F.dropout(x, p=self.args["dropout"], training=self.training)
