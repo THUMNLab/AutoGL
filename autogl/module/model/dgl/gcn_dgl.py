@@ -54,15 +54,12 @@ class GCN(ClassificationSupportedSequentialModel):
             else:
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
 
-        def forward(self, data, enable_activation: bool = True) -> torch.Tensor:
-            
-            x: torch.Tensor = data.ndata['feat']
+        def forward(self, data, x, enable_activation: bool = True) -> torch.Tensor:
             
             if self.add_self_loops:
                 data = remove_self_loop(data)
                 data = add_self_loop(data)
 
-            
             x: torch.Tensor = self._convolution.forward(data, x)
             if self._activation_name is not None and enable_activation:
                 x: torch.Tensor = activate_func(x, self._activation_name)
@@ -223,6 +220,12 @@ class GCN(ClassificationSupportedSequentialModel):
                 __compose_edge_index_and_weight(__edge_index)
                 for __edge_index in getattr(data, "edge_indexes")
             ]
+
+    def forward(self, data):
+        x = data.ndata['x']
+        for gcn in self.__sequential_encoding_layers:
+            x = gcn(data,x)
+        return x
 
     def cls_encode(self, data) -> torch.Tensor:
         edge_indexes_and_weights: _typing.Union[
