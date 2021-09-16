@@ -65,6 +65,14 @@ class PathSamplingLayerChoice(nn.Module):
                 *args, **kwargs
             )  # pylint: disable=invalid-sequence-index
 
+    def sampled_choices(self):
+        if self.sampled is None:
+            return []
+        elif isinstance(self.sampled, list):
+            return [getattr(self, self.op_names[i]) for i in self.sampled]  # pylint: disable=not-an-iterable
+        else:
+            return [getattr(self, self.op_names[self.sampled])]  # pylint: disable=invalid-sequence-index
+
     def __len__(self):
         return len(self.op_names)
 
@@ -604,7 +612,7 @@ class GraphNasRL(BaseNAS):
             accs = []
             for i in tqdm(range(20), disable=self.disable_progress):
                 self.arch = self.model.parse_model(selection, device=self.device)
-                metric, loss = self._infer(mask="val")
+                metric, loss, _, _ = self._infer(mask="val")
                 accs.append(metric)
             result = np.mean(accs)
             LOGGER.info(

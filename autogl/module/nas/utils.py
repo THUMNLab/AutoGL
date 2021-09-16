@@ -9,7 +9,19 @@ import torch
 import nni.retiarii.nn.pytorch as nn
 from nni.nas.pytorch.mutables import Mutable, InputChoice, LayerChoice
 
+from .algorithm.rl import PathSamplingLayerChoice
+
 _logger = logging.getLogger(__name__)
+
+
+def count_parameters(module, only_trainable=False):
+    s = sum(p.numel()
+            for p in module.parameters(recurse=False) if not only_trainable or p.requires_grad)
+    if isinstance(module, PathSamplingLayerChoice):
+        s += sum(count_parameters(m) for m in module.sampled_choices())
+    else:
+        s += sum(count_parameters(m) for m in module.children())
+    return s
 
 
 def process_hardware_aware_metrics(metric, weight):

@@ -12,6 +12,7 @@ from ....utils import get_logger
 
 from ...model import AutoGCN
 from ..backend import *
+from ..utils import count_parameters
 
 @register_nas_space("singlepath")
 class SinglePathNodeClassificationSpace(BaseSpace):
@@ -92,8 +93,7 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         return self.wrap(device).fix(selection)
 
     def get_model_info(self):
-        total_params = sum(p.numel() for p in self.parameters())
+        total_params = count_parameters(self)
+        total_trainable_params = count_parameters(self, only_trainable=True)
         print(f'{total_params:,} total parameters.')
-        total_trainable_params = sum(
-            p.numel() for p in self.parameters() if p.requires_grad)
         return {"parameter": total_params, "trainable_parameter": total_trainable_params}

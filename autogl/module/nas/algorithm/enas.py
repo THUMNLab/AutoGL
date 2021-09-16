@@ -138,7 +138,7 @@ class Enas(BaseNAS):
             for i in bar:
                 acc, l1 = self._train_model(i)
                 with torch.no_grad():
-                    val_acc, val_loss = self._infer("val")
+                    val_acc, val_loss, _ = self._infer("val")
                 bar.set_postfix(loss=l1, acc=acc, val_acc=val_acc, val_loss=val_loss)
 
         # train
@@ -163,7 +163,7 @@ class Enas(BaseNAS):
         self.controller.eval()
         self.model_optim.zero_grad()
         self._resample()
-        metric, loss = self._infer()
+        metric, loss, _ = self._infer()
         loss.backward()
         if self.grad_clip > 0:
             nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)

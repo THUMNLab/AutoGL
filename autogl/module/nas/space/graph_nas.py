@@ -8,6 +8,7 @@ from nni.nas.pytorch import mutables
 from . import register_nas_space
 from .base import BaseSpace
 from ...model import BaseModel
+from ..utils import count_parameters
 
 from torch import nn
 from .operation import act_map, gnn_map
@@ -152,7 +153,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
                 2 * layer, [act_map_nn(a) for a in self.act_ops], key="act"
             ),
         )
-        # for DARTS, len(con_ops) can only <=1, for dimension problems 
+        # for DARTS, len(con_ops) can only <=1, for dimension problems
         if len(self.con_ops)>1:
             setattr(
                 self,
@@ -211,9 +212,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
 
     def get_model_info(self):
         # Find total parameters and trainable parameters
-        total_params = sum(p.numel() for p in self.parameters())
+        total_params = count_parameters(self)
+        total_trainable_params = count_parameters(self, only_trainable=True)
         print(f'{total_params:,} total parameters.')
-        total_trainable_params = sum(
-            p.numel() for p in self.parameters() if p.requires_grad)
-        #print(f'{total_trainable_params:,} training parameters.')
-        return {"parameter":total_params, "trainable_parameter":total_trainable_params}
+        return {"parameter": total_params, "trainable_parameter": total_trainable_params}

@@ -7,6 +7,7 @@ from . import register_nas_space
 from .base import BaseSpace, map_nn
 from ...model import BaseModel
 from .operation import act_map
+from ..utils import count_parameters
 
 from torch.nn import Parameter
 from torch_geometric.nn.inits import glorot, zeros
@@ -284,7 +285,7 @@ class GeoLayerPYG(MessagePassing):
         return self.propagate(edge_index, x=x, num_nodes=x.size(0))
 
     def message(self, x_i, x_j, edge_index, num_nodes):
-        
+
         # x_i torch.Size([13264, 2, 4])
         # x_j torch.Size([13264, 2, 4])
         # edge_index torch.Size([2, 13264])
@@ -981,8 +982,8 @@ class GraphNet(BaseSpace):
                     self.bns[i] = param[key]
 
     def get_model_info(self):
-        total_params = sum(p.numel() for p in self.parameters())
-        total_trainable_params = sum(p.numel()
-                                     for p in self.parameters() if p.requires_grad)
-        return {"parameter": total_params,
-                "trainable_parameter": total_trainable_params}
+        # Find total parameters and trainable parameters
+        total_params = count_parameters(self)
+        total_trainable_params = count_parameters(self, only_trainable=True)
+        print(f'{total_params:,} total parameters.')
+        return {"parameter": total_params, "trainable_parameter": total_trainable_params}
