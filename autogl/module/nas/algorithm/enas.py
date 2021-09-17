@@ -13,6 +13,7 @@ from ..utils import (
     replace_layer_choice,
     replace_input_choice,
     get_module_order,
+    process_hardware_aware_metrics,
     sort_replaced_module,
 )
 from tqdm import tqdm, trange
@@ -22,7 +23,7 @@ from .rl import (
     ReinforceField,
     ReinforceController,
 )
-from ....utils import get_logger, process_hardware_aware_metrics
+from ....utils import get_logger
 
 LOGGER = get_logger("ENAS")
 
@@ -138,20 +139,20 @@ class Enas(BaseNAS):
             for i in bar:
                 acc, l1 = self._train_model(i)
                 with torch.no_grad():
-                    val_acc, val_loss, _ = self._infer("val")
+                    val_acc, val_loss = self._infer("val")
                 bar.set_postfix(loss=l1, acc=acc, val_acc=val_acc, val_loss=val_loss)
 
         # train
         with tqdm(range(self.num_epochs), disable=self.disable_progress) as bar:
             for i in bar:
-                try:
-                    l1 = self._train_model(i)
-                    l2 = self._train_controller(i)
-                except Exception as e:
+                #try:
+                l1 = self._train_model(i)
+                l2 = self._train_controller(i)
+                """except Exception as e:
                     print(e)
                     nm = self.nas_modules
                     for i in range(len(nm)):
-                        print(nm[i][1].sampled)
+                        print(nm[i][1].sampled)"""
                 bar.set_postfix(loss_model=l1, reward_controller=l2)
 
         selection = self.export()
@@ -163,7 +164,7 @@ class Enas(BaseNAS):
         self.controller.eval()
         self.model_optim.zero_grad()
         self._resample()
-        metric, loss, _ = self._infer()
+        metric, loss = self._infer()
         loss.backward()
         if self.grad_clip > 0:
             nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
@@ -179,7 +180,8 @@ class Enas(BaseNAS):
         for ctrl_step in range(self.ctrl_steps_aggregate):
             self._resample()
             with torch.no_grad():
-                metric, loss, reward = self._infer(mask="val")
+                metric, loss = self._infer(mask="val")
+                reward = metric
             rewards.append(reward)
             if self.entropy_weight:
                 reward += self.entropy_weight * self.controller.sample_entropy.item()
@@ -222,4 +224,7 @@ class Enas(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.model, self.dataset, mask=mask)
-        return metric[0], loss, process_hardware_aware_metrics(metric, self.param_size_weight)
+        if self.param_size_weight:
+            return process_hardware_aware_metrics(metric, self.param_size_weight), loss
+        else:
+            return metric[0], loss 
