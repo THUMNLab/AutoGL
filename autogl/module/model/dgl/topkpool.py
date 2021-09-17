@@ -175,17 +175,20 @@ class Topkpool(torch.nn.Module):
         # which maps the output of different layers into a prediction score
         self.linears_prediction = torch.nn.ModuleList()
 
+        #TopKPool
+        k = 3
+        self.pool = SortPooling(k)
+
         for layer in range(self.num_layers):
             if layer == 0:
                 self.linears_prediction.append(
-                    nn.Linear(input_dim, output_dim))
+                    nn.Linear(input_dim * k, output_dim))
             else:
                 self.linears_prediction.append(
-                    nn.Linear(hidden_dim, output_dim))
+                    nn.Linear(hidden_dim * k, output_dim))
 
         self.drop = nn.Dropout(final_dropout)
-        #TopKPool
-        self.pool = SortPooling(k=1)
+
 
     def forward(self, g, h):
         # list of hidden representation at each layer (including input)
