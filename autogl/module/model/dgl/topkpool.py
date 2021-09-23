@@ -190,7 +190,10 @@ class Topkpool(torch.nn.Module):
         self.drop = nn.Dropout(final_dropout)
 
 
-    def forward(self, g, h):
+    #def forward(self, g, h):
+    def forward(self, data):
+        g, _ = data
+        h = g.ndata.pop('attr')
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 
