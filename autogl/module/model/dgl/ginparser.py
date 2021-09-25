@@ -68,8 +68,8 @@ class Parser():
             '--seed', type=int, default=0,
             help='random seed (default: 0)')
         self.parser.add_argument(
-            '--epochs', type=int, default=350,
-            help='number of epochs to train (default: 350)')
+            '--epochs', type=int, default=100,
+            help='number of epochs to train (default: 100)')
         self.parser.add_argument(
             '--lr', type=float, default=0.01,
             help='learning rate (default: 0.01)')
