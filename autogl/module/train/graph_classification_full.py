@@ -278,7 +278,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
                     val_loss = -val_loss
                 self.early_stopping(val_loss, self.model.model)
 
-                print('val_loss', val_loss)
+                # print('val_loss', val_loss)
 
                 if self.early_stopping.early_stop:
                     LOGGER.debug("Early stopping at", epoch)

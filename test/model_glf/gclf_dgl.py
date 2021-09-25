@@ -3,28 +3,32 @@ import sys
 import logging
 logging.basicConfig(level=logging.INFO)
 from tqdm import tqdm
+import argparse
 
-sys.path.append("../../")
+sys.path.insert(0, "../../")
+sys.path.insert(0, "/DATA/DATANAS1/lhy/tmp/AutoGL")
+sys.path.insert(0, "/DATA/DATANAS1/lhy/tmp/AutoGL/autogl")
+
 print(os.getcwd())
 os.environ["AUTOGL_BACKEND"] = "dgl"
 #os.environ["AUTOGL_BACKEND"] = "pyg"
-from autogl.backend import DependentBackend
+# from autogl.backend import DependentBackend
 import dgl
 from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset, GINDataset
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from autogl.module.model.ginparser import Parser
-from autogl.module.model.dataloader_gin import GINDataLoader
-from autogl.module.model import AutoGIN
+# from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+# from autogl.module.model.ginparser import Parser
+from autogl.module.model.dgl.dataloader_gin import GINDataLoader
+from autogl.module.model.dgl.gin import AutoGIN
+from autogl.module.train.graph_classification_full import GraphClassificationFullTrainer
 
-from pdb import set_trace
+# from pdb import set_tracefrom
 import numpy as np
-from autogl.solver.utils import set_seed
-set_seed(202106)
+# from autogl.solver.utils import set_seed
+# set_seed(202106)
 
 
 def train(args, net, trainloader, optimizer, criterion, epoch):
@@ -93,13 +97,15 @@ def main(args):
     torch.manual_seed(seed=args.seed)
     np.random.seed(seed=args.seed)
 
-    is_cuda = not args.disable_cuda and torch.cuda.is_available()
+    # is_cuda = not args.disable_cuda and torch.cuda.is_available()
+    is_cuda = torch.cuda.is_available()
 
     if is_cuda:
         args.device = torch.device("cuda:" + str(args.device))
         torch.cuda.manual_seed_all(seed=args.seed)
     else:
         args.device = torch.device("cpu")
+
 
     dataset = GINDataset(args.dataset, not args.learn_eps)
 
@@ -108,7 +114,7 @@ def main(args):
         seed=args.seed, shuffle=True,
         split_name='fold10', fold_idx=args.fold_idx).train_valid_loader()
     # or split_name='rand', split_ratio=0.7
-    automodel =  AutoGIN(
+    automodel = AutoGIN(
                 num_classes=dataset.gclasses,
                 num_features=dataset.dim_nfeats,
                 device=args.device,
@@ -117,6 +123,27 @@ def main(args):
     criterion = nn.CrossEntropyLoss()  # defaul reduce is true
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
+
+    trainer = GraphClassificationFullTrainer(
+        model=automodel,
+        num_features=dataset.dim_nfeats,
+        num_classes=dataset.gclasses,
+        optimizer=optimizer,
+        lr=args.lr,
+        max_epoch=30,
+        # max_epoch=1,
+        batch_size=args.batch_size,
+        criterion=criterion,
+        feval="acc",
+    )
+
+    trainer.train_only(trainloader)
+    pred = trainer.predict(validloader)
+    print(pred)
+    print(trainer.evaluate(validloader, feval='acc'))
+
+    return 0
+
 
     # it's not cost-effective to hanle the cursor and init 0
     # https://stackoverflow.com/a/23121189
@@ -158,9 +185,9 @@ def main(args):
                 ))
                 f.write("\n")
 
-        lrbar.set_description(
-            "Learning eps with learn_eps={}: {}".format(
-                args.learn_eps, [layer.eps.data.item() for layer in model.ginlayers]))
+        # lrbar.set_description(
+        #     "Learning eps with learn_eps={}: {}".format(
+        #         args.learn_eps, [layer.eps.data.item() for layer in model.ginlayers]))
 
     tbar.close()
     vbar.close()
@@ -168,8 +195,73 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = Parser(description='GIN').args
+    parser = argparse.ArgumentParser(
+        "auto graph classification", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        '--dataset', type=str, default="MUTAG",
+        choices=['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI'],
+        help='name of dataset (default: MUTAG)')
+    parser.add_argument(
+        '--batch_size', type=int, default=32,
+        help='batch size for training and validation (default: 32)')
+    parser.add_argument(
+        '--fold_idx', type=int, default=0,
+        help='the index(<10) of fold in 10-fold validation.')
+    parser.add_argument(
+        '--filename', type=str, default="",
+        help='output file')
+
+    # device
+    parser.add_argument(
+        '--disable-cuda', action='store_true',
+        help='Disable CUDA')
+    parser.add_argument(
+        '--device', type=int, default=0,
+        help='which gpu device to use (default: 0)')
+
+    # net
+    parser.add_argument(
+        '--num_layers', type=int, default=5,
+        help='number of layers (default: 5)')
+    parser.add_argument(
+        '--num_mlp_layers', type=int, default=2,
+        help='number of MLP layers(default: 2). 1 means linear model.')
+    parser.add_argument(
+        '--hidden_dim', type=int, default=64,
+        help='number of hidden units (default: 64)')
+
+    # graph
+    parser.add_argument(
+        '--graph_pooling_type', type=str,
+        default="sum", choices=["sum", "mean", "max"],
+        help='type of graph pooling: sum, mean or max')
+    parser.add_argument(
+        '--neighbor_pooling_type', type=str,
+        default="sum", choices=["sum", "mean", "max"],
+        help='type of neighboring pooling: sum, mean or max')
+    parser.add_argument(
+        '--learn_eps', action="store_true",
+        help='learn the epsilon weighting')
+
+    # learning
+    parser.add_argument(
+        '--seed', type=int, default=0,
+        help='random seed (default: 0)')
+    parser.add_argument(
+        '--epochs', type=int, default=100,
+        help='number of epochs to train (default: 350)')
+    parser.add_argument(
+        '--lr', type=float, default=0.01,
+        help='learning rate (default: 0.01)')
+    parser.add_argument(
+        '--final_dropout', type=float, default=0.5,
+        help='final layer dropout (default: 0.5)')
+
+    args = parser.parse_args()
     print('show all arguments configuration...')
     print(args)
     main(args)
+
+
 
