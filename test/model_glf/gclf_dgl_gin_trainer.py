@@ -22,6 +22,9 @@ from autogl.module.model.dgl.ginparser import Parser
 from autogl.module.model.dgl.dataloader_gin import GINDataLoader
 from autogl.module.model.dgl.gin import AutoGIN
 
+from autogl.module.train.graph_classification_full import GraphClassificationFullTrainer
+
+
 from pdb import set_trace
 import numpy as np
 # from autogl.solver.utils import set_seed
@@ -125,6 +128,29 @@ def main(args):
     criterion = nn.CrossEntropyLoss()  # defaul reduce is true
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
+
+    trainer = GraphClassificationFullTrainer(
+        model=automodel,
+        num_features=dataset.dim_nfeats,
+        num_classes=dataset.gclasses,
+        optimizer="adam",
+        lr=args.lr,
+        max_epoch=100,
+        # max_epoch=1,
+        batch_size=args.batch_size,
+        loss="cross_entropy",
+        feval="acc",
+        early_stopping_round=100,
+        weight_decay=0.0,
+    )
+
+    trainer.train_only(trainloader, validloader)
+    pred = trainer.predict(validloader)
+    print(pred)
+    print(trainer.evaluate(validloader, feval='acc'))
+
+    return
+
 
     # it's not cost-effective to hanle the cursor and init 0
     # https://stackoverflow.com/a/23121189
