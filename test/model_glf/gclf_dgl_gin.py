@@ -39,12 +39,15 @@ def train(args, net, trainloader, optimizer, criterion, epoch):
     # setup the offset to avoid the overlap with mouse cursor
     bar = tqdm(range(total_iters), unit='batch', position=2, file=sys.stdout)
 
-    for pos, (graphs, labels) in zip(bar, trainloader):
+    for pos, data in zip(bar, trainloader):
+        data = [data[i].to(args.device) for i in range(len(data))]
+        _, labels = data
         # batch graphs will be shipped to device in forward part of model
-        labels = labels.to(args.device)
-        graphs = graphs.to(args.device)
-        feat = graphs.ndata.pop('attr')
-        outputs = net(graphs, feat)
+        #labels = labels.to(args.device)
+        #graphs = graphs.to(args.device)
+        #feat = graphs.ndata.pop('attr')
+        #outputs = net(graphs, feat)
+        outputs = net(data)
 
         loss = criterion(outputs, labels)
         running_loss += loss.item()
@@ -71,12 +74,14 @@ def eval_net(args, net, dataloader, criterion):
     total_correct = 0
 
     for data in dataloader:
-        graphs, labels = data
-        graphs = graphs.to(args.device)
-        labels = labels.to(args.device)
-        feat = graphs.ndata.pop('attr')
+        data = [data[i].to(args.device) for i in range(len(data))]
+        _, labels = data
+        #graphs = graphs.to(args.device)
+        #labels = labels.to(args.device)
+        #feat = graphs.ndata.pop('attr')
         total += len(labels)
-        outputs = net(graphs, feat)
+        #outputs = net(graphs, feat)
+        outputs = net(data)
         _, predicted = torch.max(outputs.data, 1)
 
         total_correct += (predicted == labels.data).sum().item()

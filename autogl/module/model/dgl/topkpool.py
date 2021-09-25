@@ -1,9 +1,13 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GraphConv, TopKPooling
-from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
+from torch.nn import Linear, ReLU, Sequential, LeakyReLU, Tanh, ELU
+from dgl.nn.pytorch.conv import GraphConv
+from dgl.nn.pytorch.glob import SortPooling
+from torch.nn import BatchNorm1d
 from . import register_model
 from .base import BaseModel, activate_func
+from copy import deepcopy
 from ....utils import get_logger
 
 LOGGER = get_logger("TopkModel")
@@ -16,8 +20,95 @@ def set_default(args, d):
     return args
 
 
+class ApplyNodeFunc(nn.Module):
+    """Update the node feature hv with MLP, BN and ReLU."""
+    def __init__(self, mlp):
+        super(ApplyNodeFunc, self).__init__()
+        self.mlp = mlp
+        self.bn = nn.BatchNorm1d(self.mlp.output_dim)
+
+    def forward(self, h):
+        h = self.mlp(h)
+        h = self.bn(h)
+        h = F.relu(h)
+        return h
+
+
+class MLP(nn.Module):
+    """MLP with linear output"""
+    def __init__(self, num_layers, input_dim, hidden_dim, output_dim):
+        """MLP layers construction
+
+        Paramters
+        ---------
+        num_layers: int
+            The number of linear layers
+        input_dim: int
+            The dimensionality of input features
+        hidden_dim: int
+            The dimensionality of hidden units at ALL layers
+        output_dim: int
+            The number of classes for prediction
+
+        """
+        super(MLP, self).__init__()
+        self.linear_or_not = True  # default is linear model
+        self.num_layers = num_layers
+        self.output_dim = output_dim
+
+        if num_layers < 1:
+            raise ValueError("number of layers should be positive!")
+        elif num_layers == 1:
+            # Linear model
+            self.linear = nn.Linear(input_dim, output_dim)
+        else:
+            # Multi-layer model
+            self.linear_or_not = False
+            self.linears = torch.nn.ModuleList()
+            self.batch_norms = torch.nn.ModuleList()
+
+            self.linears.append(nn.Linear(input_dim, hidden_dim))
+            for layer in range(num_layers - 2):
+                self.linears.append(nn.Linear(hidden_dim, hidden_dim))
+            self.linears.append(nn.Linear(hidden_dim, output_dim))
+
+            for layer in range(num_layers - 1):
+                self.batch_norms.append(nn.BatchNorm1d((hidden_dim)))
+
+    def forward(self, x):
+        if self.linear_or_not:
+            # If linear model
+            return self.linear(x)
+        else:
+            # If MLP
+            h = x
+            for i in range(self.num_layers - 1):
+                h = F.relu(self.batch_norms[i](self.linears[i](h)))
+            return self.linears[-1](h)
+
+
+
 class Topkpool(torch.nn.Module):
+    """Topkpool model"""
     def __init__(self, args):
+        """model parameters setting
+
+        Paramters
+        ---------
+        num_layers: int
+            The number of linear layers in the neural network
+        num_mlp_layers: int
+            The number of linear layers in mlps
+        input_dim: int
+            The dimensionality of input features
+        hidden_dim: int
+            The dimensionality of hidden units at ALL layers
+        output_dim: int
+            The number of classes for prediction
+        final_dropout: float
+            dropout ratio on the final linear layer
+
+        """
         super(Topkpool, self).__init__()
         self.args = args
 
@@ -27,82 +118,116 @@ class Topkpool(torch.nn.Module):
                     "features_num",
                     "num_class",
                     "num_graph_features",
-                    "ratio",
+                    "num_layers",
+                    "hidden",
                     "dropout",
                     "act",
+                    "mlp_layers",
                 ]
             )
             - set(self.args.keys())
         )
         if len(missing_keys) > 0:
             raise Exception("Missing keys: %s." % ",".join(missing_keys))
+        #if not self.num_layer == len(self.args["hidden"]) + 1:
+        #    LOGGER.warn("Warning: layer size does not match the length of hidden units")
 
-        self.num_features = self.args["features_num"]
-        self.num_classes = self.args["num_class"]
-        self.ratio = self.args["ratio"]
-        self.dropout = self.args["dropout"]
+
         self.num_graph_features = self.args["num_graph_features"]
+        self.num_layers = self.args["num_layers"]
+        assert self.num_layers > 2, "Number of layers in GIN should not less than 3"
 
-        self.conv1 = GraphConv(self.num_features, 128)
-        self.pool1 = TopKPooling(128, ratio=self.ratio)
-        self.conv2 = GraphConv(128, 128)
-        self.pool2 = TopKPooling(128, ratio=self.ratio)
-        self.conv3 = GraphConv(128, 128)
-        self.pool3 = TopKPooling(128, ratio=self.ratio)
+        self.num_mlp_layers = self.args["mlp_layers"]
+        input_dim = self.args["features_num"]
+        hidden_dim = self.args["hidden"][0]
+        if self.args["act"] == "leaky_relu":
+            act = LeakyReLU()
+        elif self.args["act"] == "relu":
+            act = ReLU()
+        elif self.args["act"] == "elu":
+            act = ELU()
+        elif self.args["act"] == "tanh":
+            act = Tanh()
+        else:
+            act = ReLU()
+        final_dropout = self.args["dropout"]
+        output_dim = self.args["num_class"]
 
-        self.lin1 = torch.nn.Linear(256 + self.num_graph_features, 128)
-        self.lin2 = torch.nn.Linear(128, 64)
-        self.lin3 = torch.nn.Linear(64, self.num_classes)
+        # List of MLPs
+        self.gcnlayers = torch.nn.ModuleList()
+        self.batch_norms = torch.nn.ModuleList()
 
+        for layer in range(self.num_layers - 1):
+            if layer == 0:
+                self.gcnlayers.append(GraphConv(input_dim, hidden_dim))
+            else:
+                self.gcnlayers.append(GraphConv(hidden_dim, hidden_dim))
+
+            if layer == 0:
+                mlp = MLP(self.num_mlp_layers, input_dim, hidden_dim, hidden_dim)
+            else:
+                mlp = MLP(self.num_mlp_layers, hidden_dim, hidden_dim, hidden_dim)
+
+            #self.gcnlayers.append(GraphConv(input_dim, hidden_dim))
+            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
+
+        # Linear function for graph poolings of output of each layer
+        # which maps the output of different layers into a prediction score
+        self.linears_prediction = torch.nn.ModuleList()
+
+        #TopKPool
+        k = 3
+        self.pool = SortPooling(k)
+
+        for layer in range(self.num_layers):
+            if layer == 0:
+                self.linears_prediction.append(
+                    nn.Linear(input_dim * k, output_dim))
+            else:
+                self.linears_prediction.append(
+                    nn.Linear(hidden_dim * k, output_dim))
+
+        self.drop = nn.Dropout(final_dropout)
+
+
+    #def forward(self, g, h):
     def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
-        if self.num_graph_features > 0:
-            graph_feature = data.gf
+        g, _ = data
+        h = g.ndata.pop('attr')
+        # list of hidden representation at each layer (including input)
+        hidden_rep = [h]
 
-        x = F.relu(self.conv1(x, edge_index))
-        x, edge_index, _, batch, _, _ = self.pool1(x, edge_index, None, batch)
-        x1 = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
+        for i in range(self.num_layers - 1):
+            h = self.gcnlayers[i](g, h)
+            h = self.batch_norms[i](h)
+            h = F.relu(h)
+            hidden_rep.append(h)
 
-        x = F.relu(self.conv2(x, edge_index))
-        x, edge_index, _, batch, _, _ = self.pool2(x, edge_index, None, batch)
-        x2 = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
+        score_over_layer = 0
 
-        x = F.relu(self.conv3(x, edge_index))
-        x, edge_index, _, batch, _, _ = self.pool3(x, edge_index, None, batch)
-        x3 = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
+        # perform pooling over all nodes in each graph in every layer
+        for i, h in enumerate(hidden_rep):
+            pooled_h = self.pool(g, h)
+            #import pdb; pdb.set_trace()
+            score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
 
-        x = x1 + x2 + x3
-        if self.num_graph_features > 0:
-            x = torch.cat([x, graph_feature], dim=-1)
-        x = self.lin1(x)
-        x = activate_func(x, self.args["act"])
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.lin2(x)
-        x = activate_func(x, self.args["act"])
-        x = F.log_softmax(self.lin3(x), dim=-1)
-
-        return x
+        return score_over_layer
 
 
 @register_model("topkpool")
 class AutoTopkpool(BaseModel):
     r"""
     AutoTopkpool. The model used in this automodel is from https://arxiv.org/abs/1905.05178, https://arxiv.org/abs/1905.02850
-
     Parameters
     ----------
     num_features: `int`.
         The dimension of features.
-
     num_classes: `int`.
         The number of classes.
-
     device: `torch.device` or `str`
         The device where model will be running on.
-
     init: `bool`.
         If True(False), the model will (not) be initialized.
-
     """
 
     def __init__(
@@ -155,7 +280,14 @@ class AutoTopkpool(BaseModel):
             },
         ]
 
-        self.hyperparams = {"ratio": 0.8, "dropout": 0.5, "act": "relu"}
+        #self.hyperparams = {"ratio": 0.8, "dropout": 0.5, "act": "relu"}
+        self.hyperparams = {
+            "num_layers": 5,
+            "hidden": [64],
+            "dropout": 0.5,
+            "act": "relu",
+            "mlp_layers": 2
+        }
 
         self.initialized = False
         if init is True:
@@ -167,3 +299,4 @@ class AutoTopkpool(BaseModel):
         self.initialized = True
         LOGGER.debug("topkpool initialize with parameters {}".format(self.params))
         self.model = Topkpool({**self.params, **self.hyperparams}).to(self.device)
+
