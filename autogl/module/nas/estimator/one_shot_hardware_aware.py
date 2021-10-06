@@ -27,16 +27,17 @@ from ...train.evaluation import Evaluation, Acc
 #         metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
 #         return metrics, loss
 
-@register_nas_estimator("oneshot")
-class OneShotEstimator(BaseEstimator):
+@register_nas_estimator("oneshot_hardware")
+class OneShotEstimator_HardwareAware(BaseEstimator):
     """
     One shot estimator.
 
     Use model directly to get estimations.
     """
-    def __init__(self, loss_f="nll_loss", evaluation=[Acc()]):
+    def __init__(self, loss_f="nll_loss", evaluation=[Acc()], hardware_evaluation="parameter"):
         super().__init__(loss_f, evaluation)
         self.evaluation = evaluation
+        self.hardware_evaluation=hardware_evaluation
 
     def infer(self, model: BaseSpace, dataset, mask="train"):
         device = next(model.parameters()).device
@@ -53,4 +54,5 @@ class OneShotEstimator(BaseEstimator):
         y = y.cpu()
         model_info = model.get_model_info()
         metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
+        metrics.append(model_info[self.hardware_evaluation])
         return metrics, loss

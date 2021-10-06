@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from . import register_nas_estimator
 from ..space import BaseSpace
 from .base import BaseEstimator
-from .one_shot import OneShotEstimator
+from .one_shot_hardware_aware import OneShotEstimator_HardwareAware
 import torch
 
 from autogl.module.train import NodeClassificationFullTrainer, Acc
@@ -16,10 +16,12 @@ class TrainEstimator_HardwareAware(BaseEstimator):
     An estimator which trans from scratch
     """
 
-    def __init__(self, loss_f="nll_loss", evaluation=[Acc(), "parameter"]):
+    def __init__(self, loss_f="nll_loss", evaluation=[Acc()], hardware_evaluation="parameter"):
         super().__init__(loss_f, evaluation)
         self.evaluation = evaluation
-        self.estimator = OneShotEstimator(self.loss_f, self.evaluation)
+        self.hardware_evaluation = hardware_evaluation
+        self.estimator = OneShotEstimator_HardwareAware(self.loss_f, self.evaluation, self.hardware_evaluation)
+
 
     def infer(self, model: BaseSpace, dataset, mask="train"):
         # self.trainer.model=model

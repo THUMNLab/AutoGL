@@ -95,5 +95,5 @@ class SinglePathNodeClassificationSpace(BaseSpace):
     def get_model_info(self):
         total_params = count_parameters(self)
         total_trainable_params = count_parameters(self, only_trainable=True)
-        print(f'{total_params:,} total parameters.')
+        # print(f'{total_params:,} total parameters.')
         return {"parameter": total_params, "trainable_parameter": total_trainable_params}
