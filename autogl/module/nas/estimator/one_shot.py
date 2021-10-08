@@ -5,6 +5,7 @@ from ..space import BaseSpace
 from .base import BaseEstimator
 from ..backend import *
 from ...train.evaluation import Acc
+from ..utils import get_hardware_aware_metric
 
 
 @register_nas_estimator("oneshot")
@@ -48,8 +49,7 @@ class OneShotEstimator_HardwareAware(OneShotEstimator):
     def infer(self, model: BaseSpace, dataset, mask="train"):
         metrics, loss = super().infer(model, dataset, mask)
         if isinstance(self.hardware_evaluation, str):
-            model_info = model.get_model_info()
-            metrics.append(model_info[self.hardware_evaluation]())
+            metrics.append(get_hardware_aware_metric(model, self.hardware_evaluation))
         else:
             metrics.append(self.hardware_evaluation(model))
         return metrics, loss

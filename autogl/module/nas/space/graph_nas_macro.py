@@ -980,14 +980,3 @@ class GraphNet(BaseSpace):
                 key = f"layer_{i}_fc_{bn.weight.size(0)}"
                 if key in param:
                     self.bns[i] = param[key]
-
-    def get_model_info(self):
-        return {"parameter": self.get_model_parameters, "latency": self.get_model_inference_latency}
-
-    def get_model_parameters(self):
-        return count_parameters(self)
-
-    def get_model_inference_latency(self):
-        return measure_latency(
-            self, self.input_dim, 20, warmup_iters=5
-        )

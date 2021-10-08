@@ -99,6 +99,16 @@ class PathSamplingInputChoice(nn.Module):
     def __repr__(self):
         return f"PathSamplingInputChoice(n_candidates={self.n_candidates}, chosen={self.sampled})"
 
+
+def get_hardware_aware_metric(model, hardware_metric):
+    if hardware_metric == 'parameter':
+        return count_parameters(model)
+    elif hardware_metric == 'latency':
+        return measure_latency(model, 20, warmup_iters=5)
+    else:
+        raise ValueError('Unsupported hardware-aware metric')
+
+
 def count_parameters(module, only_trainable=False):
     s = sum(p.numel()
             for p in module.parameters(recurse=False) if not only_trainable or p.requires_grad)
@@ -118,8 +128,9 @@ def process_hardware_aware_metrics(metric, weight):
         raise ValueError("only one or two metric allowed")
 
 
-def measure_latency(model, num_feat, num_iters=200, *, warmup_iters=50):
+def measure_latency(model, num_iters=200, *, warmup_iters=50):
     device = next(model.parameters()).device
+    num_feat = model.input_dim
     model.eval()
     latencys = []
     data = _build_random_data(device, num_feat)
@@ -143,6 +154,7 @@ def measure_latency(model, num_feat, num_iters=200, *, warmup_iters=50):
                 raise e
 
     return np.mean(latencys)
+
 
 def _build_random_data(device, num_feat):
     node_nums = 3000
