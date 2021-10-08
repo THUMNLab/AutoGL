@@ -264,7 +264,7 @@ class RL(BaseNAS):
         model_lr=5e-3,
         model_wd=5e-4,
         disable_progress=False,
-        param_size_weight=0,
+        hardware_metric_weight=0,
     ):
         super().__init__(device)
         self.device = device
@@ -282,7 +282,7 @@ class RL(BaseNAS):
         self.model_lr = model_lr
         self.model_wd = model_wd
         self.disable_progress = disable_progress
-        self.param_size_weight = param_size_weight
+        self.hardware_metric_weight = hardware_metric_weight
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -385,8 +385,8 @@ class RL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        if self.param_size_weight:
-            return process_hardware_aware_metrics(metric, self.param_size_weight), loss
+        if self.hardware_metric_weight:
+            return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss
         else:
             return metric[0], loss
 
@@ -450,8 +450,8 @@ class GraphNasRL(BaseNAS):
         model_wd=5e-4,
         topk=5,
         disable_progress=False,
-        param_size_weight=0,
-        param_size_limit=None,
+        hardware_metric_weight=0,
+        hardware_metric_limit=None,
     ):
         super().__init__(device)
         self.device = device
@@ -471,8 +471,8 @@ class GraphNasRL(BaseNAS):
         self.topk = topk
         self.disable_progress = disable_progress
         # TODO: new a class to describe the hardware-aware method
-        self.param_size_weight = param_size_weight
-        self.param_size_limit = param_size_limit
+        self.hardware_metric_weight = hardware_metric_weight
+        self.hardware_metric_limit = hardware_metric_limit
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -554,15 +554,15 @@ class GraphNasRL(BaseNAS):
         ) as bar:
             for ctrl_step in bar:
                 self._resample()
-                metric, loss, param_size = self._infer(mask="val")
+                metric, loss, hardware_metric = self._infer(mask="val")
                 reward = metric
 
                 # bar.set_postfix(acc=metric,loss=loss.item())
                 LOGGER.debug(f"{self.arch}\n{self.selection}\n{metric},{loss}")
                 # diff: not do reward shaping as in graphnas code
                 if (
-                    self.param_size_limit is None
-                    or param_size[0] < self.param_size_limit
+                    self.hardware_metric_limit is None
+                    or hardware_metric[0] < self.hardware_metric_limit
                 ):
                     self.hist.append([-metric, self.selection])
                     if len(self.hist) > self.topk:
@@ -603,8 +603,7 @@ class GraphNasRL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        if self.param_size_weight:
-            return process_hardware_aware_metrics(metric, self.param_size_weight), loss, metric[1:]
+        if self.hardware_metric_weight:
+            return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss, metric[1:]
         else:
             return metric[0], loss, metric[1:]
-        return metric[0], loss, process_hardware_aware_metrics(metric, self.param_size_weight), metric[1:]

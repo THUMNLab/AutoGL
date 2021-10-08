@@ -53,6 +53,8 @@ class OneShotEstimator_HardwareAware(BaseEstimator):
         probs = F.softmax(pred, dim=1).detach().cpu().numpy()
         y = y.cpu()
         model_info = model.get_model_info()
+        # print(model_info)
+        # print(self.hardware_evaluation)
         metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
-        metrics.append(model_info[self.hardware_evaluation])
+        metrics.append(model_info[self.hardware_evaluation]())
         return metrics, loss

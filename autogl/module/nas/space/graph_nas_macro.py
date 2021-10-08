@@ -22,6 +22,8 @@ import torch_scatter
 
 import inspect
 import sys
+import time
+import numpy as np
 
 from ..backend import *
 import dgl
@@ -982,8 +984,55 @@ class GraphNet(BaseSpace):
                     self.bns[i] = param[key]
 
     def get_model_info(self):
+        return {"parameter": self.get_model_parameters, "latency": self.get_model_inference_latency}
+
+    def get_model_parameters(self):
         # Find total parameters and trainable parameters
         total_params = count_parameters(self)
         total_trainable_params = count_parameters(self, only_trainable=True)
-        # print(f'{total_params:,} total parameters.')
-        return {"parameter": total_params, "trainable_parameter": total_trainable_params}
+        return total_params
+
+    def get_model_inference_latency(self):
+        # run self
+        return measure_latency(
+            self, self.num_feat, 20, warmup_iters=5
+        )
+
+def measure_latency(model, num_feat, num_iters=200, *, warmup_iters=50):
+    device = next(model.parameters()).device
+    model.eval()
+    latencys = []
+    data = build_data(device, num_feat)
+    with torch.no_grad():
+        try:
+            for i in range(warmup_iters + num_iters):
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+                start = time.time()
+                model(data)
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+                dt = time.time() - start
+                if i >= warmup_iters:
+                    latencys.append(dt)
+        except RuntimeError as e:
+            if "cuda" in str(e) or "CUDA" in str(e):
+                INF = 100
+                return INF
+            else:
+                raise e
+
+    return np.mean(latencys)
+
+def build_data(device, num_feat):
+    node_nums = 3000
+    edge_nums = 10000
+
+    class Data:
+        pass
+
+    data = Data()
+    data.x = torch.randn((node_nums, num_feat)).to(device)
+    data.edge_index = torch.randint(0, node_nums, (2, edge_nums)).to(device)
+    data.num_features = num_feat
+    return data
