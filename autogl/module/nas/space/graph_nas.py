@@ -8,7 +8,7 @@ from nni.nas.pytorch import mutables
 from . import register_nas_space
 from .base import BaseSpace
 from ...model import BaseModel
-from ..utils import count_parameters
+from ..utils import count_parameters, measure_latency
 
 from torch import nn
 from .operation import act_map, gnn_map
@@ -211,8 +211,12 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         return self.wrap(device).fix(selection)
 
     def get_model_info(self):
-        # Find total parameters and trainable parameters
-        total_params = count_parameters(self)
-        total_trainable_params = count_parameters(self, only_trainable=True)
-        # print(f'{total_params:,} total parameters.')
-        return {"parameter": total_params, "trainable_parameter": total_trainable_params}
+        return {"parameter": self.get_model_parameters, "latency": self.get_model_inference_latency}
+
+    def get_model_parameters(self):
+        return count_parameters(self)
+
+    def get_model_inference_latency(self):
+        return measure_latency(
+            self, self.num_feat, 20, warmup_iters=5
+        )

@@ -117,6 +117,46 @@ def process_hardware_aware_metrics(metric, weight):
         raise ValueError("only one or two metric allowed")
 
 
+def measure_latency(model, num_feat, num_iters=200, *, warmup_iters=50):
+    device = next(model.parameters()).device
+    model.eval()
+    latencys = []
+    data = build_data(device, num_feat)
+    with torch.no_grad():
+        try:
+            for i in range(warmup_iters + num_iters):
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+                start = time.time()
+                model(data)
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+                dt = time.time() - start
+                if i >= warmup_iters:
+                    latencys.append(dt)
+        except RuntimeError as e:
+            if "cuda" in str(e) or "CUDA" in str(e):
+                INF = 100
+                return INF
+            else:
+                raise e
+
+    return np.mean(latencys)
+
+def build_data(device, num_feat):
+    node_nums = 3000
+    edge_nums = 10000
+
+    class Data:
+        pass
+
+    data = Data()
+    data.x = torch.randn((node_nums, num_feat)).to(device)
+    data.edge_index = torch.randint(0, node_nums, (2, edge_nums)).to(device)
+    data.num_features = num_feat
+    return data
+
+
 def to_device(obj, device):
     """
     Move a tensor, tuple, list, or dict onto device.

@@ -35,11 +35,11 @@ class RandomSearch(BaseNAS):
         Control whether show the progress bar.
     """
 
-    def __init__(self, device="cuda", num_epochs=400, disable_progress=False, param_size_limit=None):
+    def __init__(self, device="cuda", num_epochs=400, disable_progress=False, hardware_metric_limit=None):
         super().__init__(device)
         self.num_epochs = num_epochs
         self.disable_progress = disable_progress
-        self.param_size_limit = param_size_limit
+        self.hardware_metric_limit = hardware_metric_limit
 
     def search(self, space: BaseSpace, dset, estimator):
         self.estimator = estimator
@@ -66,8 +66,8 @@ class RandomSearch(BaseNAS):
                 vec = tuple(list(selection.values()))
                 if vec not in cache:
                     self.arch = space.parse_model(selection, self.device)
-                    metric, loss, param_size = self._infer(mask="val")
-                    if self.param_size_limit is None or param_size[0] < self.param_size_limit:
+                    metric, loss, hardware_metric = self._infer(mask="val")
+                    if self.hardware_metric_limit is None or hardware_metric[0] < self.hardware_metric_limit:
                         arch_perfs.append([metric, selection])
                     cache[vec] = metric
                 bar.set_postfix(acc=metric, max_acc=max(cache.values()))

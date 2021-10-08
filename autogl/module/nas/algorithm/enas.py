@@ -81,7 +81,7 @@ class Enas(BaseNAS):
         model_wd=5e-4,
         disable_progress=True,
         device="cuda",
-        param_size_weight=0
+        hardware_metric_weight=0
     ):
         super().__init__(device)
         self.device = device
@@ -99,7 +99,7 @@ class Enas(BaseNAS):
         self.model_lr = model_lr
         self.model_wd = model_wd
         self.disable_progress = disable_progress
-        self.param_size_weight = param_size_weight
+        self.hardware_metric_weight = hardware_metric_weight
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -224,7 +224,7 @@ class Enas(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.model, self.dataset, mask=mask)
-        if self.param_size_weight:
-            return process_hardware_aware_metrics(metric, self.param_size_weight), loss
+        if self.hardware_metric_weight:
+            return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss
         else:
-            return metric[0], loss 
+            return metric[0], loss

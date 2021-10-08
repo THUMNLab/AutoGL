@@ -12,7 +12,7 @@ from ....utils import get_logger
 
 from ...model import AutoGCN
 from ..backend import *
-from ..utils import count_parameters
+from ..utils import count_parameters, measure_latency
 
 @register_nas_space("singlepath")
 class SinglePathNodeClassificationSpace(BaseSpace):
@@ -93,7 +93,12 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         return self.wrap(device).fix(selection)
 
     def get_model_info(self):
-        total_params = count_parameters(self)
-        total_trainable_params = count_parameters(self, only_trainable=True)
-        # print(f'{total_params:,} total parameters.')
-        return {"parameter": total_params, "trainable_parameter": total_trainable_params}
+        return {"parameter": self.get_model_parameters, "latency": self.get_model_inference_latency}
+
+    def get_model_parameters(self):
+        return count_parameters(self)
+
+    def get_model_inference_latency(self):
+        return measure_latency(
+            self, self.num_feat, 20, warmup_iters=5
+        )
