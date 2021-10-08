@@ -1,5 +1,3 @@
-import importlib
-import os
 from .base import BaseEstimator
 
 NAS_ESTIMATOR_DICT = {}
@@ -21,10 +19,8 @@ def register_nas_estimator(name):
     return register_nas_estimator_cls
 
 
-from .one_shot import OneShotEstimator
-from .train_scratch import TrainEstimator
-from .one_shot_hardware_aware import OneShotEstimator_HardwareAware
-from .train_scratch_hardware_aware import TrainEstimator_HardwareAware
+from .one_shot import OneShotEstimator, OneShotEstimator_HardwareAware
+from .train_scratch import TrainEstimator, TrainEstimator_HardwareAware
 
 def build_nas_estimator_from_name(name: str) -> BaseEstimator:
     """

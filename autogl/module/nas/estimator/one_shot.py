@@ -1,31 +1,11 @@
-import torch.nn as nn
 import torch.nn.functional as F
 
 from . import register_nas_estimator
 from ..space import BaseSpace
 from .base import BaseEstimator
 from ..backend import *
-from ...train.evaluation import Evaluation, Acc
+from ...train.evaluation import Acc
 
-# @register_nas_estimator("oneshot")
-# class OneShotEstimator(BaseEstimator):
-#     """
-#     One shot estimator.
-
-#     Use model directly to get estimations.
-#     """
-
-#     def infer(self, model: BaseSpace, dataset, mask="train"):
-#         device = next(model.parameters()).device
-#         dset = dataset[0].to(device)
-#         pred = model(dset)[getattr(dset, f"{mask}_mask")]
-#         y = dset.y[getattr(dset, f"{mask}_mask")]
-#         loss = getattr(F, self.loss_f)(pred, y)
-#         # acc=sum(pred.max(1)[1]==y).item()/y.size(0)
-#         probs = F.softmax(pred, dim=1).detach().cpu().numpy()
-#         y = y.cpu()
-#         metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
-#         return metrics, loss
 
 @register_nas_estimator("oneshot")
 class OneShotEstimator(BaseEstimator):
@@ -48,8 +28,28 @@ class OneShotEstimator(BaseEstimator):
         y = label[mask]
 
         loss = getattr(F, self.loss_f)(pred, y)
-        # acc=sum(pred.max(1)[1]==y).item()/y.size(0)
         probs = F.softmax(pred, dim=1).detach().cpu().numpy()
         y = y.cpu()
         metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
+        return metrics, loss
+
+
+@register_nas_estimator("oneshot_hardware")
+class OneShotEstimator_HardwareAware(OneShotEstimator):
+    """
+    One shot hardware-aware estimator.
+
+    Use model directly to get estimations.
+    """
+    def __init__(self, loss_f="nll_loss", evaluation=[Acc()], hardware_evaluation="parameter"):
+        super().__init__(loss_f, evaluation)
+        self.hardware_evaluation = hardware_evaluation
+
+    def infer(self, model: BaseSpace, dataset, mask="train"):
+        metrics, loss = super().infer(model, dataset, mask)
+        if isinstance(self.hardware_evaluation, str):
+            model_info = model.get_model_info()
+            metrics.append(model_info[self.hardware_evaluation]())
+        else:
+            metrics.append(self.hardware_evaluation(model))
         return metrics, loss

@@ -1,10 +1,7 @@
-import torch.nn as nn
-import torch.nn.functional as F
-
 from . import register_nas_estimator
 from ..space import BaseSpace
 from .base import BaseEstimator
-from .one_shot import OneShotEstimator
+from .one_shot import OneShotEstimator, OneShotEstimator_HardwareAware
 import torch
 
 from autogl.module.train import NodeClassificationFullTrainer, Acc
@@ -22,8 +19,6 @@ class TrainEstimator(BaseEstimator):
         self.estimator = OneShotEstimator(self.loss_f, self.evaluation)
 
     def infer(self, model: BaseSpace, dataset, mask="train"):
-        # self.trainer.model=model
-        # self.trainer.device=model.device
         boxmodel = model.wrap()
         self.trainer = NodeClassificationFullTrainer(
             model=boxmodel,
@@ -49,3 +44,14 @@ class TrainEstimator(BaseEstimator):
                 return fin, 0
             else:
                 raise e
+
+
+@register_nas_estimator("scratch_hardware")
+class TrainEstimator_HardwareAware(TrainEstimator):
+    """
+    An hardware-aware estimator which trans from scratch
+    """
+
+    def __init__(self, loss_f="nll_loss", evaluation=[Acc()], hardware_evaluation="parameter"):
+        super().__init__(loss_f, evaluation)
+        self.estimator = OneShotEstimator_HardwareAware(self.loss_f, self.evaluation, hardware_evaluation)
