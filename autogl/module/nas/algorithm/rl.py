@@ -385,10 +385,7 @@ class RL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        if self.hardware_metric_weight:
-            return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss
-        else:
-            return metric[0], loss
+        return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss
 
 
 
@@ -603,7 +600,4 @@ class GraphNasRL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        if self.hardware_metric_weight:
-            return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss, metric[1:]
-        else:
-            return metric[0], loss, metric[1:]
+        return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss, metric[1:]

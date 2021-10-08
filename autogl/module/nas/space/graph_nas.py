@@ -218,5 +218,5 @@ class GraphNasNodeClassificationSpace(BaseSpace):
 
     def get_model_inference_latency(self):
         return measure_latency(
-            self, self.num_feat, 20, warmup_iters=5
+            self, self.input_dim, 20, warmup_iters=5
         )

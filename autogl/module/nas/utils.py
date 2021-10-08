@@ -4,6 +4,7 @@
 import logging
 from collections import OrderedDict
 
+import time
 import numpy as np
 import torch
 import nni.retiarii.nn.pytorch as nn
@@ -121,7 +122,7 @@ def measure_latency(model, num_feat, num_iters=200, *, warmup_iters=50):
     device = next(model.parameters()).device
     model.eval()
     latencys = []
-    data = build_data(device, num_feat)
+    data = _build_random_data(device, num_feat)
     with torch.no_grad():
         try:
             for i in range(warmup_iters + num_iters):
@@ -143,7 +144,7 @@ def measure_latency(model, num_feat, num_iters=200, *, warmup_iters=50):
 
     return np.mean(latencys)
 
-def build_data(device, num_feat):
+def _build_random_data(device, num_feat):
     node_nums = 3000
     edge_nums = 10000
 
