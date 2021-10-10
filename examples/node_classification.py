@@ -37,7 +37,7 @@ if __name__ == "__main__":
         help="config to use",
     )
     # following arguments will override parameters in the config file
-    parser.add_argument("--hpo", type=str, default="tpe", help="hpo methods")
+    parser.add_argument("--hpo", type=str, default="autone", help="hpo methods")
     parser.add_argument(
         "--max_eval", type=int, default=50, help="max hpo evaluation times"
     )
