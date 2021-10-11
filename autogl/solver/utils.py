@@ -6,6 +6,7 @@ Utilities used by the solver
 
 import random
 import typing as _typing
+import torch
 import torch.backends.cudnn
 import numpy as np
 import pandas as pd
@@ -205,6 +206,12 @@ def get_graph_masks(graph, mask='train'):
 def get_graph_labels(graph):
     if __backend == 'pyg': return graph.y
     return graph.ndata['label']
+
+def get_dataset_labels(dataset):
+    if __backend == 'pyg':
+        return dataset.data.y
+    else:
+        return torch.LongTensor([d[1] for d in dataset])
 
 def set_seed(seed=None):
     """

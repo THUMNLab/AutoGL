@@ -15,7 +15,7 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import BaseModel, MODEL_DICT
 from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space
-from ..utils import LeaderBoard, set_seed
+from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features
 from ...datasets import utils
 from ..utils import get_logger
 from ...backend import DependentBackend
@@ -301,17 +301,10 @@ class AutoGraphClassifier(BaseClassifier):
 
         # set up the dataset
         if train_split is None and val_split is None:
-            # Currently, there are no much implementation difference between pyg and dgl on solver
-            # We can use way of hotfix to judge
-            if __backend == 'pyg':
-                assert hasattr(dataset, "train_split") and hasattr(dataset, "val_split"), (
-                    "The dataset has no default train/val split! "
-                    "Please manually pass train and val ratio."
-                )
-            elif __backend == 'dgl':
-                # no available solutions here.
-                # TODO: we cannot judge whether the graph dataset has train/val/test split on dgl.
-                pass
+            assert hasattr(dataset, "train_split") and hasattr(dataset, "val_split"), (
+                "The dataset has no default train/val split! "
+                "Please manually pass train and val ratio."
+            )
             LOGGER.info("Use the default train/val/test ratio in given dataset")
             # if hasattr(dataset.train_split, "n_splits"):
             #    cross_validation = True
@@ -339,25 +332,21 @@ class AutoGraphClassifier(BaseClassifier):
         # check whether the dataset has features.
         # currently we only support graph classification with features.
         
-        if __backend == 'pyg':
-            assert dataset[0].x is not None, (
-                "Does not support fit on non node-feature dataset!"
-                " Please add node features to dataset or specify feature engineers that generate"
-                " node features."
-            )
-        elif __backend == 'dgl':
-            assert 'feat' in dataset[0].ndata['feat'], (
-                "Does not support fit on non node-feature dataset!"
-                " Please add node features to dataset or specify feature engineers that generate"
-                " node features."
-            )
+        feat = get_graph_node_features(get_graph_from_dataset(dataset))
+        assert feat is not None, (
+            "Does not support fit on non node-feature dataset!"
+            " Please add node features to dataset or specify feature engineers that generate"
+            " node features."
+        )
+        num_features = feat.size(-1)
+        num_classes = dataset.num_classes if __backend == 'pyg' else dataset.num_labels
 
         # initialize graph networks
         self._init_graph_module(
             self.gml,
             # TODO: what should we use to get feature dimension?
-            num_features=dataset.num_node_features if __backend == 'pyg' else dataset[0].ndata['feat'].size(-1),
-            num_classes=dataset.num_classes if __backend == 'pyg' else dataset.nclasses,
+            num_features=num_features,
+            num_classes=num_classes,
             feval=evaluator_list,
             device=self.runtime_device,
             loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
@@ -430,10 +419,7 @@ class AutoGraphClassifier(BaseClassifier):
         if self.ensemble_module is not None:
             performance = self.ensemble_module.fit(
                 result_valid,
-                # TODO: get validation set of graphs
-                dataset.data.y[dataset.val_index].cpu().detach().numpy()
-                if __backend == 'pyg' else
-                dataset.labels[dataset.val_index].cpu().detach().numpy(),
+                get_dataset_labels(dataset)[dataset.val_index].cpu().numpy(),
                 names,
                 evaluator_list,
                 n_classes=dataset.num_classes,
