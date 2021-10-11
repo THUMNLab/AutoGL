@@ -9,11 +9,13 @@ import typing as _typing
 import torch.backends.cudnn
 import numpy as np
 import pandas as pd
+from ..backend import DependentBackend
 
 from ..utils import get_logger
 
 LOGGER = get_logger("LeaderBoard")
 
+__backend = DependentBackend.get_backend_name()
 
 class LeaderBoard:
     """
@@ -175,6 +177,34 @@ class LeaderBoard:
             )
         )
 
+def get_graph_from_dataset(dataset, graph_id=0):
+    if __backend == 'pyg': return dataset[graph_id]
+    return dataset.graph[graph_id]
+
+def get_graph_node_number(graph):
+    if __backend == 'pyg':
+        size = graph.x.shape[0]
+    else:
+        size = graph.num_nodes()
+    return size
+
+def get_graph_node_features(graph):
+    if __backend == 'pyg' and hasattr(graph, 'x'):
+        return graph.x
+    elif __backend == 'dgl' and 'feat' in graph.ndata:
+        return graph.ndata['feat']
+    return None
+
+def get_graph_masks(graph, mask='train'):
+    if __backend == 'pyg' and hasattr(graph, f'{mask}_mask'):
+        return getattr(graph, f'{mask}_mask')
+    if __backend == 'dgl' and f'{mask}_mask' in graph.ndata:
+        return graph.ndata[f'{mask}_mask']
+    return None
+
+def get_graph_labels(graph):
+    if __backend == 'pyg': return graph.y
+    return graph.ndata['label']
 
 def set_seed(seed=None):
     """
