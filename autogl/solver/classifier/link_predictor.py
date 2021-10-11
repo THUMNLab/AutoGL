@@ -16,7 +16,7 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import MODEL_DICT, BaseModel
 from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
 from ...module.train import get_feval
-from ..utils import LeaderBoard, set_seed
+from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_node_features, set_seed
 from ...datasets import utils
 from ..utils import get_logger
 from ...backend import DependentBackend
@@ -277,6 +277,8 @@ class AutoLinkPredictor(BaseClassifier):
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
 
+        graph_data = get_graph_from_dataset(dataset)
+
         # set up the dataset
         if train_split is not None and val_split is not None:
             utils.split_edges(dataset, train_split, val_split)
@@ -284,7 +286,7 @@ class AutoLinkPredictor(BaseClassifier):
             if __backend == 'pyg':
                 assert all(
                     [
-                        hasattr(dataset.data, f"{name}")
+                        hasattr(graph_data, f"{name}")
                         for name in [
                             "train_pos_edge_index",
                             "train_neg_adj_mask",
@@ -299,7 +301,7 @@ class AutoLinkPredictor(BaseClassifier):
                     "train and val ratio."
                 )
             elif __backend == 'dgl':
-                assert hasattr(dataset[0], 'edata') and "train_mask" in dataset[0].edata and "val_mask" in dataset[0].edata, (
+                assert hasattr(graph_data, 'edata') and "train_mask" in graph_data.edata and "val_mask" in graph_data.edata, (
                     "The dataset has no default train/val split! Please manually pass "
                     "train and val ratio."
                 )
@@ -315,22 +317,15 @@ class AutoLinkPredictor(BaseClassifier):
         # check whether the dataset has features.
         # currently we only support graph classification with features.
         
-        if __backend == 'pyg':
-            assert dataset[0].x is not None, (
-                "Does not support fit on non node-feature dataset!"
-                " Please add node features to dataset or specify feature engineers that generate"
-                " node features."
-            )
-        elif __backend == 'dgl':
-            # TODO: how can we get features?
-            assert 'feat' in dataset[0].ndata['feat'], (
-                "Does not support fit on non node-feature dataset!"
-                " Please add node features to dataset or specify feature engineers that generate"
-                " node features."
-            )
+        feat = get_graph_node_features(graph_data)
+        assert feat is not None, (
+            "Does not support fit on non node-feature dataset!"
+            " Please add node features to dataset or specify feature engineers that generate"
+            " node features."
+        )
         
         # TODO: how can we get num_features?
-        num_features = self.dataset[0].x.shape[1] if __backend == 'pyg' else self.dataset[0].ndata['feat'].size(-1)
+        num_features = feat.size(-1)
 
         # initialize graph networks
         self._init_graph_module(
