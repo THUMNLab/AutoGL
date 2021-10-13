@@ -17,6 +17,8 @@ import torch.multiprocessing as mp
 
 from ...utils import get_logger
 
+from ...backend import DependentBackend
+
 LOGGER = get_logger("graph classification solver")
 
 
@@ -125,7 +127,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         self.initialized = False
         self.device = device
 
-        self.pyg_dgl = 'dgl'
+        self.pyg_dgl = DependentBackend.get_backend_name()
         self.criterion = criterion
 
         self.space = [
