@@ -8,8 +8,7 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
 )
 import torch.nn.functional as F
-# from ..model import BaseModel
-from ..model.dgl.base import BaseModel
+from ..model import BaseModel
 from .evaluation import get_feval, Logloss
 from typing import Union
 from ...datasets import utils
