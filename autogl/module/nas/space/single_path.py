@@ -11,7 +11,7 @@ from ...model import BaseModel
 from ....utils import get_logger
 
 from ...model import AutoGCN
-from ..backend import *
+
 
 @register_nas_space("singlepath")
 class SinglePathNodeClassificationSpace(BaseSpace):
@@ -22,9 +22,7 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         dropout: _typ.Optional[float] = 0.2,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
-        ops: _typ.Tuple = ['gcn', "gat_8"],
-        # ops: _typ.Tuple = [ "gat_8"],
-
+        ops: _typ.Tuple = ["GCNConv", "GATConv"],
     ):
         super().__init__()
         self.layer_number = layer_number
@@ -78,10 +76,9 @@ class SinglePathNodeClassificationSpace(BaseSpace):
         self._initialized = True
 
     def forward(self, data):
-        x= bk_feat(data)
+        x, edges = data.x, data.edge_index
         for layer in range(self.layer_number):
-            op= getattr(self, f"op_{layer}")
-            x = bk_gconv(op,data,x)
+            x = getattr(self, f"op_{layer}")(x, edges)
             if layer != self.layer_number - 1:
                 x = F.leaky_relu(x)
                 x = F.dropout(x, p=self.dropout, training=self.training)
