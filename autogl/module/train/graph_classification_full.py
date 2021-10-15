@@ -17,6 +17,8 @@ import torch.multiprocessing as mp
 
 from ...utils import get_logger
 
+from ...backend import DependentBackend
+
 LOGGER = get_logger("graph classification solver")
 
 
@@ -71,6 +73,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         feval=[Logloss],
         loss="nll_loss",
         lr_scheduler_type=None,
+        criterion=None,
         *args,
         **kwargs
     ):
@@ -123,6 +126,9 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
         self.initialized = False
         self.device = device
+
+        self.pyg_dgl = DependentBackend.get_backend_name()
+        self.criterion = criterion
 
         self.space = [
             {
@@ -233,39 +239,61 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
             self.model.model.train()
             loss_all = 0
             for data in train_loader:
-                data = data.to(self.device)
-                optimizer.zero_grad()
-                output = self.model.model(data)
-                # loss = F.nll_loss(output, data.y)
-                if hasattr(F, self.loss):
-                    loss = getattr(F, self.loss)(output, data.y)
-                else:
-                    raise TypeError(
-                        "PyTorch does not support loss type {}".format(self.loss)
-                    )
-                loss.backward()
-                loss_all += data.num_graphs * loss.item()
+                if self.pyg_dgl == 'pyg':
+                    data = data.to(self.device)
+                    optimizer.zero_grad()
+                    output = self.model.model(data)
+                    # loss = F.nll_loss(output, data.y)
+                    if hasattr(F, self.loss):
+                        loss = getattr(F, self.loss)(output, data.y)
+                    else:
+                        raise TypeError(
+                            "PyTorch does not support loss type {}".format(self.loss)
+                        )
+                    loss.backward()
+                    loss_all += data.num_graphs * loss.item()
+                elif self.pyg_dgl == 'dgl':
+                    data = [data[i].to(self.device) for i in range(len(data))]
+                    _, labels = data
+                    optimizer.zero_grad()
+                    output = self.model.model(data)
+
+                    if hasattr(F, self.loss):
+                        loss = getattr(F, self.loss)(output, labels)
+                    else:
+                        raise TypeError(
+                            "PyTorch does not support loss type {}".format(self.loss)
+                        )
+
+                    # print('loss', self.loss)
+                    loss.backward()
+                    loss_all += len(labels) * loss.item()
+
                 optimizer.step()
                 if self.lr_scheduler_type:
                     scheduler.step()
             # loss = loss_all / len(train_loader.dataset)
             # train_loss = self.evaluate(train_loader)
+
             if valid_loader is not None:
                 eval_func = (
                     self.feval if not isinstance(self.feval, list) else self.feval[0]
                 )
                 val_loss = self._evaluate(valid_loader, eval_func)
-
                 if eval_func.is_higher_better():
                     val_loss = -val_loss
                 self.early_stopping(val_loss, self.model.model)
+
+                print('val_loss', val_loss)
+
                 if self.early_stopping.early_stop:
                     LOGGER.debug("Early stopping at", epoch)
                     break
+
         if valid_loader is not None:
             self.early_stopping.load_checkpoint(self.model.model)
 
-    def predict_only(self, loader):
+    def predict_only(self, loader, return_label=False):
         """
         The function of predicting on the given dataset and mask.
 
@@ -281,11 +309,24 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         """
         self.model.model.eval()
         pred = []
+        label = []
         for data in loader:
-            data = data.to(self.device)
-            pred.append(self.model.model(data))
+            if self.pyg_dgl == 'pyg':
+                data = data.to(self.device)
+                pred.append(self.model.model(data))
+            elif self.pyg_dgl == 'dgl':
+                data = [data[i].to(self.device) for i in range(len(data))]
+                _, labels = data
+                output = self.model.model(data)
+                pred.append(output)
+                label.append(labels)
+
         ret = torch.cat(pred, 0)
-        return ret
+        label = torch.cat(label, 0)
+        if return_label:
+            return ret, label
+        else:
+            return ret
 
     def train(self, dataset, keep_valid_result=True):
         """
@@ -332,10 +373,15 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         -------
         The prediction result of ``predict_proba``.
         """
-        loader = utils.graph_get_split(
-            dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
-        )
-        return self._predict_proba(loader, in_log_format=True).max(1)[1]
+        if self.pyg_dgl == 'pyg':
+            loader = utils.graph_get_split(
+                dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
+            )
+            return self._predict_proba(loader, in_log_format=True).max(1)[1]
+
+        elif self.pyg_dgl == 'dgl':
+            loader = dataset
+            return self._predict_proba(loader, in_log_format=True).max(1)[1]
 
     def predict_proba(self, dataset, mask="test", in_log_format=False):
         """
@@ -360,12 +406,23 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         )
         return self._predict_proba(loader, in_log_format)
 
-    def _predict_proba(self, loader, in_log_format=False):
-        ret = self.predict_only(loader)
-        if in_log_format is True:
-            return ret
+    def _predict_proba(self, loader, in_log_format=False, return_label=False):
+        if return_label:
+            ret, label = self.predict_only(loader, return_label=True)
         else:
-            return torch.exp(ret)
+            ret = self.predict_only(loader, return_label=False)
+
+        if self.pyg_dgl == 'dgl':
+            ret = F.log_softmax(ret, dim=1)
+        if in_log_format is False:
+            ret = torch.exp(ret)
+
+        if return_label:
+            return ret, label
+        else:
+            return ret
+
+
 
     def get_valid_predict(self):
         # """Get the valid result."""
@@ -430,22 +487,37 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         res: The evaluation result on the given dataset.
 
         """
-        loader = utils.graph_get_split(
-            dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
-        )
-        return self._evaluate(loader, feval)
+        if self.pyg_dgl == 'pyg':
+            loader = utils.graph_get_split(
+                dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
+            )
+            return self._evaluate(loader, feval)
+        elif self.pyg_dgl == 'dgl':
+            loader = dataset
+            return self._evaluate(loader, feval)
 
     def _evaluate(self, loader, feval=None):
         if feval is None:
             feval = self.feval
         else:
             feval = get_feval(feval)
+
+        if self.pyg_dgl == 'dgl':
+            y_pred_prob, y_true = self._predict_proba(loader=loader, return_label=True)
+            y_pred = y_pred_prob.max(1)[1]
+            return torch.sum(y_pred == y_true).item() / y_true.shape[0]
+
+
         y_pred_prob = self._predict_proba(loader=loader)
         y_pred = y_pred_prob.max(1)[1]
 
         y_true_tmp = []
         for data in loader:
-            y_true_tmp.append(data.y)
+            if self.pyg_dgl == 'pyg':
+                y_true_tmp.append(data.y)
+            elif self.pyg_dgl == 'dgl':
+                graphs, labels = data
+                y_true_tmp.append(labels)
         y_true = torch.cat(y_true_tmp, 0)
 
         if not isinstance(feval, list):

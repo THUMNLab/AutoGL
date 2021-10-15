@@ -255,7 +255,11 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         res: The result of predicting on the given dataset.
 
         """
-        # mask = data.test_mask if test_mask is None else test_mask
+        try:
+            mask = data.test_mask if test_mask is None else test_mask
+        except:
+            mask = None
+
         data = data.to(self.device)
         self.model.model.eval()
         with torch.no_grad():
@@ -263,7 +267,11 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 res = self.model.model.cls_forward(data)
             else:
                 res = self.model.model.forward(data)
-        return res
+
+        if mask is None:
+            return res
+        else:
+            return res[mask]
 
     def train(self, dataset, keep_valid_result=True):
         """

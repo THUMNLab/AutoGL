@@ -1,22 +1,12 @@
-from ._model_registry import MODEL_DICT, ModelUniversalRegistry, register_model
-from .base import BaseModel
-from .topkpool import AutoTopkpool
+import importlib
+import sys
+from ...backend import DependentBackend
 
-# from .graph_sage import AutoSAGE
-from .graphsage import AutoSAGE
-from .graph_saint import GraphSAINTAggregationModel
-from .gcn import AutoGCN
-from .gat import AutoGAT
-from .gin import AutoGIN
+# load corresponding backend of subclass
+def _load_subclass_backend(backend):
+    sub_module = importlib.import_module(f'.{backend.get_backend_name()}', __name__)
+    this = sys.modules[__name__]
+    for api, obj in sub_module.__dict__.items():
+        setattr(this, api, obj)
 
-__all__ = [
-    "ModelUniversalRegistry",
-    "register_model",
-    "BaseModel",
-    "AutoTopkpool",
-    "AutoSAGE",
-    "GraphSAINTAggregationModel",
-    "AutoGCN",
-    "AutoGAT",
-    "AutoGIN",
-]
+_load_subclass_backend(DependentBackend)

@@ -6,7 +6,7 @@ from torch.nn import BatchNorm1d
 from . import register_model
 from .base import BaseModel, activate_func
 from copy import deepcopy
-from ...utils import get_logger
+from ....utils import get_logger
 
 LOGGER = get_logger("GINModel")
 
