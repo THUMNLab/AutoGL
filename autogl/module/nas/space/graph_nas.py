@@ -12,8 +12,6 @@ from ...model import BaseModel
 from torch import nn
 from .operation import act_map, gnn_map
 
-from ..backend import *
-
 GRAPHNAS_DEFAULT_GNN_OPS = [
     "gat_8",  # GAT with 8 heads
     "gat_6",  # GAT with 6 heads
@@ -39,8 +37,6 @@ GRAPHNAS_DEFAULT_ACT_OPS = [
     "elu",
 ]
 
-GRAPHNAS_DEFAULT_CON_OPS=["add", "product", "concat"]
-# GRAPHNAS_DEFAULT_CON_OPS=[ "concat"] # for darts
 
 class LambdaModule(nn.Module):
     def __init__(self, lambd):
@@ -85,7 +81,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         output_dim: _typ.Optional[int] = None,
         gnn_ops: _typ.Sequence[_typ.Union[str, _typ.Any]] = GRAPHNAS_DEFAULT_GNN_OPS,
         act_ops: _typ.Sequence[_typ.Union[str, _typ.Any]] = GRAPHNAS_DEFAULT_ACT_OPS,
-        con_ops: _typ.Sequence[_typ.Union[str, _typ.Any]] = GRAPHNAS_DEFAULT_CON_OPS
     ):
         super().__init__()
         self.layer_number = layer_number
@@ -94,7 +89,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         self.output_dim = output_dim
         self.gnn_ops = gnn_ops
         self.act_ops = act_ops
-        self.con_ops = con_ops
         self.dropout = dropout
 
     def instantiate(
@@ -106,7 +100,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         output_dim: _typ.Optional[int] = None,
         gnn_ops: _typ.Sequence[_typ.Union[str, _typ.Any]] = None,
         act_ops: _typ.Sequence[_typ.Union[str, _typ.Any]] = None,
-        con_ops: _typ.Sequence[_typ.Union[str, _typ.Any]] = None,
     ):
         super().instantiate()
         self.dropout = dropout or self.dropout
@@ -116,7 +109,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         self.output_dim = output_dim or self.output_dim
         self.gnn_ops = gnn_ops or self.gnn_ops
         self.act_ops = act_ops or self.act_ops
-        self.con_ops = con_ops or self.con_ops
         self.preproc0 = nn.Linear(self.input_dim, self.hidden_dim)
         self.preproc1 = nn.Linear(self.input_dim, self.hidden_dim)
         node_labels = [mutables.InputChoice.NO_KEY, mutables.InputChoice.NO_KEY]
@@ -152,15 +144,13 @@ class GraphNasNodeClassificationSpace(BaseSpace):
                 2 * layer, [act_map_nn(a) for a in self.act_ops], key="act"
             ),
         )
-        # for DARTS, len(con_ops) can only <=1, for dimension problems 
-        if len(self.con_ops)>1:
-            setattr(
-                self,
-                "concat",
-                self.setLayerChoice(
-                    2 * layer + 1, map_nn(self.con_ops), key="concat"
-                ),
-            )
+        setattr(
+            self,
+            "concat",
+            self.setLayerChoice(
+                2 * layer + 1, map_nn(["add", "product", "concat"]), key="concat"
+            ),
+        )
         self._initialized = True
         self.classifier1 = nn.Linear(
             self.hidden_dim * self.layer_number, self.output_dim
@@ -168,25 +158,16 @@ class GraphNasNodeClassificationSpace(BaseSpace):
         self.classifier2 = nn.Linear(self.hidden_dim, self.output_dim)
 
     def forward(self, data):
-        # x, edges = data.x, data.edge_index  # x [2708,1433] ,[2, 10556]
-        x= bk_feat(data)
-
+        x, edges = data.x, data.edge_index  # x [2708,1433] ,[2, 10556]
         x = F.dropout(x, p=self.dropout, training=self.training)
         pprev_, prev_ = self.preproc0(x), self.preproc1(x)
         prev_nodes_out = [pprev_, prev_]
         for layer in range(2, self.layer_number + 2):
             node_in = getattr(self, f"in_{layer}")(prev_nodes_out)
-            op=getattr(self, f"op_{layer}")
-            node_out = bk_gconv(op,data,node_in)
+            node_out = getattr(self, f"op_{layer}")(node_in, edges)
             prev_nodes_out.append(node_out)
         act = getattr(self, "act")
-        if len(self.con_ops)>1:
-            con = getattr(self, "concat")()
-        elif len(self.con_ops)==1:
-            con=self.con_ops[0]
-        else:
-            con="concat"
-
+        con = getattr(self, "concat")()
         states = prev_nodes_out
         if con == "concat":
             x = torch.cat(states[2:], dim=1)

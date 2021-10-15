@@ -13,7 +13,6 @@ import torch
 import torch.nn.functional as F
 from autogl.module.nas.space.single_path import SinglePathNodeClassificationSpace
 from autogl.module.nas.space.graph_nas import GraphNasNodeClassificationSpace
-from autogl.module.nas.space.graph_nas_macro import GraphNasMacroNodeClassificationSpace
 from autogl.module.nas.estimator.one_shot import OneShotEstimator
 from autogl.module.nas.estimator.train_scratch import TrainEstimator
 from autogl.module.nas.backend import bk_feat, bk_label
@@ -66,31 +65,11 @@ if __name__ == '__main__':
     algo=Enas(num_epochs=10)
     algo.search(space,data,esti)
 
-    print("darts + graphnas ")
-    space=GraphNasNodeClassificationSpace().cuda()
-    space.instantiate(input_dim=di,output_dim=do)
-    esti=OneShotEstimator()
-    algo=Darts(num_epochs=10)
-    algo.search(space,data,esti)
-
-    print("darts + singlepath ")
-    space=SinglePathNodeClassificationSpace().cuda()
-    space.instantiate(input_dim=di,output_dim=do)
-    esti=OneShotEstimator()
-    algo=Darts(num_epochs=10)
-    algo.search(space,data,esti)
-
-    print("Random search + graphnas macro")
-    space=GraphNasMacroNodeClassificationSpace().cuda()
-    space.instantiate(input_dim=di,output_dim=do)
-    esti=OneShotEstimator()
-    algo=RandomSearch(num_epochs=10)
-    algo.search(space,data,esti)
-
-    print("RL + graphnas macro")
-    space=GraphNasMacroNodeClassificationSpace().cuda()
-    space.instantiate(input_dim=di,output_dim=do)
-    esti=OneShotEstimator()
-    algo=RL(num_epochs=10)
-    algo.search(space,data,esti)
+    # Darts can not run
+    # print("darts + graphnas ")
+    # space=GraphNasNodeClassificationSpace().cuda()
+    # space.instantiate(input_dim=di,output_dim=do)
+    # esti=OneShotEstimator()
+    # algo=Darts(num_epochs=10)
+    # algo.search(space,data,esti)
 
