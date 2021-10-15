@@ -28,17 +28,62 @@ class _NetworkXGraphFeatureEngineer(BaseFeatureEngineer):
         self.__feature_extractor: _typing.Callable[[networkx.Graph], _typing.Any] = feature_extractor
         super(_NetworkXGraphFeatureEngineer, self).__init__()
 
-    def _transform(self, static_graph: GeneralStaticGraph) -> GeneralStaticGraph:
-        dsc = self.__feature_extractor(
-            conversion.HomogeneousStaticGraphToNetworkX(to_undirected=True)(static_graph)
-        )
-        dsc: torch.Tensor = torch.tensor([dsc]).view(-1)
-        if 'gf' in static_graph.data:
-            gf = static_graph.data['gf'].view(-1)
-            static_graph.data['gf'] = torch.cat([gf, dsc])
+    def __transform_homogeneous_static_graph(
+            self, homogeneous_static_graph: GeneralStaticGraph
+    ) -> GeneralStaticGraph:
+        if not (
+                homogeneous_static_graph.nodes.is_homogeneous and
+                homogeneous_static_graph.edges.is_homogeneous
+        ):
+            raise ValueError("Provided static graph must be homogeneous")
+        dsc: torch.Tensor = torch.tensor(
+            [
+                self.__feature_extractor(
+                    conversion.HomogeneousStaticGraphToNetworkX(to_undirected=True)(homogeneous_static_graph)
+                )
+            ]
+        ).view(-1)
+        if 'gf' in homogeneous_static_graph.data:
+            gf = homogeneous_static_graph.data['gf'].view(-1)
+            homogeneous_static_graph.data['gf'] = torch.cat([gf, dsc])
         else:
-            static_graph.data['gf'] = dsc
-        return static_graph
+            homogeneous_static_graph.data['gf'] = dsc
+        return homogeneous_static_graph
+
+    @classmethod
+    def __edge_index_to_nx_graph(cls, edge_index: torch.Tensor) -> networkx.Graph:
+        g: networkx.Graph = networkx.Graph()
+        for u, v in edge_index.t().tolist():
+            if u == v:
+                continue
+            else:
+                g.add_edge(u, v)
+        return g
+
+    def __transform_data(self, data):
+        if not (
+                hasattr(data, "edge_index") and
+                torch.is_tensor(data.edge_index) and
+                isinstance(data.edge_index, torch.Tensor) and
+                data.edge_index.dim() == data.edge_index.size(0) == 2 and
+                data.edge_index.dtype == torch.long
+        ):
+            raise TypeError("Unsupported provided data")
+        dsc: torch.Tensor = torch.tensor(
+            [self.__feature_extractor(self.__edge_index_to_nx_graph(data.edge_index))]
+        ).view(-1)
+        if hasattr(data, 'gf') and isinstance(data.gf, torch.Tensor):
+            gf = data.gf.view(-1)
+            data.gf = torch.cat([gf, dsc])
+        else:
+            data.gf = dsc
+        return data
+
+    def _transform(self, data):
+        if isinstance(data, GeneralStaticGraph):
+            return self.__transform_homogeneous_static_graph(data)
+        else:
+            return self.__transform_data(data)
 
 
 @FeatureEngineerUniversalRegistry.register_feature_engineer("NXLargeCliqueSize")

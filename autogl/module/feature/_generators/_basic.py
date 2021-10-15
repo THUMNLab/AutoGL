@@ -7,29 +7,29 @@ from .._feature_engineer_registry import FeatureEngineerUniversalRegistry
 
 
 class BaseFeatureGenerator(BaseFeatureEngineer):
-    def _preprocess(self, static_graph: GeneralStaticGraph) -> GeneralStaticGraph:
-        if not (
-                static_graph.nodes.is_homogeneous and
-                static_graph.edges.is_homogeneous
-        ):
-            raise ValueError("Provided static graph must be homogeneous")
-        else:
-            return static_graph
-
     def _extract_nodes_feature(self, data: autogl.data.Data) -> torch.Tensor:
         raise NotImplementedError
 
-    @classmethod
-    def __to_data(cls, homogeneous_static_graph: GeneralStaticGraph) -> autogl.data.Data:
+    def __transform_homogeneous_static_graph(
+            self, homogeneous_static_graph: GeneralStaticGraph
+    ) -> GeneralStaticGraph:
+        if not (
+                homogeneous_static_graph.nodes.is_homogeneous and
+                homogeneous_static_graph.edges.is_homogeneous
+        ):
+            raise ValueError("Provided static graph must be homogeneous")
         if 'x' in homogeneous_static_graph.nodes.data:
+            feature_key: _typing.Optional[str] = 'x'
             features: _typing.Optional[torch.Tensor] = (
                 homogeneous_static_graph.nodes.data['x']
             )
         elif 'feat' in homogeneous_static_graph.nodes.data:
+            feature_key: _typing.Optional[str] = 'feat'
             features: _typing.Optional[torch.Tensor] = (
                 homogeneous_static_graph.nodes.data['feat']
             )
         else:
+            feature_key: _typing.Optional[str] = None
             features: _typing.Optional[torch.Tensor] = None
         if 'y' in homogeneous_static_graph.nodes.data:
             label: _typing.Optional[torch.Tensor] = (
@@ -57,46 +57,36 @@ class BaseFeatureGenerator(BaseFeatureEngineer):
             x=features, y=label
         )
         setattr(data, "edge_weight", edge_weight)
-        return data
-
-    def _transform(self, homogeneous_static_graph: GeneralStaticGraph) -> GeneralStaticGraph:
-        nodes_features: torch.Tensor = self._extract_nodes_feature(
-            self.__to_data(homogeneous_static_graph)
-        )
-        if not isinstance(nodes_features, torch.Tensor):
-            raise TypeError
-        elif nodes_features.dim() == 0:
-            raise ValueError
-        elif nodes_features.dim() == 1:
-            nodes_features = nodes_features.view(-1, 1)
-        if 'x' in homogeneous_static_graph.nodes.data:
-            x: torch.Tensor = (
-                homogeneous_static_graph.nodes.data['x'].view(-1, 1)
-                if homogeneous_static_graph.nodes.data['x'].dim() == 1
-                else homogeneous_static_graph.nodes.data['x']
+        extracted_features: torch.Tensor = self._extract_nodes_feature(data)
+        if isinstance(feature_key, str):
+            nodes_features: torch.Tensor = (
+                homogeneous_static_graph.nodes.data[feature_key].view(-1, 1)
+                if homogeneous_static_graph.nodes.data[feature_key].dim() == 1
+                else homogeneous_static_graph.nodes.data[feature_key]
             )
-            assert nodes_features.size(0) == x.size(0)
-            assert nodes_features.dim() == x.dim() == 2
-            homogeneous_static_graph.nodes.data['x'] = torch.cat(
-                [x, nodes_features.to(x.dtype)], dim=-1
-            )
-        elif 'feat' in homogeneous_static_graph.nodes.data:
-            x: torch.Tensor = (
-                homogeneous_static_graph.nodes.data['feat'].view(-1, 1)
-                if homogeneous_static_graph.nodes.data['feat'].dim() == 1
-                else homogeneous_static_graph.nodes.data['feat']
-            )
-            assert nodes_features.size(0) == x.size(0)
-            assert nodes_features.dim() == x.dim() == 2
-            homogeneous_static_graph.nodes.data['feat'] = torch.cat(
-                [x, nodes_features.to(x.dtype)], dim=-1
+            assert extracted_features.size(0) == nodes_features.size(0)
+            assert extracted_features.dim() == nodes_features.dim() == 2
+            homogeneous_static_graph.nodes.data[feature_key] = torch.cat(
+                [
+                    nodes_features,
+                    extracted_features.to(nodes_features.device)
+                ],
+                dim=-1
             )
         else:
             if autogl.backend.DependentBackend.is_pyg():
-                homogeneous_static_graph.nodes.data['x'] = nodes_features
+                homogeneous_static_graph.nodes.data['x'] = extracted_features
             elif autogl.backend.DependentBackend.is_dgl():
-                homogeneous_static_graph.nodes.data['feat'] = nodes_features
+                homogeneous_static_graph.nodes.data['feat'] = extracted_features
         return homogeneous_static_graph
+
+    def _transform(self, data: _typing.Any) -> _typing.Any:
+        if isinstance(data, GeneralStaticGraph):
+            return self.__transform_homogeneous_static_graph(data)
+        else:
+            raise NotImplementedError(
+                f"Feature Generator only support instance of {GeneralStaticGraph} as provided data"
+            )
 
 
 @FeatureEngineerUniversalRegistry.register_feature_engineer("OneHot".lower())

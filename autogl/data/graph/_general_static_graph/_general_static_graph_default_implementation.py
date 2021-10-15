@@ -154,7 +154,7 @@ class HeterogeneousNodesContainerImplementation(HeterogeneousNodesContainer):
                 if data.size(0) != obsolete_data.size(0):
                     raise ValueError
             elif len(self.__nodes_data.get(__node_t)) > 0:
-                num_nodes: int = self.__nodes_data.get(__node_t).get(list(self.node_types)[0]).size(0)
+                num_nodes: int = self.__nodes_data[__node_t][list(self.__nodes_data[__node_t].keys())[0]].size(0)
                 if data.size(0) != num_nodes:
                     raise ValueError
             self.__nodes_data[__node_t][data_key] = data

@@ -57,11 +57,11 @@ class _OGBNDatasetUtil(_OGBDatasetUtil):
             homogeneous_static_graph.nodes.data['train_mask'] = index_to_mask(
                 torch.from_numpy(train_index), ogbn_data['num_nodes']
             )
-        if val_index not in (Ellipsis, None) and isinstance(val_index, np.ndarray):
+        if isinstance(val_index, np.ndarray):
             homogeneous_static_graph.nodes.data['val_mask'] = index_to_mask(
                 torch.from_numpy(val_index), ogbn_data['num_nodes']
             )
-        if test_index not in (Ellipsis, None) and isinstance(test_index, np.ndarray):
+        if isinstance(test_index, np.ndarray):
             homogeneous_static_graph.nodes.data['test_mask'] = index_to_mask(
                 torch.from_numpy(test_index), ogbn_data['num_nodes']
             )
@@ -105,8 +105,7 @@ class OGBNProductsDataset(InMemoryStaticGraphSet):
             super(OGBNProductsDataset, self).__init__([
                 _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
                     ogbn_dataset, "y",
-                    {"node_feat": "x"},
-                    {"edge_feat": "edge_feat"}
+                    {"node_feat": "x"}
                 )
             ])
 
@@ -119,10 +118,7 @@ class OGBNProteinsDataset(InMemoryStaticGraphSet):
             super(OGBNProteinsDataset, self).__init__([
                 _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
                     ogbn_dataset, "label",
-                    {
-                        "node_feat": "feat",
-                        "node_species": "species"
-                    },
+                    {"node_species": "species"},
                     {"edge_feat": "edge_feat"}
                 )
             ])
@@ -130,10 +126,7 @@ class OGBNProteinsDataset(InMemoryStaticGraphSet):
             super(OGBNProteinsDataset, self).__init__([
                 _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
                     ogbn_dataset, "y",
-                    {
-                        "node_feat": "x",
-                        "node_species": "species"
-                    },
+                    {"node_species": "species"},
                     {"edge_feat": "edge_feat"}
                 )
             ])
@@ -150,8 +143,7 @@ class OGBNArxivDataset(InMemoryStaticGraphSet):
                     {
                         "node_feat": "feat",
                         "node_year": "year"
-                    },
-                    {"edge_feat": "edge_feat"}
+                    }
                 )
             ])
         elif _backend.DependentBackend.is_pyg():
@@ -161,8 +153,7 @@ class OGBNArxivDataset(InMemoryStaticGraphSet):
                     {
                         "node_feat": "x",
                         "node_year": "year"
-                    },
-                    {"edge_feat": "edge_feat"}
+                    }
                 )
             ])
 
@@ -178,8 +169,7 @@ class OGBNPapers100MDataset(InMemoryStaticGraphSet):
                     {
                         "node_feat": "feat",
                         "node_year": "year"
-                    },
-                    {"edge_feat": "edge_feat"}
+                    }
                 )
             ])
         elif _backend.DependentBackend.is_pyg():
@@ -189,8 +179,7 @@ class OGBNPapers100MDataset(InMemoryStaticGraphSet):
                     {
                         "node_feat": "x",
                         "node_year": "year"
-                    },
-                    {"edge_feat": "edge_feat"}
+                    }
                 )
             ])
 

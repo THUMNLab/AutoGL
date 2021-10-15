@@ -61,7 +61,7 @@ class HomogeneousStaticGraphToNetworkX:
                 homogeneous_static_graph.edges.data[data_key].squeeze().tolist()
             )
         for i, (u, v) in enumerate(homogeneous_static_graph.edges.connections.t().tolist()):
-            if (__remove_self_loops and v == u) or (__to_undirected and v > u):
+            if __remove_self_loops and v == u:
                 continue
             g.add_edge(u, v)
             for data_key in edges_data:
