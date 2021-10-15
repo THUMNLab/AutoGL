@@ -229,7 +229,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             if hasattr(data, "val_mask") and data.val_mask is not None:
                 if type(self.feval) is list:
                     feval = self.feval[0]
-                else:branch
+                else:
                     feval = self.feval
                 val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
                 if feval.is_higher_better() is True:
