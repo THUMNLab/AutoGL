@@ -8,7 +8,6 @@ from .graph_saint import GraphSAINTAggregationModel
 from .gcn import AutoGCN
 from .gat import AutoGAT
 from .gin import AutoGIN
-from .ginparser import Parser
 
 __all__ = [
     "ModelUniversalRegistry",
@@ -19,6 +18,5 @@ __all__ = [
     "GraphSAINTAggregationModel",
     "AutoGCN",
     "AutoGAT",
-    "AutoGIN",
-    "Parser",
+    "AutoGIN"
 ]
