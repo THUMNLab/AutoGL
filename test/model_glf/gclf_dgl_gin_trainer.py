@@ -30,6 +30,28 @@ import numpy as np
 # from autogl.solver.utils import set_seed
 # set_seed(202106)
 
+from autogl.datasets import utils
+
+
+trainloader, validloader = None, None
+
+def test_graph_get_split(dataset, mask, is_loader=True, batch_size=128, num_workers=0):
+    global trainloader, validloader
+    if trainloader is None and validloader is None:
+        trainloader, validloader = GINDataLoader(
+            dataset, batch_size=args.batch_size, device=args.device,
+            seed=args.seed, shuffle=True,
+            split_name='fold10', fold_idx=args.fold_idx).train_valid_loader()
+
+    if mask == 'train':
+        return trainloader
+    elif mask == 'val':
+        return validloader
+    else:
+        assert False
+
+
+utils.graph_get_split = test_graph_get_split
 
 def train(args, net, trainloader, optimizer, criterion, epoch):
     net.train()
@@ -135,7 +157,7 @@ def main(args):
         num_classes=dataset.gclasses,
         optimizer="adam",
         lr=args.lr,
-        max_epoch=100,
+        max_epoch=50,
         # max_epoch=1,
         batch_size=args.batch_size,
         loss="cross_entropy",
@@ -144,10 +166,15 @@ def main(args):
         weight_decay=0.0,
     )
 
-    trainer.train_only(trainloader, validloader)
-    pred = trainer.predict(validloader)
-    print(pred)
-    print(trainer.evaluate(validloader, feval='acc'))
+    # trainer.train_only(trainloader, validloader)
+    # pred, label = trainer._predict_proba(validloader, in_log_format=True, return_label=True)
+    # pred = pred.max(1)[1]
+    # print(sum(pred == label) / label.size()[0])
+
+    trainer.train(dataset)
+    print(trainer.evaluate(dataset, 'val'))
+    print(trainer.predict(dataset, 'val'))
+
 
     return
 
