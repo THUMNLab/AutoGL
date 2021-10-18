@@ -80,7 +80,7 @@ class AutoNE(BaseHPOptimizer):
             return results
 
         def sample_subgraph_dgl(whole_data):
-            data = whole_data.data # dgl data
+            data = whole_data[0] # dgl data
             # find data with different labels
             # random walk
             start = [random.randint(0, data.num_nodes - 1) for i in range(self.subgraphs)]

@@ -3,7 +3,6 @@ from autogl.backend import DependentBackend
 _isdgl=DependentBackend.is_dgl()
 
 def is_dgl():
-    return False
     return _isdgl
 
 def bk_mask(data,mask):
