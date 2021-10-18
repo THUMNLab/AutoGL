@@ -6,29 +6,19 @@ from tqdm import tqdm
 import argparse
 
 sys.path.insert(0, "../../")
-sys.path.insert(0, "/DATA/DATANAS1/lhy/tmp/AutoGL")
-sys.path.insert(0, "/DATA/DATANAS1/lhy/tmp/AutoGL/autogl")
 
 print(os.getcwd())
 os.environ["AUTOGL_BACKEND"] = "dgl"
-#os.environ["AUTOGL_BACKEND"] = "pyg"
-# from autogl.backend import DependentBackend
-import dgl
-from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset, GINDataset
+from dgl.data import GINDataset
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-# from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-# from autogl.module.model.ginparser import Parser
-from autogl.module.model.dgl.dataloader_gin import GINDataLoader
+from gin_helper import GINDataLoader
 from autogl.module.model.dgl.gin import AutoGIN
 from autogl.module.train.graph_classification_full import GraphClassificationFullTrainer
 
-# from pdb import set_tracefrom
 import numpy as np
-# from autogl.solver.utils import set_seed
-# set_seed(202106)
 
 
 def train(args, net, trainloader, optimizer, criterion, epoch):

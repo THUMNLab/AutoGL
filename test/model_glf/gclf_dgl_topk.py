@@ -7,21 +7,15 @@ from tqdm import tqdm
 sys.path.append("../../")
 print(os.getcwd())
 os.environ["AUTOGL_BACKEND"] = "dgl"
-#os.environ["AUTOGL_BACKEND"] = "pyg"
-from autogl.backend import DependentBackend
-import dgl
-from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset, GINDataset
+from dgl.data import GINDataset
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from autogl.module.model.ginparser import Parser
-from autogl.module.model.dataloader_gin import GINDataLoader
+from gin_helper import Parser, GINDataLoader
 from autogl.module.model import AutoTopkpool
 
-from pdb import set_trace
 import numpy as np
 from autogl.solver.utils import set_seed
 set_seed(202106)

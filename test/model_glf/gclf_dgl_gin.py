@@ -5,24 +5,16 @@ logging.basicConfig(level=logging.INFO)
 from tqdm import tqdm
 
 sys.path.insert(0, "../../")
-# sys.path.append("../../")
 print(os.getcwd())
 os.environ["AUTOGL_BACKEND"] = "dgl"
-#os.environ["AUTOGL_BACKEND"] = "pyg"
-from autogl.backend import DependentBackend
-import dgl
-from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset, GINDataset
+from dgl.data import GINDataset
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from autogl.module.model.dgl.ginparser import Parser
-from autogl.module.model.dgl.dataloader_gin import GINDataLoader
+from gin_helper import Parser, GINDataLoader
 from autogl.module.model.dgl.gin import AutoGIN
 
-from pdb import set_trace
 import numpy as np
 from autogl.solver.utils import set_seed
 set_seed(202106)
@@ -39,11 +31,6 @@ def train(args, net, trainloader, optimizer, criterion, epoch):
     for pos, data in zip(bar, trainloader):
         data = [data[i].to(args.device) for i in range(len(data))]
         _, labels = data
-        # batch graphs will be shipped to device in forward part of model
-        #labels = labels.to(args.device)
-        #graphs = graphs.to(args.device)
-        #feat = graphs.ndata.pop('attr')
-        #outputs = net(graphs, feat)
         outputs = net(data)
 
         loss = criterion(outputs, labels)
@@ -73,17 +60,12 @@ def eval_net(args, net, dataloader, criterion):
     for data in dataloader:
         data = [data[i].to(args.device) for i in range(len(data))]
         _, labels = data
-        #graphs = graphs.to(args.device)
-        #labels = labels.to(args.device)
-        #feat = graphs.ndata.pop('attr')
         total += len(labels)
-        #outputs = net(graphs, feat)
         outputs = net(data)
         _, predicted = torch.max(outputs.data, 1)
 
         total_correct += (predicted == labels.data).sum().item()
         loss = criterion(outputs, labels)
-        # crossentropy(reduce=True) for default
         total_loss += loss.item() * len(labels)
 
     loss, acc = 1.0*total_loss / total, 1.0*total_correct / total
@@ -131,10 +113,6 @@ def main(args):
     tbar = tqdm(range(args.epochs), unit="epoch", position=3, ncols=0, file=sys.stdout)
     vbar = tqdm(range(args.epochs), unit="epoch", position=4, ncols=0, file=sys.stdout)
     lrbar = tqdm(range(args.epochs), unit="epoch", position=5, ncols=0, file=sys.stdout)
-
-    # tbar = range(args.epochs)
-    # vbar = range(args.epochs)
-    # lrbar = range(args.epochs)
 
     for epoch, _, _ in zip(tbar, vbar, lrbar):
 
