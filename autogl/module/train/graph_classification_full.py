@@ -280,11 +280,11 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
                     self.feval if not isinstance(self.feval, list) else self.feval[0]
                 )
                 val_loss = self._evaluate(valid_loader, eval_func)
+                # print(val_loss)
+
                 if eval_func.is_higher_better():
                     val_loss = -val_loss
                 self.early_stopping(val_loss, self.model.model)
-
-                print('val_loss', val_loss)
 
                 if self.early_stopping.early_stop:
                     LOGGER.debug("Early stopping at", epoch)
