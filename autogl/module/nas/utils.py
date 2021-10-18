@@ -119,15 +119,6 @@ def count_parameters(module, only_trainable=False):
     return s
 
 
-def process_hardware_aware_metrics(metric, weight):
-    if len(metric) == 1:
-        return metric[0]
-    elif len(metric) == 2:
-        return metric[0] - metric[1] * weight
-    else:
-        raise ValueError("only one or two metric allowed")
-
-
 def measure_latency(model, num_iters=200, *, warmup_iters=50):
     device = next(model.parameters()).device
     num_feat = model.input_dim

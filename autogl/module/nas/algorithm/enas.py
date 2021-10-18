@@ -13,7 +13,6 @@ from ..utils import (
     replace_layer_choice,
     replace_input_choice,
     get_module_order,
-    process_hardware_aware_metrics,
     sort_replaced_module,
 )
 from tqdm import tqdm, trange
@@ -81,7 +80,6 @@ class Enas(BaseNAS):
         model_wd=5e-4,
         disable_progress=True,
         device="cuda",
-        hardware_metric_weight=0
     ):
         super().__init__(device)
         self.device = device
@@ -99,7 +97,6 @@ class Enas(BaseNAS):
         self.model_lr = model_lr
         self.model_wd = model_wd
         self.disable_progress = disable_progress
-        self.hardware_metric_weight = hardware_metric_weight
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -224,4 +221,4 @@ class Enas(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.model, self.dataset, mask=mask)
-        return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss
+        return metric[0], loss

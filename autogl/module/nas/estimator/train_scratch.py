@@ -52,6 +52,14 @@ class TrainEstimator_HardwareAware(TrainEstimator):
     An hardware-aware estimator which trans from scratch
     """
 
-    def __init__(self, loss_f="nll_loss", evaluation=[Acc()], hardware_evaluation="parameter"):
+    def __init__(
+        self,
+        loss_f="nll_loss",
+        evaluation=[Acc()],
+        hardware_evaluation="parameter",
+        hardware_metric_weight=0,
+    ):
         super().__init__(loss_f, evaluation)
-        self.estimator = OneShotEstimator_HardwareAware(self.loss_f, self.evaluation, hardware_evaluation)
+        self.estimator = OneShotEstimator_HardwareAware(
+            self.loss_f, self.evaluation, hardware_evaluation, hardware_metric_weight
+        )

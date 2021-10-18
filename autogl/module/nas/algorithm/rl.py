@@ -14,7 +14,6 @@ from ..utils import (
     sort_replaced_module,
     PathSamplingInputChoice,
     PathSamplingLayerChoice,
-    process_hardware_aware_metrics,
 )
 from nni.nas.pytorch.fixed import apply_fixed_architecture
 from tqdm import tqdm
@@ -264,7 +263,6 @@ class RL(BaseNAS):
         model_lr=5e-3,
         model_wd=5e-4,
         disable_progress=False,
-        hardware_metric_weight=0,
     ):
         super().__init__(device)
         self.device = device
@@ -282,7 +280,6 @@ class RL(BaseNAS):
         self.model_lr = model_lr
         self.model_wd = model_wd
         self.disable_progress = disable_progress
-        self.hardware_metric_weight = hardware_metric_weight
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -385,7 +382,7 @@ class RL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss
+        return metric[0], loss
 
 
 
@@ -447,7 +444,6 @@ class GraphNasRL(BaseNAS):
         model_wd=5e-4,
         topk=5,
         disable_progress=False,
-        hardware_metric_weight=0,
         hardware_metric_limit=None,
     ):
         super().__init__(device)
@@ -467,8 +463,6 @@ class GraphNasRL(BaseNAS):
         self.hist = []
         self.topk = topk
         self.disable_progress = disable_progress
-        # TODO: new a class to describe the hardware-aware method
-        self.hardware_metric_weight = hardware_metric_weight
         self.hardware_metric_limit = hardware_metric_limit
 
     def search(self, space: BaseSpace, dset, estimator):
@@ -600,4 +594,4 @@ class GraphNasRL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        return process_hardware_aware_metrics(metric, self.hardware_metric_weight), loss, metric[1:]
+        return metric[0], loss, metric[1:]
