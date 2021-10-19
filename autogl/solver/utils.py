@@ -6,14 +6,17 @@ Utilities used by the solver
 
 import random
 import typing as _typing
+import torch
 import torch.backends.cudnn
 import numpy as np
 import pandas as pd
+from ..backend import DependentBackend
 
 from ..utils import get_logger
 
 LOGGER = get_logger("LeaderBoard")
 
+BACKEND = DependentBackend.get_backend_name()
 
 class LeaderBoard:
     """
@@ -175,6 +178,40 @@ class LeaderBoard:
             )
         )
 
+def get_graph_from_dataset(dataset, graph_id=0):
+    if BACKEND == 'pyg': return dataset[graph_id]
+    return dataset.graph[graph_id]
+
+def get_graph_node_number(graph):
+    if BACKEND == 'pyg':
+        size = graph.x.shape[0]
+    else:
+        size = graph.num_nodes()
+    return size
+
+def get_graph_node_features(graph):
+    if BACKEND == 'pyg' and hasattr(graph, 'x'):
+        return graph.x
+    elif BACKEND == 'dgl' and 'feat' in graph.ndata:
+        return graph.ndata['feat']
+    return None
+
+def get_graph_masks(graph, mask='train'):
+    if BACKEND == 'pyg' and hasattr(graph, f'{mask}_mask'):
+        return getattr(graph, f'{mask}_mask')
+    if BACKEND == 'dgl' and f'{mask}_mask' in graph.ndata:
+        return graph.ndata[f'{mask}_mask']
+    return None
+
+def get_graph_labels(graph):
+    if BACKEND == 'pyg': return graph.y
+    return graph.ndata['label']
+
+def get_dataset_labels(dataset):
+    if BACKEND == 'pyg':
+        return dataset.data.y
+    else:
+        return torch.LongTensor([d[1] for d in dataset])
 
 def set_seed(seed=None):
     """
