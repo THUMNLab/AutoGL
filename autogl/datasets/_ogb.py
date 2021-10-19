@@ -53,7 +53,7 @@ class _OGBNDatasetUtil(_OGBDatasetUtil):
             homogeneous_static_graph.nodes.data[nodes_label_key] = (
                 torch.from_numpy(nodes_label.squeeze()).squeeze()
             )
-        if train_index not in (Ellipsis, None) and isinstance(train_index, np.ndarray):
+        if isinstance(train_index, np.ndarray):
             homogeneous_static_graph.nodes.data['train_mask'] = index_to_mask(
                 torch.from_numpy(train_index), ogbn_data['num_nodes']
             )
