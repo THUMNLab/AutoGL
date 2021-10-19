@@ -6,7 +6,7 @@ from torch.nn import BatchNorm1d
 from . import register_model
 from .base import BaseModel, activate_func
 from copy import deepcopy
-from ...utils import get_logger
+from ....utils import get_logger
 
 LOGGER = get_logger("GINModel")
 
@@ -163,7 +163,6 @@ class AutoGIN(BaseModel):
             int(num_graph_features) if num_graph_features is not None else 0
         )
         self.device = device if device is not None else "cpu"
-        self.init = True
 
         self.params = {
             "features_num": self.num_features,

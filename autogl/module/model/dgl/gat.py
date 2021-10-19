@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GATConv
 from . import register_model
 from .base import BaseModel, activate_func
-from ...utils import get_logger
+from ....utils import get_logger
 
 LOGGER = get_logger("GATModel")
 
@@ -161,7 +161,6 @@ class AutoGAT(BaseModel):
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
-        self.init = True
 
         self.params = {
             "features_num": self.num_features,

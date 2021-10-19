@@ -4,7 +4,7 @@ from torch_geometric.nn import GraphConv, TopKPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from . import register_model
 from .base import BaseModel, activate_func
-from ...utils import get_logger
+from ....utils import get_logger
 
 LOGGER = get_logger("TopkModel")
 
@@ -126,7 +126,6 @@ class AutoTopkpool(BaseModel):
             int(num_graph_features) if num_graph_features is not None else 0
         )
         self.device = device if device is not None else "cpu"
-        self.init = True
 
         self.params = {
             "features_num": self.num_features,
