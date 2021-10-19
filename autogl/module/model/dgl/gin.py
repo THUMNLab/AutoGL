@@ -275,7 +275,6 @@ class AutoGIN(BaseModel):
             int(num_graph_features) if num_graph_features is not None else 0
         )
         self.device = device if device is not None else "cpu"
-        self.init = True
 
         self.params = {
             "features_num": self.num_features,
