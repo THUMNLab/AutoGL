@@ -207,8 +207,8 @@ class CoauthorCSDataset(InMemoryStaticGraphSet):
 @DatasetUniversalRegistry.register_dataset("mutag")
 class MUTAGDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
-        dgl_dataset = dgl.data.TUDataset(
-            "MUTAG", raw_dir=os.path.join(path, "_dgl")
+        dgl_dataset = dgl.data.GINDataset(
+            "MUTAG", False, raw_dir=os.path.join(path, "_dgl")
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
