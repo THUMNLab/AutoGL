@@ -22,7 +22,7 @@ from ..utils import get_logger
 from ...backend import DependentBackend
 
 LOGGER = get_logger("LinkPredictor")
-__backend = DependentBackend.get_backend_name()
+BACKEND = DependentBackend.get_backend_name()
 
 class AutoLinkPredictor(BaseClassifier):
     """
@@ -283,7 +283,7 @@ class AutoLinkPredictor(BaseClassifier):
         if train_split is not None and val_split is not None:
             utils.split_edges(dataset, train_split, val_split)
         else:
-            if __backend == 'pyg':
+            if BACKEND == 'pyg':
                 assert all(
                     [
                         hasattr(graph_data, f"{name}")
@@ -300,7 +300,7 @@ class AutoLinkPredictor(BaseClassifier):
                     "The dataset has no default train/val split! Please manually pass "
                     "train and val ratio."
                 )
-            elif __backend == 'dgl':
+            elif BACKEND == 'dgl':
                 assert hasattr(graph_data, 'edata') and "train_mask" in graph_data.edata and "val_mask" in graph_data.edata, (
                     "The dataset has no default train/val split! Please manually pass "
                     "train and val ratio."
@@ -374,7 +374,7 @@ class AutoLinkPredictor(BaseClassifier):
 
         # fit the ensemble model
         if self.ensemble_module is not None:
-            if __backend == 'pyg':
+            if BACKEND == 'pyg':
                 pos_edge_index, neg_edge_index = (
                     self.dataset[0].val_pos_edge_index,
                     self.dataset[0].val_neg_edge_index,
@@ -382,7 +382,7 @@ class AutoLinkPredictor(BaseClassifier):
                 E = pos_edge_index.size(1) + neg_edge_index.size(1)
                 link_labels = torch.zeros(E, dtype=torch.float)
                 link_labels[: pos_edge_index.size(1)] = 1.0
-            elif __backend == 'dgl':
+            elif BACKEND == 'dgl':
                 val_mask = self.dataset[0].edata["val_mask"]
                 val_index = torch.nonzero(val_mask, as_tuple=False).squeeze()
                 link_labels = self.dataset[0].edata['etype'][val_index]

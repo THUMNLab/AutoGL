@@ -21,7 +21,7 @@ from ..utils import get_logger
 from ...backend import DependentBackend
 
 LOGGER = get_logger("GraphClassifier")
-__backend = DependentBackend.get_backend_name()
+BACKEND = DependentBackend.get_backend_name()
 
 class AutoGraphClassifier(BaseClassifier):
     """
@@ -277,6 +277,8 @@ class AutoGraphClassifier(BaseClassifier):
 
         set_seed(seed)
 
+        num_classes = dataset.num_classes if BACKEND == 'pyg' else dataset.gclasses
+
         if time_limit < 0:
             time_limit = 3600 * 24
         time_begin = time.time()
@@ -286,8 +288,7 @@ class AutoGraphClassifier(BaseClassifier):
             if hasattr(dataset, "metric"):
                 evaluation_method = [dataset.metric]
             else:
-                num_of_label = dataset.num_classes
-                if num_of_label == 2:
+                if num_classes == 2:
                     evaluation_method = ["auc"]
                 else:
                     evaluation_method = ["acc"]
@@ -339,7 +340,6 @@ class AutoGraphClassifier(BaseClassifier):
             " node features."
         )
         num_features = feat.size(-1)
-        num_classes = dataset.num_classes if __backend == 'pyg' else dataset.num_labels
 
         # initialize graph networks
         self._init_graph_module(
@@ -350,9 +350,9 @@ class AutoGraphClassifier(BaseClassifier):
             feval=evaluator_list,
             device=self.runtime_device,
             loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
-            num_graph_features=0
+            num_graph_features=(0
             if not hasattr(dataset.data, "gf")
-            else dataset.data.gf.size(1),
+            else dataset.data.gf.size(1)) if BACKEND == 'pyg' else 0,
         )
 
         # currently disabled
