@@ -4,7 +4,9 @@ import torch
 import torch.utils.data
 import typing as _typing
 from sklearn.model_selection import StratifiedKFold, KFold
-from autogl.data import Data, InMemoryDataset, InMemoryStaticGraphSet
+from dgl.dataloading.pytorch import GraphDataLoader
+from autogl import backend as _backend
+from autogl.data import Data, Dataset, DataLoader, InMemoryStaticGraphSet
 from ...data.graph import GeneralStaticGraph, GeneralStaticGraphGenerator
 from . import _pyg
 
@@ -334,7 +336,7 @@ def graph_random_splits(
 
 
 def graph_get_split(
-        dataset: InMemoryDataset, mask: str = "train",
+        dataset: Dataset, mask: str = "train",
         is_loader: bool = True, batch_size: int = 128,
         num_workers: int = 0
 ) -> _typing.Union[torch.utils.data.DataLoader, _typing.Iterable]:
@@ -342,7 +344,7 @@ def graph_get_split(
 
     Parameters
     ----------
-    dataset: ``torch_geometric.data.dataset.Dataset``
+    dataset:
         dataset with multiple graphs.
 
     mask : str
@@ -355,7 +357,7 @@ def graph_get_split(
     num_workers : int
         number of workers parameter for data loader
     """
-    if not isinstance(dataset, InMemoryDataset):
+    if not isinstance(dataset, Dataset):
         raise TypeError
     if not isinstance(mask, str):
         raise TypeError
@@ -375,28 +377,36 @@ def graph_get_split(
     if mask.lower() not in ("train", "val", "test"):
         raise ValueError
     elif mask.lower() == "train":
-        __possible_index = dataset.train_split
+        optional_dataset_split = dataset.train_split
     elif mask.lower() == "val":
-        __possible_index = dataset.val_split
+        optional_dataset_split = dataset.val_split
     elif mask.lower() == "test":
-        __possible_index = dataset.test_split
+        optional_dataset_split = dataset.test_split
     else:
-        raise ValueError
-
+        raise ValueError(
+            f"The provided mask parameter must be a str in ['train', 'val', 'test'], "
+            f"illegal provided value is [{mask}]"
+        )
     if (
-            __possible_index is None or
-            not isinstance(__possible_index, _typing.Iterable)
+            optional_dataset_split is None or
+            not isinstance(optional_dataset_split, _typing.Iterable)
     ):
         raise ValueError(
             f"Provided dataset do NOT have {mask} split"
         )
     if is_loader:
-        __possible_index: _typing.Any = list(__possible_index)
-        return torch.utils.data.DataLoader(
-            __possible_index,
-            batch_size=batch_size,
-            collate_fn=lambda x: x,
-            num_workers=num_workers
-        )
+        if not (_backend.DependentBackend.is_dgl() or _backend.DependentBackend.is_pyg()):
+            raise RuntimeError("Unsupported backend")
+        elif _backend.DependentBackend.is_dgl():
+            return GraphDataLoader(
+                optional_dataset_split,
+                **{"batch_size": batch_size, "num_workers": num_workers}
+            )
+        elif _backend.DependentBackend.is_pyg():
+            return DataLoader(
+                optional_dataset_split,
+                batch_size=batch_size,
+                num_workers=num_workers
+            )
     else:
-        return __possible_index
+        return optional_dataset_split
