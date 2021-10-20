@@ -116,14 +116,14 @@ class InMemoryDataset(Dataset[_D]):
             test_index: _typing.Optional[_typing.Iterable[int]] = ...
     ):
         self.__data: _typing.MutableSequence[_D] = list(data)
-        self.__train_index: _typing.Optional[_typing.Set[int]] = (
-            set(train_index) if isinstance(train_index, _typing.Iterable) else None
+        self.__train_index: _typing.Optional[_typing.Iterable[int]] = (
+            train_index if isinstance(train_index, _typing.Iterable) else None
         )
-        self.__val_index: _typing.Optional[_typing.Set[int]] = (
-            set(val_index) if isinstance(val_index, _typing.Iterable) else None
+        self.__val_index: _typing.Optional[_typing.Iterable[int]] = (
+            val_index if isinstance(val_index, _typing.Iterable) else None
         )
-        self.__test_index: _typing.Optional[_typing.Set[int]] = (
-            set(test_index) if isinstance(test_index, _typing.Iterable) else None
+        self.__test_index: _typing.Optional[_typing.Iterable[int]] = (
+            test_index if isinstance(test_index, _typing.Iterable) else None
         )
         self.__folds_container: _FoldsContainer = _FoldsContainer()
 
@@ -173,21 +173,21 @@ class InMemoryDataset(Dataset[_D]):
     @property
     def train_split(self) -> _typing.Optional[_typing.Iterable[_D]]:
         return (
-            [self.__data[i] for i in sorted(self.__train_index)]
+            [self.__data[i] for i in self.__train_index]
             if isinstance(self.__train_index, _typing.Iterable) else None
         )
 
     @property
     def val_split(self) -> _typing.Optional[_typing.Iterable[_D]]:
         return (
-            [self.__data[i] for i in sorted(self.__val_index)]
+            [self.__data[i] for i in self.__val_index]
             if isinstance(self.__val_index, _typing.Iterable) else None
         )
 
     @property
     def test_split(self) -> _typing.Optional[_typing.Iterable[_D]]:
         return (
-            [self.__data[i] for i in sorted(self.__test_index)]
+            [self.__data[i] for i in self.__test_index]
             if isinstance(self.__test_index, _typing.Iterable) else None
         )
 
@@ -208,24 +208,26 @@ class InMemoryDataset(Dataset[_D]):
         if not (train_index is None or isinstance(train_index, _typing.Iterable)):
             raise TypeError
         elif train_index is None:
-            self.__train_index: _typing.Optional[_typing.Set[int]] = None
+            self.__train_index: _typing.Optional[_typing.Iterable[int]] = None
         elif isinstance(train_index, _typing.Iterable):
-            _train_index: _typing.Set[int] = set(train_index)
-            if not (0 <= min(_train_index) <= max(_train_index) < len(self)):
+            if not all([isinstance(i, int) for i in train_index]):
+                raise TypeError
+            if not (0 <= min(train_index) <= max(train_index) < len(self)):
                 raise ValueError
-            self.__train_index: _typing.Optional[_typing.Set[int]] = _train_index
+            self.__train_index: _typing.Optional[_typing.Iterable[int]] = train_index
 
     @val_index.setter
     def val_index(self, val_index: _typing.Optional[_typing.Iterable[int]]):
         if not (val_index is None or isinstance(val_index, _typing.Iterable)):
             raise TypeError
         elif val_index is None:
-            self.__val_index: _typing.Optional[_typing.Set[int]] = None
+            self.__val_index: _typing.Optional[_typing.Iterable[int]] = None
         elif isinstance(val_index, _typing.Iterable):
-            _val_index: _typing.Set[int] = set(val_index)
-            if not (0 <= min(_val_index) <= max(_val_index) < len(self)):
+            if not all([isinstance(i, int) for i in val_index]):
+                raise TypeError
+            if not (0 <= min(val_index) <= max(val_index) < len(self)):
                 raise ValueError
-            self.__val_index: _typing.Optional[_typing.Set[int]] = _val_index
+            self.__val_index: _typing.Optional[_typing.Iterable[int]] = val_index
 
     @test_index.setter
     def test_index(self, test_index: _typing.Optional[_typing.Iterable[int]]):
@@ -234,7 +236,8 @@ class InMemoryDataset(Dataset[_D]):
         elif test_index is None:
             self.__test_index: _typing.Optional[_typing.Set[int]] = None
         elif isinstance(test_index, _typing.Iterable):
-            _test_index: _typing.Set[int] = set(test_index)
-            if not (0 <= min(_test_index) <= max(_test_index) < len(self)):
+            if not all([isinstance(i, int) for i in test_index]):
+                raise TypeError
+            if not (0 <= min(test_index) <= max(test_index) < len(self)):
                 raise ValueError
-            self.__test_index: _typing.Optional[_typing.Set[int]] = _test_index
+            self.__test_index: _typing.Optional[_typing.Iterable[int]] = test_index
