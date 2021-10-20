@@ -282,7 +282,7 @@ def main():
 
     accs = []
     from tqdm import tqdm
-    for seed in tqdm(range(10)):
+    for seed in tqdm(range(50)):
         # set up seeds, args.seed supported
         torch.manual_seed(seed=seed)
         np.random.seed(seed=seed)

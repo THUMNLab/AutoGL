@@ -7,9 +7,7 @@ import random
 import numpy as np
 from dgl.data import GINDataset
 from dgl.dataloading import GraphDataLoader
-from gin_helper import Parser, GINDataLoader
 
-from autogl.solver import AutoGraphClassifier
 from autogl.datasets import utils, build_dataset_from_name
 from autogl.module.train import GraphClassificationFullTrainer
 from autogl.module.model.dgl.gin import AutoGIN
