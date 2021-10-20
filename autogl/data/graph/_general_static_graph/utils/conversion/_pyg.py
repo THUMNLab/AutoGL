@@ -1,3 +1,4 @@
+import torch
 import typing as _typing
 import autogl
 from ... import GeneralStaticGraph
@@ -17,7 +18,7 @@ class StaticGraphToPyGData:
             raise ValueError("Provided static graph MUST consist of homogeneous nodes")
         pyg_data: autogl.data.Data = autogl.data.Data()
         for data_key in static_graph.nodes.data:
-            setattr(pyg_data, data_key, static_graph.nodes.data[data_key].detach().clone())
+            setattr(pyg_data, data_key, static_graph.nodes.data[data_key].detach())
         homogeneous_node_type: _typing.Optional[str] = (
             list(static_graph.nodes)[0]
             if len(list(static_graph.nodes)) > 0 else None
@@ -25,13 +26,17 @@ class StaticGraphToPyGData:
         if len(list(static_graph.edges)) == 1:
             pyg_data.edge_index = static_graph.edges.connections
             for data_key in static_graph.edges.data:
-                if hasattr(pyg_data, data_key):
+                if (
+                        hasattr(pyg_data, data_key) and
+                        getattr(pyg_data, data_key) is not None and
+                        isinstance(getattr(pyg_data, data_key), torch.Tensor)
+                ):
                     raise ValueError(
                         "Provided static graph contains duplicate data with same key, "
                         "please refer to doc for more details."
                     )
                 else:
-                    setattr(pyg_data, data_key, static_graph.edges.data[data_key].detach().clone())
+                    setattr(pyg_data, data_key, static_graph.edges.data[data_key].detach())
         elif len(list(static_graph.edges)) > 1:
             for canonical_edge_type in static_graph.edges:
                 if homogeneous_node_type is not None and isinstance(homogeneous_node_type, str) and (
@@ -46,21 +51,25 @@ class StaticGraphToPyGData:
                     if len(data_key) >= 4 and data_key[:4] == 'edge':
                         setattr(
                             pyg_data, edge_type_prefix + data_key,
-                            static_graph.edges[canonical_edge_type].data[data_key].detach().clone()
+                            static_graph.edges[canonical_edge_type].data[data_key].detach()
                         )
                     else:
                         setattr(
                             pyg_data, f"{canonical_edge_type.relation_type}_{data_key}",
-                            static_graph.edges[canonical_edge_type].data[data_key].detach().clone()
+                            static_graph.edges[canonical_edge_type].data[data_key].detach()
                         )
         for data_key in static_graph.data:
-            if hasattr(pyg_data, data_key):
+            if (
+                    hasattr(pyg_data, data_key) and
+                    getattr(pyg_data, data_key) is not None and
+                    isinstance(getattr(pyg_data, data_key), torch.Tensor)
+            ):
                 raise ValueError(
                     "Provided static graph contains duplicate data with same key, "
                     "please refer to doc for more details."
                 )
             else:
-                setattr(pyg_data, data_key, static_graph.data[data_key].detach().clone())
+                setattr(pyg_data, data_key, static_graph.data[data_key].detach())
         return pyg_data
 
 

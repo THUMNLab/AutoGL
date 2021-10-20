@@ -212,6 +212,10 @@ class MUTAGDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -219,6 +223,19 @@ class MUTAGDataset(InMemoryStaticGraphSet):
         super(MUTAGDataset, self).__init__(
             [_transform(dgl_graph, label) for (dgl_graph, label) in dgl_dataset]
         )
+        # super(MUTAGDataset, self).__init__(
+        #     [
+        #         GeneralStaticGraphGenerator.create_homogeneous_static_graph(
+        #             {
+        #                 'label': dgl_graph.ndata['label'],
+        #                 'attr': dgl_graph.ndata['attr']
+        #             },
+        #             torch.vstack(dgl_graph.edges()),
+        #             graph_data={'label': graph_label}
+        #         )
+        #         for (dgl_graph, graph_label) in dgl_dataset
+        #     ]
+        # )
 
 
 @DatasetUniversalRegistry.register_dataset("enzymes")
@@ -229,6 +246,10 @@ class ENZYMESDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['node_attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['node_labels']
+            del dgl_graph.ndata['node_attr']
+            del dgl_graph.ndata['node_labels']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -258,6 +279,10 @@ class IMDBBinaryDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -288,6 +313,10 @@ class IMDBMultiDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -318,6 +347,10 @@ class RedditBinaryDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -348,6 +381,10 @@ class REDDITMulti5KDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -379,6 +416,10 @@ class COLLABDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -409,6 +450,10 @@ class ProteinsDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -439,6 +484,10 @@ class PTCMRDataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
@@ -469,6 +518,10 @@ class NCI1Dataset(InMemoryStaticGraphSet):
         )
 
         def _transform(dgl_graph: dgl.DGLGraph, label: torch.Tensor):
+            dgl_graph.ndata['feat'] = dgl_graph.ndata['attr']
+            dgl_graph.ndata['node_label'] = dgl_graph.ndata['label']
+            del dgl_graph.ndata['attr']
+            del dgl_graph.ndata['label']
             static_graph = _conversion.dgl_graph_to_general_static_graph(dgl_graph)
             static_graph.data['label'] = label
             return static_graph
