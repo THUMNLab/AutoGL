@@ -263,7 +263,7 @@ def eval_net(net, dataloader, device):
 def main():
 
     device = torch.device('cuda:1')
-    dataset_ = GINDataset('MUTAG', True)
+    dataset_ = GINDataset('MUTAG', False)
     dataset = DatasetAbstraction([g[0] for g in dataset_], [g[1] for g in dataset_])
     
     # 1. split dataset [fix split]
@@ -282,7 +282,7 @@ def main():
 
     accs = []
     from tqdm import tqdm
-    for seed in tqdm(range(50)):
+    for seed in tqdm(range(10)):
         # set up seeds, args.seed supported
         torch.manual_seed(seed=seed)
         np.random.seed(seed=seed)
