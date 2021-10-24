@@ -4,9 +4,8 @@ import torch
 import torch.utils.data
 import typing as _typing
 from sklearn.model_selection import StratifiedKFold, KFold
-from dgl.dataloading.pytorch import GraphDataLoader
 from autogl import backend as _backend
-from autogl.data import Data, Dataset, DataLoader, InMemoryStaticGraphSet
+from autogl.data import Data, Dataset, InMemoryStaticGraphSet
 from ...data.graph import GeneralStaticGraph, GeneralStaticGraphGenerator
 from . import _pyg
 
@@ -398,15 +397,16 @@ def graph_get_split(
         if not (_backend.DependentBackend.is_dgl() or _backend.DependentBackend.is_pyg()):
             raise RuntimeError("Unsupported backend")
         elif _backend.DependentBackend.is_dgl():
+            from dgl.dataloading.pytorch import GraphDataLoader
             return GraphDataLoader(
                 optional_dataset_split,
                 **{"batch_size": batch_size, "num_workers": num_workers}
             )
         elif _backend.DependentBackend.is_pyg():
-            return DataLoader(
-                optional_dataset_split,
-                batch_size=batch_size,
-                num_workers=num_workers
+            dataset_split: _typing.Any = optional_dataset_split
+            import torch_geometric
+            return torch_geometric.loader.DataLoader(
+                dataset_split, batch_size=batch_size, num_workers=num_workers
             )
     else:
         return optional_dataset_split
