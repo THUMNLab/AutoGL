@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     accs = []
     from tqdm import tqdm
-    for seed in tqdm(range(50)):
+    for seed in tqdm(range(10)):
         set_seed(seed)
 
         trainer = GraphClassificationFullTrainer(
