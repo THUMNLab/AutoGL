@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from autogl.module.model import GAT,GraphSAGE
+from autogl.module.model import GAT,GraphSAGE,AutoSAGE,AutoGCN,AutoGAT
 
 from pdb import set_trace
 import numpy as np
@@ -51,7 +51,7 @@ def main():
         device = torch.device("cpu")
 
     dataset = CoraGraphDataset()
-    data = dataset[0]
+    data = dataset[0].to(device)
     data.ndata['x'] = data.ndata['feat']
     train_mask = data.ndata['train_mask']
     val_mask = data.ndata['val_mask']
@@ -59,20 +59,28 @@ def main():
     labels = data.ndata['label']
     n_edges = data.number_of_edges()
 
-    args={}
-    args["features_num"]=data.ndata['x'].size(1)
-    args['hidden']=[16]
-    args["heads"]=8
-    args['dropout']=0.6
-    args["num_class"]=dataset.num_classes
-    args["num_layers"]=2
-    args['act']='relu'
+    # args={}
+    # args["features_num"]=data.ndata['x'].size(1)
+    # args['hidden']=[16]
+    # args["heads"]=8
+    # args['dropout']=0.6
+    # args["num_class"]=dataset.num_classes
+    # args["num_layers"]=2
+    # args['act']='relu'
 
 
     # model = GAT(args)
-    model = GraphSAGE(args["features_num"],
-                      args["num_class"],
-                      [16],'relu',0.5)
+    # model = GraphSAGE(args["features_num"],
+    #                   args["num_class"],
+    #                   [16],'relu',0.5)
+    automodel = AutoGAT(
+        num_features = data.ndata['x'].size(1),
+        num_classes = dataset.num_classes,
+        device = device,
+        init = True
+    )
+
+    model = automodel.model
 
     criterion = nn.CrossEntropyLoss()  # defaul reduce is true
     optimizer = optim.Adam(model.parameters(), lr=0.01)

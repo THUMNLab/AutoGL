@@ -386,7 +386,7 @@ class AutoGCN(BaseModel):
         self.hyperparams = {
             "num_layers": 3,
             "hidden": [128, 64],
-            "dropout": 0,
+            "dropout": 0.,
             "act": "relu",
         }
 
