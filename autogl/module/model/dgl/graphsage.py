@@ -50,7 +50,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
 
         def forward(self, data, x, enable_activation: bool = True) -> torch.Tensor:
-            # x = data.ndata['x']
+            # x = data.ndata['feat']
             x: torch.Tensor = self._convolution.forward(data, x)
             if (self._activation_name is not None) and enable_activation:
                 x: torch.Tensor = activate_func(x, self._activation_name)
@@ -168,7 +168,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
         #         )
         #     return x
         # else:
-        x: torch.Tensor = data.ndata['x']
+        x: torch.Tensor = data.ndata['feat']
         for i in range(len(self.__sequential_encoding_layers)):
             x = self.__sequential_encoding_layers[i](
                 autogl.data.Data(x, data.edges())
@@ -179,7 +179,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
         return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        x: torch.Tensor = data.ndata['x']
+        x: torch.Tensor = data.ndata['feat']
         for i in range(len(self.__sequential_encoding_layers) - 2):
             x = self.__sequential_encoding_layers[i](
                 autogl.data.Data(x, data.edges())
@@ -200,7 +200,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
     
     def forward(self, data):
         # only for test 
-        x = data.ndata['x']
+        x = data.ndata['feat']
         for i in range(len(self.__sequential_encoding_layers)):
             x = self.__sequential_encoding_layers[i](data,x)
 

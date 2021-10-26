@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from autogl.module.model import GAT,GraphSAGE,AutoSAGE,AutoGCN,AutoGAT
+from autogl.module.model import AutoSAGE,AutoGCN,AutoGAT
 
 from pdb import set_trace
 import numpy as np
@@ -52,7 +52,7 @@ def main():
 
     dataset = CoraGraphDataset()
     data = dataset[0].to(device)
-    data.ndata['x'] = data.ndata['feat']
+    # data.ndata['x'] = data.ndata['feat']
     train_mask = data.ndata['train_mask']
     val_mask = data.ndata['val_mask']
     test_mask = data.ndata['test_mask']
@@ -74,7 +74,7 @@ def main():
     #                   args["num_class"],
     #                   [16],'relu',0.5)
     automodel = AutoGAT(
-        num_features = data.ndata['x'].size(1),
+        num_features = data.ndata['feat'].size(1),
         num_classes = dataset.num_classes,
         device = device,
         init = True

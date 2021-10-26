@@ -71,7 +71,7 @@ class GAT(torch.nn.Module):
 
     def forward(self, data):
         try:
-            x = data.ndata['x']
+            x = data.ndata['feat']
         except:
             print("no x")
             pass
@@ -85,7 +85,7 @@ class GAT(torch.nn.Module):
         return F.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        x = data.ndata['x']
+        x = data.ndata['feat']
         for i in range(self.num_layer - 1):
             x = self.convs[i](x, data.train_pos_edge_index).flatten(1)
             if i != self.num_layer - 2:

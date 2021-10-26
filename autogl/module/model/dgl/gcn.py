@@ -222,7 +222,7 @@ class GCN(ClassificationSupportedSequentialModel):
             ]
 
     def forward(self, data):
-        x = data.ndata['x']
+        x = data.ndata['feat']
         for gcn in self.__sequential_encoding_layers:
             x = gcn(data,x)
         return x
@@ -242,7 +242,7 @@ class GCN(ClassificationSupportedSequentialModel):
             assert len(edge_indexes_and_weights) == len(
                 self.__sequential_encoding_layers
             )
-            x: torch.Tensor = data.ndata['x']
+            x: torch.Tensor = data.ndata['feat']
             for _edge_index_and_weight, gcn in zip(
                 edge_indexes_and_weights, self.__sequential_encoding_layers
             ):
@@ -252,7 +252,7 @@ class GCN(ClassificationSupportedSequentialModel):
             return x
         else:
             """ edge_indexes_and_weights is (edge_index, edge_weight) """
-            x = data.ndata['x']
+            x = data.ndata['feat']
             for gcn in self.__sequential_encoding_layers:
                 _temp_data = autogl.data.Data(
                     x=x, edge_index=edge_indexes_and_weights[0]
@@ -265,7 +265,7 @@ class GCN(ClassificationSupportedSequentialModel):
         return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        x: torch.Tensor = data.ndata['x']
+        x: torch.Tensor = data.ndata['feat']
         for i in range(len(self.__sequential_encoding_layers) - 2):
             x = self.__sequential_encoding_layers[i](
                 autogl.data.Data(x, data.edges())
