@@ -2,11 +2,11 @@ from ._model_registry import MODEL_DICT, ModelUniversalRegistry, register_model
 from .base import BaseModel
 from .topkpool import AutoTopkpool
 
-# from .graph_sage import AutoSAGE
+
 from .graph_saint import GraphSAINTAggregationModel
-from .gcn_dgl import GCN,AutoGCN
-from .graphsage_dgl import GraphSAGE
-from .gat_dgl import GAT
+from .gcn import GCN, AutoGCN
+from .graphsage import GraphSAGE, AutoSAGE
+from .gat import GAT,AutoGAT
 
 __all__ = [
     "ModelUniversalRegistry",
@@ -17,5 +17,7 @@ __all__ = [
     "GCN",
     "AutoGCN",
     "GraphSAGE",
-    "GAT"
+    "AutoSAGE",
+    "GAT",
+    "AutoGAT"
 ]

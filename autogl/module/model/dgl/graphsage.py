@@ -1,7 +1,8 @@
 import torch
 import typing as _typing
 
-from torch_geometric.nn.conv import SAGEConv
+import torch.nn.functional as F
+from dgl.nn.pytorch.conv import SAGEConv
 import torch.nn.functional
 import autogl.data
 from . import register_model
@@ -23,7 +24,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
         ):
             super().__init__()
             self._convolution: SAGEConv = SAGEConv(
-                input_channels, output_channels, aggr=aggr
+                input_channels, output_channels, aggregator_type=aggr
             )
             if (
                 activation_name is not Ellipsis
@@ -48,14 +49,10 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
             else:
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
 
-        def forward(self, data, enable_activation: bool = True) -> torch.Tensor:
-            x: torch.Tensor = getattr(data, "x")
-            edge_index: torch.Tensor = getattr(data, "edge_index")
-            if type(x) != torch.Tensor or type(edge_index) != torch.Tensor:
-                raise TypeError
-
-            x: torch.Tensor = self._convolution.forward(x, edge_index)
-            if self._activation_name is not None and enable_activation:
+        def forward(self, data, x, enable_activation: bool = True) -> torch.Tensor:
+            # x = data.ndata['x']
+            x: torch.Tensor = self._convolution.forward(data, x)
+            if (self._activation_name is not None) and enable_activation:
                 x: torch.Tensor = activate_func(x, self._activation_name)
             if self._dropout is not None:
                 x: torch.Tensor = self._dropout.forward(x)
@@ -145,7 +142,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
                             hidden_features[i],
                             num_classes,
                             aggr,
-                            _layers_dropout[i + 1],
+                            dropout_probability=_layers_dropout[i + 1],
                         )
                     )
 
@@ -154,41 +151,41 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
         return self.__sequential_encoding_layers
 
     def cls_encode(self, data) -> torch.Tensor:
-        if (
-            hasattr(data, "edge_indexes")
-            and isinstance(getattr(data, "edge_indexes"), _typing.Sequence)
-            and len(getattr(data, "edge_indexes"))
-            == len(self.__sequential_encoding_layers)
-        ):
-            for __edge_index in getattr(data, "edge_indexes"):
-                if type(__edge_index) != torch.Tensor:
-                    raise TypeError
-            """ Layer-wise encode """
-            x: torch.Tensor = getattr(data, "x")
-            for i, __edge_index in enumerate(getattr(data, "edge_indexes")):
-                x: torch.Tensor = self.__sequential_encoding_layers[i](
-                    autogl.data.Data(x=x, edge_index=__edge_index)
-                )
-            return x
-        else:
-            x: torch.Tensor = getattr(data, "x")
-            for i in range(len(self.__sequential_encoding_layers)):
-                x = self.__sequential_encoding_layers[i](
-                    autogl.data.Data(x, getattr(data, "edge_index"))
-                )
-            return x
+        # if (
+        #     hasattr(data, "edge_indexes")
+        #     and isinstance(getattr(data, "edge_indexes"), _typing.Sequence)
+        #     and len(getattr(data, "edge_indexes"))
+        #     == len(self.__sequential_encoding_layers)
+        # ):
+        #     for __edge_index in getattr(data, "edge_indexes"):
+        #         if type(__edge_index) != torch.Tensor:
+        #             raise TypeError
+        #     """ Layer-wise encode """
+        #     x: torch.Tensor = getattr(data, "x")
+        #     for i, __edge_index in enumerate(getattr(data, "edge_indexes")):
+        #         x: torch.Tensor = self.__sequential_encoding_layers[i](
+        #             autogl.data.Data(x=x, edge_index=__edge_index)
+        #         )
+        #     return x
+        # else:
+        x: torch.Tensor = data.ndata['x']
+        for i in range(len(self.__sequential_encoding_layers)):
+            x = self.__sequential_encoding_layers[i](
+                autogl.data.Data(x, data.edges())
+            )
+        return x
 
     def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        x: torch.Tensor = getattr(data, "x")
+        x: torch.Tensor = data.ndata['x']
         for i in range(len(self.__sequential_encoding_layers) - 2):
             x = self.__sequential_encoding_layers[i](
-                autogl.data.Data(x, getattr(data, "edge_index"))
+                autogl.data.Data(x, data.edges())
             )
         x = self.__sequential_encoding_layers[-2](
-            autogl.data.Data(x, getattr(data, "edge_index")), enable_activation=False
+            autogl.data.Data(x, data.edges()), enable_activation=False
         )
         return x
 
@@ -200,6 +197,15 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
     def lp_decode_all(self, z):
         prob_adj = z @ z.t()
         return (prob_adj > 0).nonzero(as_tuple=False).t()
+    
+    def forward(self, data):
+        # only for test 
+        x = data.ndata['x']
+        for i in range(len(self.__sequential_encoding_layers)):
+            x = self.__sequential_encoding_layers[i](data,x)
+
+        return F.log_softmax(x, dim=1)
+
 
 
 @register_model("sage")

@@ -2,11 +2,13 @@ import torch
 import torch.nn.functional
 import typing as _typing
 
-from torch_geometric.nn.conv import GCNConv
+from dgl.nn.pytorch.conv import GraphConv
+from dgl import remove_self_loop, add_self_loop
 import autogl.data
 from . import register_model
 from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
 from ....utils import get_logger
+
 
 LOGGER = get_logger("GCNModel")
 
@@ -23,12 +25,12 @@ class GCN(ClassificationSupportedSequentialModel):
             dropout_probability: _typing.Optional[float] = ...,
         ):
             super().__init__()
-            self._convolution: GCNConv = GCNConv(
+            self._convolution: GraphConv = GraphConv(
                 input_channels,
                 output_channels,
-                add_self_loops=bool(add_self_loops),
-                normalize=bool(normalize),
+                norm='both' if normalize else 'none',
             )
+            self.add_self_loops = bool(add_self_loops),
             if (
                 activation_name is not Ellipsis
                 and activation_name is not None
@@ -52,22 +54,13 @@ class GCN(ClassificationSupportedSequentialModel):
             else:
                 self._dropout: _typing.Optional[torch.nn.Dropout] = None
 
-        def forward(self, data, enable_activation: bool = True) -> torch.Tensor:
-            x: torch.Tensor = getattr(data, "x")
-            edge_index: torch.LongTensor = getattr(data, "edge_index")
-            edge_weight: _typing.Optional[torch.Tensor] = getattr(
-                data, "edge_weight", None
-            )
-            """ Validate the arguments """
-            if not type(x) == type(edge_index) == torch.Tensor:
-                raise TypeError
-            if edge_weight is not None and (
-                type(edge_weight) != torch.Tensor
-                or edge_index.size() != (2, edge_weight.size(0))
-            ):
-                edge_weight: _typing.Optional[torch.Tensor] = None
+        def forward(self, data, x, enable_activation: bool = True) -> torch.Tensor:
+            
+            if self.add_self_loops:
+                data = remove_self_loop(data)
+                data = add_self_loop(data)
 
-            x: torch.Tensor = self._convolution.forward(x, edge_index, edge_weight)
+            x: torch.Tensor = self._convolution.forward(data, x)
             if self._activation_name is not None and enable_activation:
                 x: torch.Tensor = activate_func(x, self._activation_name)
             if self._dropout is not None:
@@ -199,19 +192,21 @@ class GCN(ClassificationSupportedSequentialModel):
             and len(getattr(data, "edge_indexes"))
             == len(self.__sequential_encoding_layers)
         ):
+            if not data.edata.has_key('edge_weights'):
+                data.edata['edge_weights']=None
             return __compose_edge_index_and_weight(
-                getattr(data, "edge_index"), getattr(data, "edge_weight", None)
+                data.edges(), data.edata['edge_weights']
             )
-        for __edge_index in getattr(data, "edge_indexes"):
-            if type(__edge_index) != torch.Tensor or __edge_index.dtype != torch.int64:
-                return __compose_edge_index_and_weight(
-                    getattr(data, "edge_index"), getattr(data, "edge_weight", None)
-                )
+        # for __edge_index in getattr(data, "edge_indexes"):
+        #     if type(__edge_index) != torch.Tensor or __edge_index.dtype != torch.int64:
+        #         return __compose_edge_index_and_weight(
+        #             data.edges(), getattr(data, "edge_weight", None)
+        #         )
 
         if (
-            hasattr(data, "edge_weights")
-            and isinstance(getattr(data, "edge_weights"), _typing.Sequence)
-            and len(getattr(data, "edge_weights"))
+            data.edata.has_key('edge_weights')
+            and isinstance(data.edata['edge_weights'], _typing.Sequence)
+            and len(data.edata.has_key('edge_weights'))
             == len(self.__sequential_encoding_layers)
         ):
             return [
@@ -225,6 +220,12 @@ class GCN(ClassificationSupportedSequentialModel):
                 __compose_edge_index_and_weight(__edge_index)
                 for __edge_index in getattr(data, "edge_indexes")
             ]
+
+    def forward(self, data):
+        x = data.ndata['x']
+        for gcn in self.__sequential_encoding_layers:
+            x = gcn(data,x)
+        return x
 
     def cls_encode(self, data) -> torch.Tensor:
         edge_indexes_and_weights: _typing.Union[
@@ -241,7 +242,7 @@ class GCN(ClassificationSupportedSequentialModel):
             assert len(edge_indexes_and_weights) == len(
                 self.__sequential_encoding_layers
             )
-            x: torch.Tensor = getattr(data, "x")
+            x: torch.Tensor = data.ndata['x']
             for _edge_index_and_weight, gcn in zip(
                 edge_indexes_and_weights, self.__sequential_encoding_layers
             ):
@@ -251,7 +252,7 @@ class GCN(ClassificationSupportedSequentialModel):
             return x
         else:
             """ edge_indexes_and_weights is (edge_index, edge_weight) """
-            x = getattr(data, "x")
+            x = data.ndata['x']
             for gcn in self.__sequential_encoding_layers:
                 _temp_data = autogl.data.Data(
                     x=x, edge_index=edge_indexes_and_weights[0]
@@ -264,13 +265,13 @@ class GCN(ClassificationSupportedSequentialModel):
         return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        x: torch.Tensor = getattr(data, "x")
+        x: torch.Tensor = data.ndata['x']
         for i in range(len(self.__sequential_encoding_layers) - 2):
             x = self.__sequential_encoding_layers[i](
-                autogl.data.Data(x, getattr(data, "edge_index"))
+                autogl.data.Data(x, data.edges())
             )
         x = self.__sequential_encoding_layers[-2](
-            autogl.data.Data(x, getattr(data, "edge_index")), enable_activation=False
+            autogl.data.Data(x, data.edges()), enable_activation=False
         )
         return x
 
