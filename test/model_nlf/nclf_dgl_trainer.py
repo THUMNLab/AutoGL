@@ -17,7 +17,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from autogl.module.model import AutoSAGE,AutoGCN,AutoGAT
-
+from autogl.module.train import NodeClassificationFullTrainer
 from pdb import set_trace
 import numpy as np
 from autogl.solver.utils import set_seed
@@ -73,12 +73,35 @@ def main():
     # model = GraphSAGE(args["features_num"],
     #                   args["num_class"],
     #                   [16],'relu',0.5)
+
     automodel = AutoGAT(
         num_features = data.ndata['feat'].size(1),
         num_classes = dataset.num_classes,
         device = device,
         init = True
     )
+
+    trainer = NodeClassificationFullTrainer(
+        model=automodel,
+        num_features=data.ndata['feat'].size(1),
+        num_classes=dataset.num_classes,
+        optimizer=None,
+        lr=0.01,
+        max_epoch=100,
+        weight_decay=0.0,
+        device='cuda',
+        init=False,
+        loss='cross_entropy',
+        feval=('acc'),
+    )
+
+    trainer.train(dataset, keep_valid_result=True, train_mask=train_mask)
+    out = trainer.predict(dataset, 'test').detach().cpu().numpy()
+    labels = labels[data.ndata['test_mask']].detach().cpu().numpy()
+    acc = np.count_nonzero(out == labels) / labels.shape[0]
+    print(acc)  # 0.764
+
+    return
 
     model = automodel.model
 
