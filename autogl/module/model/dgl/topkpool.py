@@ -121,8 +121,6 @@ class Topkpool(torch.nn.Module):
                     "num_layers",
                     "hidden",
                     "dropout",
-                    "act",
-                    "mlp_layers",
                 ]
             )
             - set(self.args.keys())
@@ -137,19 +135,8 @@ class Topkpool(torch.nn.Module):
         self.num_layers = self.args["num_layers"]
         assert self.num_layers > 2, "Number of layers in GIN should not less than 3"
 
-        self.num_mlp_layers = self.args["mlp_layers"]
         input_dim = self.args["features_num"]
         hidden_dim = self.args["hidden"][0]
-        if self.args["act"] == "leaky_relu":
-            act = LeakyReLU()
-        elif self.args["act"] == "relu":
-            act = ReLU()
-        elif self.args["act"] == "elu":
-            act = ELU()
-        elif self.args["act"] == "tanh":
-            act = Tanh()
-        else:
-            act = ReLU()
         final_dropout = self.args["dropout"]
         output_dim = self.args["num_class"]
 
@@ -162,11 +149,6 @@ class Topkpool(torch.nn.Module):
                 self.gcnlayers.append(GraphConv(input_dim, hidden_dim))
             else:
                 self.gcnlayers.append(GraphConv(hidden_dim, hidden_dim))
-
-            if layer == 0:
-                mlp = MLP(self.num_mlp_layers, input_dim, hidden_dim, hidden_dim)
-            else:
-                mlp = MLP(self.num_mlp_layers, hidden_dim, hidden_dim, hidden_dim)
 
             #self.gcnlayers.append(GraphConv(input_dim, hidden_dim))
             self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
@@ -193,7 +175,7 @@ class Topkpool(torch.nn.Module):
     #def forward(self, g, h):
     def forward(self, data):
         g, _ = data
-        h = g.ndata.pop('attr')
+        h = g.ndata.pop('feat')
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 
@@ -259,11 +241,15 @@ class AutoTopkpool(BaseModel):
         }
         self.space = [
             {
-                "parameterName": "ratio",
-                "type": "DOUBLE",
-                "maxValue": 0.9,
-                "minValue": 0.1,
-                "scalingType": "LINEAR",
+                "parameterName": "hidden",
+                "type": "NUMERICAL_LIST",
+                "numericalType": "INTEGER",
+                "length": 1,
+                "minValue": [128],
+                "maxValue": [32],
+                "scalingType": "LOG",
+                "cutPara": (),
+                "cutFunc": lambda:1,
             },
             {
                 "parameterName": "dropout",
@@ -273,19 +259,18 @@ class AutoTopkpool(BaseModel):
                 "scalingType": "LINEAR",
             },
             {
-                "parameterName": "act",
-                "type": "CATEGORICAL",
-                "feasiblePoints": ["leaky_relu", "relu", "elu", "tanh"],
+                "parameterName": "num_layers",
+                "type": "INTEGER",
+                "minValue": 7,
+                "maxValue": 2,
+                "scalingType": "LINEAR"
             },
         ]
 
-        #self.hyperparams = {"ratio": 0.8, "dropout": 0.5, "act": "relu"}
         self.hyperparams = {
             "num_layers": 5,
             "hidden": [64],
-            "dropout": 0.5,
-            "act": "relu",
-            "mlp_layers": 2
+            "dropout": 0.5
         }
 
         self.initialized = False
