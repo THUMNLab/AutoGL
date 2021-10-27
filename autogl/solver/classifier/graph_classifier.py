@@ -15,7 +15,7 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import BaseModel, MODEL_DICT
 from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space
-from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features
+from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features, convert_dataset
 from ...datasets import utils
 from ..utils import get_logger
 from ...backend import DependentBackend
@@ -277,7 +277,7 @@ class AutoGraphClassifier(BaseClassifier):
 
         set_seed(seed)
 
-        num_classes = dataset.num_classes if BACKEND == 'pyg' else dataset.gclasses
+        num_classes = max(get_dataset_labels(dataset)) + 1
 
         if time_limit < 0:
             time_limit = 3600 * 24
@@ -351,8 +351,9 @@ class AutoGraphClassifier(BaseClassifier):
             device=self.runtime_device,
             loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
             num_graph_features=(0
-            if not hasattr(dataset.data, "gf")
-            else dataset.data.gf.size(1)) if BACKEND == 'pyg' else 0,
+            if not hasattr(dataset[0], "gf")
+            else dataset[0].gf.size(1)) if BACKEND == 'pyg' else 
+            (0 if 'gf' not in dataset[0].data else dataset[0].data['gf'].size(1)),
         )
 
         # currently disabled
@@ -390,11 +391,11 @@ class AutoGraphClassifier(BaseClassifier):
                 )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(dataset, True)
+                model.train(convert_dataset(dataset), True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=dataset, time_limit=time_for_each_model
+                    trainer=model, dataset=convert_dataset(dataset), time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
@@ -615,7 +616,7 @@ class AutoGraphClassifier(BaseClassifier):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
             self.trained_models[name]
-            .predict_proba(dataset, mask=mask)
+            .predict_proba(convert_dataset(dataset), mask=mask)
             .detach()
             .cpu()
             .numpy()
