@@ -1,6 +1,9 @@
-import sys
+"""
+Performance check of AutoGL (trainer + model) + DGL dataset
+"""
 
-sys.path.append('../../')
+import os
+os.environ["AUTOGL_BACKEND"] = "dgl"
 
 import torch
 import random
@@ -8,9 +11,8 @@ import numpy as np
 from dgl.data import GINDataset
 from dgl.dataloading import GraphDataLoader
 
-from autogl.datasets import utils, build_dataset_from_name
+from autogl.datasets import utils
 from autogl.module.train import GraphClassificationFullTrainer
-from autogl.module.model.dgl.gin import AutoGIN
 from autogl.solver.utils import set_seed
 import logging
 
@@ -70,23 +72,29 @@ def graph_get_split(
 
 utils.graph_get_split = graph_get_split
 
-def fixed(**kwargs):
-    return [{
-        'parameterName': k,
-        "type": "FIXED",
-        "value": v
-    } for k, v in kwargs.items()]
-
 if __name__ == '__main__':
+
+    import argparse
+    parser = argparse.ArgumentParser('dgl trainer')
+    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--dataset', type=str, choices=['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI', 'NCI1', 'PROTEINS', 'PTC', 'REDDITBINARY', 'REDDITMULTI5K'], default='MUTAG')
+    parser.add_argument('--dataset_seed', type=int, default=2021)
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--repeat', type=int, default=50)
+    parser.add_argument('--model', type=str, choices=['gin', 'topkpool'], default='gin')
+    parser.add_argument('--lr', type=float, default=0.0001)
+    parser.add_argument('--epoch', type=int, default=100)
+
+    args = parser.parse_args()
 
     # seed = 100
     # dataset = build_dataset_from_name('mutag')
-    dataset_ = GINDataset('MUTAG', False)
+    dataset_ = GINDataset(args.dataset, False)
     dataset = DatasetAbstraction([g[0] for g in dataset_], [g[1] for g in dataset_])
 
     # 1. split dataset [fix split]
     dataids = list(range(len(dataset)))
-    random.seed(2021)
+    random.seed(args.dataset_seed)
     random.shuffle(dataids)
     
     fold = int(len(dataset) * 0.1)
@@ -99,35 +107,45 @@ if __name__ == '__main__':
     labels = np.array([x.item() for x in test_dataset.labels])
 
     accs = []
+
+    if args.model == 'gin':
+        model_hp = {
+            "num_layers": 5,
+            "hidden": [64],
+            "dropout": 0.5,
+            "act": "relu",
+            "eps": "False",
+            "mlp_layers": 2,
+            "neighbor_pooling_type": "sum",
+            "graph_pooling_type": "sum"
+        }
+    elif args.model == 'topkpool':
+        model_hp = {
+            "num_layers": 5,
+            "hidden": [64],
+            "dropout": 0.5
+        }
+
     from tqdm import tqdm
     for seed in tqdm(range(10)):
         set_seed(seed)
 
         trainer = GraphClassificationFullTrainer(
-            model='gin',
-            device='cuda:1',
+            model=args.model,
+            device='cuda',
             init=False,
             num_features=dataset.graph[0].ndata['feat'].size(1),
             num_classes=dataset.gclasses,
-            loss='cross_entropy'
-        ).duplicate_from_hyper_parameter(
-            {
+            loss='cross_entropy',
+            feval = ('acc')
+        ).duplicate_from_hyper_parameter({
                 # hp from trainer
-                "max_epoch": 100,
-                "batch_size": 32, 
-                "early_stopping_round": 101, 
-                "lr": 0.0001, 
+                "max_epoch": args.epoch,
+                "batch_size": args.batch_size, 
+                "early_stopping_round": args.epoch + 1, 
+                "lr": args.lr, 
                 "weight_decay": 0,
-
-                # hp from model
-                "num_layers": 5,
-                "hidden": [64],
-                "dropout": 0.5,
-                "act": "relu",
-                "eps": "False",
-                "mlp_layers": 2,
-                "neighbor_pooling_type": "sum",
-                "graph_pooling_type": "sum"
+                **model_hp
             }
         )
 

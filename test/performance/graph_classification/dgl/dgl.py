@@ -1,4 +1,11 @@
-import sys
+"""
+Performance check of DGL original dataset, model, trainer setting
+
+Borrowed from DGL official examples: https://github.com/dmlc/dgl/tree/master/examples/pytorch/gin
+
+TopkPool is not supported currently
+"""
+
 from dgl.dataloading.pytorch.dataloader import GraphDataLoader
 import numpy as np
 from tqdm import tqdm
@@ -10,7 +17,6 @@ import torch.nn as nn
 import torch.optim as optim
 
 from dgl.data import GINDataset
-from gin_helper import Parser, GINDataLoader
 
 import torch
 import torch.nn as nn
@@ -262,7 +268,7 @@ def eval_net(net, dataloader, device):
 
 def main():
 
-    device = torch.device('cuda:1')
+    device = torch.device('cuda')
     dataset_ = GINDataset('MUTAG', False)
     dataset = DatasetAbstraction([g[0] for g in dataset_], [g[1] for g in dataset_])
     
@@ -276,13 +282,12 @@ def main():
     val_dataset = dataset[dataids[fold * 8: fold * 9]]
     test_dataset = dataset[dataids[fold * 9: ]]
 
-    trainloader = GraphDataLoader(train_dataset, batch_size=32, shuffle=True)
+    trainloader = GraphDataLoader(train_dataset, batch_size=32, shuffle=False)
     valloader = GraphDataLoader(val_dataset, batch_size=32, shuffle=False)
     testloader = GraphDataLoader(test_dataset, batch_size=32, shuffle=False)
 
     accs = []
-    from tqdm import tqdm
-    for seed in tqdm(range(50)):
+    for seed in tqdm(range(10)):
         # set up seeds, args.seed supported
         torch.manual_seed(seed=seed)
         np.random.seed(seed=seed)

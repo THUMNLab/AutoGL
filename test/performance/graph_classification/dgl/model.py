@@ -1,5 +1,9 @@
-import sys
-sys.path.append('../../')
+"""
+Performance check of AutoGL model + DGL (dataset + trainer)
+"""
+
+import os
+os.environ["AUTOGL_BACKEND"] = "dgl"
 
 from dgl.dataloading.pytorch.dataloader import GraphDataLoader
 import numpy as np
@@ -16,7 +20,9 @@ from dgl.data import GINDataset
 import torch
 import torch.nn as nn
 from autogl.module.model.dgl.gin import AutoGIN
-
+from autogl.module.model.dgl.topkpool import AutoTopkpool
+from autogl.solver.utils import set_seed
+import argparse
 
 class DatasetAbstraction():
     def __init__(self, graphs, labels):
@@ -108,15 +114,15 @@ def eval_net(net, dataloader, device):
     return acc
 
 
-def main():
+def main(args):
 
-    device = torch.device('cuda:1')
-    dataset_ = GINDataset('MUTAG', False)
+    device = torch.device(args.device)
+    dataset_ = GINDataset(args.dataset, False)
     dataset = DatasetAbstraction([g[0] for g in dataset_], [g[1] for g in dataset_])
     
     # 1. split dataset [fix split]
     dataids = list(range(len(dataset)))
-    random.seed(2021)
+    random.seed(args.dataset_seed)
     random.shuffle(dataids)
     
     fold = int(len(dataset) * 0.1)
@@ -124,44 +130,63 @@ def main():
     val_dataset = dataset[dataids[fold * 8: fold * 9]]
     test_dataset = dataset[dataids[fold * 9: ]]
 
-    trainloader = GraphDataLoader(train_dataset, batch_size=32, shuffle=True)
-    valloader = GraphDataLoader(val_dataset, batch_size=32, shuffle=False)
-    testloader = GraphDataLoader(test_dataset, batch_size=32, shuffle=False)
+    trainloader = GraphDataLoader(train_dataset, batch_size=args.batch_size, shuffle=False)
+    valloader = GraphDataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    testloader = GraphDataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
     accs = []
-    for seed in tqdm(range(50)):
+    for seed in tqdm(range(args.repeat)):
         # set up seeds, args.seed supported
-        torch.manual_seed(seed=seed)
-        np.random.seed(seed=seed)
+        set_seed(seed)
 
-        model = AutoGIN(
-            num_features=dataset_.dim_nfeats,
-            num_classes=dataset_.gclasses,
-            device=device,
-        ).from_hyper_parameter(
-            {
-                # hp from model
+        if args.model == 'gin':
+            model = AutoGIN(
+                num_features=dataset_.dim_nfeats,
+                num_classes=dataset_.gclasses,
+                device=device,
+            ).from_hyper_parameter({
                 "num_layers": 5,
-                "hidden": [64,64,64,64],
+                "hidden": [64],
                 "dropout": 0.5,
                 "act": "relu",
                 "eps": "False",
                 "mlp_layers": 2,
                 "neighbor_pooling_type": "sum",
                 "graph_pooling_type": "sum"
-            }
-        ).model
+            }).model
+        elif args.model == 'topkpool':
+            model = AutoTopkpool(
+                num_features=dataset_.dim_nfeats,
+                num_classes=dataset_.gclasses,
+                device=device,
+            ).from_hyper_parameter({
+                "num_layers": 5,
+                "hidden": [64],
+                "dropout": 0.5
+            }).model
 
         model = model.to(device)
 
         criterion = nn.CrossEntropyLoss()  # defaul reduce is true
-        optimizer = optim.Adam(model.parameters(), lr=0.0001)
+        optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-        model = train(model, trainloader, valloader, optimizer, criterion, 100, device)
+        model = train(model, trainloader, valloader, optimizer, criterion, args.epoch, device)
         acc = eval_net(model, testloader, device)
         accs.append(acc)
 
     print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser('model parser')
+    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--dataset', type=str, choices=['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI', 'NCI1', 'PROTEINS', 'PTC', 'REDDITBINARY', 'REDDITMULTI5K'], default='MUTAG')
+    parser.add_argument('--dataset_seed', type=int, default=2021)
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--repeat', type=int, default=50)
+    parser.add_argument('--model', type=str, choices=['gin', 'topkpool'], default='gin')
+    parser.add_argument('--lr', type=float, default=0.0001)
+    parser.add_argument('--epoch', type=int, default=100)
+
+    args = parser.parse_args()
+
+    main(args)
