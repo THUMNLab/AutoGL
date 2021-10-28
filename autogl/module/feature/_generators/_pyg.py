@@ -42,6 +42,9 @@ class LocalDegreeProfileGenerator(BaseFeatureGenerator):
 
 @FeatureEngineerUniversalRegistry.register_feature_engineer("NormalizeFeatures")
 class NormalizeFeatures(BaseFeatureGenerator):
+    def __init__(self):
+        super(NormalizeFeatures, self).__init__(override_features=True)
+
     def _extract_nodes_feature(self, data: autogl.data.Data) -> torch.Tensor:
         if data.x is not None and isinstance(data.x, torch.Tensor):
             data.x.div_(data.x.sum(dim=-1, keepdim=True).clamp_(min=1.))

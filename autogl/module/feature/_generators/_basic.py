@@ -7,6 +7,13 @@ from .._feature_engineer_registry import FeatureEngineerUniversalRegistry
 
 
 class BaseFeatureGenerator(BaseFeatureEngineer):
+    def __init__(self, override_features: bool = False):
+        super(BaseFeatureGenerator, self).__init__()
+        if not isinstance(override_features, bool):
+            raise TypeError
+        else:
+            self._override_features: bool = override_features
+
     def _extract_nodes_feature(self, data: autogl.data.Data) -> torch.Tensor:
         raise NotImplementedError
 
@@ -66,12 +73,12 @@ class BaseFeatureGenerator(BaseFeatureEngineer):
             )
             assert extracted_features.size(0) == nodes_features.size(0)
             assert extracted_features.dim() == nodes_features.dim() == 2
-            homogeneous_static_graph.nodes.data[feature_key] = torch.cat(
-                [
-                    nodes_features,
-                    extracted_features.to(nodes_features.device)
-                ],
-                dim=-1
+            homogeneous_static_graph.nodes.data[feature_key] = (
+                extracted_features.to(nodes_features.device)
+                if self._override_features
+                else torch.cat(
+                    [nodes_features, extracted_features.to(nodes_features.device)], dim=-1
+                )
             )
         else:
             if autogl.backend.DependentBackend.is_pyg():

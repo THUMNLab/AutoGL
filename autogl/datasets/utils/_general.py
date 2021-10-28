@@ -405,7 +405,7 @@ def graph_get_split(
         elif _backend.DependentBackend.is_pyg():
             dataset_split: _typing.Any = optional_dataset_split
             import torch_geometric
-            return torch_geometric.loader.DataLoader(
+            return torch_geometric.data.DataLoader(
                 dataset_split, batch_size=batch_size, num_workers=num_workers
             )
     else:
