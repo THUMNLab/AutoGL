@@ -14,7 +14,7 @@ from torch.optim.lr_scheduler import (
 )
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
-from ..model.base import ClassificationSupportedSequentialModel
+from ..model.pyg.base import ClassificationSupportedSequentialModel
 from .evaluation import get_feval, Logloss
 from typing import Union
 from copy import deepcopy
@@ -345,7 +345,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 mask = data.train_mask
         else:
             mask = data.test_mask
-        ret = self.predict_only(data, mask)[mask]
+        ret = self.predict_only(data, mask) # [mask]
         if in_log_format is True:
             return ret
         else:
