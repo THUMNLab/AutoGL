@@ -228,12 +228,13 @@ def get_graph_masks(graph, mask='train'):
 
 def get_graph_labels(graph):
     if isinstance(graph, GeneralStaticGraph):
-        if 'label' in graph.data and BACKEND == 'dgl':
-            return graph.data['label']
-        if 'y' in graph.data and BACKEND == 'pyg':
-            return graph.data['y']
+        if 'label' in graph.nodes.data and BACKEND == 'dgl':
+            return graph.nodes.data['label']
+        if 'y' in graph.nodes.data and BACKEND == 'pyg':
+            return graph.nodes.data['y']
         return None
     if BACKEND == 'pyg' and hasattr(graph, 'y'): return graph.y
+    if BACKEND == 'dgl' and 'label' in graph.ndata: return graph.ndata['label']
     return None
 
 def get_dataset_labels(dataset):

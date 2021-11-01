@@ -4,7 +4,7 @@ Node classification Full Trainer Implementation
 
 from . import register_trainer
 
-from .base import BaseNodeClassificationTrainer, EarlyStopping, Evaluation
+from .base import BaseNodeClassificationTrainer, EarlyStopping
 import torch
 from torch.optim.lr_scheduler import (
     StepLR,
@@ -14,7 +14,6 @@ from torch.optim.lr_scheduler import (
 )
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
-from ..model.pyg.base import ClassificationSupportedSequentialModel
 from .evaluation import get_feval, Logloss
 from typing import Union
 from copy import deepcopy
@@ -210,7 +209,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
             optimizer.zero_grad()
-            if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+            if hasattr(self.model.model, 'cls_forward'):
                 res = self.model.model.cls_forward(data)
             else:
                 res = self.model.model.forward(data)
@@ -241,7 +240,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         if hasattr(data, "val_mask") and data.val_mask is not None:
             self.early_stopping.load_checkpoint(self.model.model)
 
-    def predict_only(self, data, test_mask=None):
+    def predict_only(self, data, mask=None):
         """
         The function of predicting on the given dataset and mask.
 
@@ -255,15 +254,13 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         res: The result of predicting on the given dataset.
 
         """
-        try:
-            mask = data.test_mask if test_mask is None else test_mask
-        except:
-            mask = None
+        if isinstance(mask, str):
+            mask = getattr(data, f'{mask}_mask')
 
         data = data.to(self.device)
         self.model.model.eval()
         with torch.no_grad():
-            if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+            if hasattr(self.model.model, 'cls_forward'):
                 res = self.model.model.cls_forward(data)
             else:
                 res = self.model.model.forward(data)
@@ -293,8 +290,8 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         data = dataset[0]
         self.train_only(data)
         if keep_valid_result:
-            self.valid_result = self.predict_only(data)[data.val_mask].max(1)[1]
-            self.valid_result_prob = self.predict_only(data)[data.val_mask]
+            self.valid_result = self.predict_only(data, 'val').max(1)[1]
+            self.valid_result_prob = self.predict_only(data, 'val')
             self.valid_score = self.evaluate(
                 dataset, mask=data.val_mask, feval=self.feval
             )
@@ -324,7 +321,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         ----------
         dataset: The node classification dataset used to be predicted.
 
-        mask: ``train``, ``val``, or ``test``.
+        mask: ``train``, ``val``, ``test``, or ``Tensor``.
             The dataset mask.
 
         in_log_format: ``bool``.
@@ -336,16 +333,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         """
         data = dataset[0]
         data = data.to(self.device)
-        if mask is not None:
-            if mask == "val":
-                mask = data.val_mask
-            elif mask == "test":
-                mask = data.test_mask
-            elif mask == "train":
-                mask = data.train_mask
-        else:
-            mask = data.test_mask
-        ret = self.predict_only(data, mask) # [mask]
+        ret = self.predict_only(data, mask)
         if in_log_format is True:
             return ret
         else:
@@ -416,22 +404,17 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         """
         data = dataset[0]
         data = data.to(self.device)
-        test_mask = mask
+
+        if isinstance(mask, str):
+            mask = getattr(data, f'{mask}_mask')
+
         if feval is None:
             feval = self.feval
         else:
             feval = get_feval(feval)
-        if test_mask is None:
-            test_mask = data.test_mask
-        elif test_mask == "test":
-            test_mask = data.test_mask
-        elif test_mask == "val":
-            test_mask = data.val_mask
-        elif test_mask == "train":
-            test_mask = data.train_mask
         y_pred_prob = self.predict_proba(dataset, mask)
-        y_pred = y_pred_prob.max(1)[1]
-        y_true = data.y[test_mask]
+        
+        y_true = data.y[mask] if mask is not None else data.y
 
         if not isinstance(feval, list):
             feval = [feval]
