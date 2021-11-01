@@ -7,14 +7,20 @@ from tqdm import tqdm
 
 os.environ["AUTOGL_BACKEND"] = "pyg"
 
-from torch_geometric.datasets import Planetoid
-import torch_geometric.transforms as T
-from autogl.module.train import NodeClassificationFullTrainer
-from autogl.datasets import utils
+from autogl.module.feature import NormalizeFeatures
+from autogl.solver import AutoNodeClassifier
+from autogl.datasets import utils, build_dataset_from_name
 from autogl.solver.utils import set_seed
 import logging
 
 logging.basicConfig(level=logging.ERROR)
+
+def fixed(**kwargs):
+    return [{
+        'parameterName': k,
+        "type": "FIXED",
+        "value": v
+    } for k, v in kwargs.items()]
 
 if __name__ == '__main__':
 
@@ -31,12 +37,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # seed = 100
-    dataset = Planetoid(os.path.expanduser('~/.cache-autogl'), args.dataset, transform=T.NormalizeFeatures())
-    data = dataset[0].to(args.device)
-    num_features = dataset.num_node_features
-    num_classes = dataset.num_classes
-    dataset = [data]
-
+    dataset = build_dataset_from_name('cora')
+    label = dataset[0].nodes.data['y'][dataset[0].nodes.data['test_mask']].numpy()
     accs = []
 
     for seed in tqdm(range(args.repeat)):
@@ -66,25 +68,24 @@ if __name__ == '__main__':
                 "act": "relu",
                 "agg": "mean",
             }
+        
+        solver = AutoNodeClassifier(
+            feature_module='NormalizeFeatures',
+            graph_models=(args.model,),
+            ensemble_module=None,
+            max_evals=1,
+            hpo_module='random',
+            trainer_hp_space=fixed(**{
+                "max_epoch": args.epoch,
+                "early_stopping_round": args.epoch + 1,
+                "lr": args.lr,
+                "weight_decay": args.weight_decay,
+            }),
+            model_hp_spaces=[fixed(**model_hp)]
+        )
 
-        trainer = NodeClassificationFullTrainer(
-            model=args.model,
-            num_features=num_features,
-            num_classes=num_classes,
-            device=args.device,
-            init=False,
-            feval=['acc'],
-            loss="nll_loss",
-        ).duplicate_from_hyper_parameter({
-            "max_epoch": args.epoch,
-            "early_stopping_round": args.epoch + 1,
-            "lr": args.lr,
-            "weight_decay": args.weight_decay,
-            **model_hp
-        })
-
-        trainer.train(dataset, False)
-        output = trainer.predict(dataset, 'test')
-        acc = (output == data.y[data.test_mask]).float().mean().item()
+        solver.fit(dataset)
+        output = solver.predict(dataset)
+        acc = (output == label).astype('float').mean()
         accs.append(acc)
     print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))

@@ -7,8 +7,6 @@ from tqdm import tqdm
 
 os.environ["AUTOGL_BACKEND"] = "pyg"
 
-import torch
-import torch.nn.functional as F
 from autogl.module.feature import NormalizeFeatures
 from autogl.module.train import NodeClassificationFullTrainer
 from autogl.datasets import utils, build_dataset_from_name
@@ -16,41 +14,6 @@ from autogl.solver.utils import set_seed
 import logging
 
 logging.basicConfig(level=logging.ERROR)
-
-def test(model, data, mask):
-    model.eval()
-
-    if hasattr(model, 'cls_forward'):
-        out = model.cls_forward(data)[mask]
-    else:
-        out = model(data)[mask]
-    pred = out.max(1)[1]
-    acc = pred.eq(data.y[mask]).sum().item() / mask.sum().item()
-    return acc
-
-def train(model, data, args):
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-
-    parameters = model.state_dict()
-    best_acc = 0.
-    for epoch in range(args.epoch):
-        model.train()
-        optimizer.zero_grad()
-        if hasattr(model, 'cls_forward'):
-            output = model.cls_forward(data)
-        else:
-            output = model(data)
-        loss = F.nll_loss(output[data.train_mask], data.y[data.train_mask])
-        loss.backward()
-        optimizer.step()
-
-        val_acc = test(model, data, data.val_mask)
-        if val_acc > best_acc:
-            best_acc = val_acc
-            parameters = model.state_dict()
-    
-    model.load_state_dict(parameters)
-    return model
 
 if __name__ == '__main__':
 
