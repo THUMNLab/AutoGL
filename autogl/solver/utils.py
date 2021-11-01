@@ -6,14 +6,23 @@ Utilities used by the solver
 
 import random
 import typing as _typing
+import torch
 import torch.backends.cudnn
 import numpy as np
 import pandas as pd
+from ..backend import DependentBackend
+from ..data import Dataset
+from ..data.graph import GeneralStaticGraph
 
 from ..utils import get_logger
-
 LOGGER = get_logger("LeaderBoard")
 
+BACKEND = DependentBackend.get_backend_name()
+
+if BACKEND == 'dgl':
+    from autogl.datasets.utils.conversion import general_static_graphs_to_dgl_dataset as convert_dataset
+else:
+    from autogl.datasets.utils.conversion import general_static_graphs_to_pyg_dataset as convert_dataset
 
 class LeaderBoard:
     """
@@ -175,6 +184,66 @@ class LeaderBoard:
             )
         )
 
+def get_graph_from_dataset(dataset, graph_id=0):
+    if isinstance(dataset, Dataset):
+        return dataset[graph_id]
+    if BACKEND == 'pyg': return dataset[graph_id]
+    return dataset.graph[graph_id]
+
+def get_graph_node_number(graph):
+    # FIXME: if the feature is None, this will throw an error
+    if isinstance(graph, GeneralStaticGraph):
+        if BACKEND == 'pyg':
+            return graph.nodes.data['x'].size(0)
+        return graph.nodes.data['feat'].size(0)
+    if BACKEND == 'pyg':
+        size = graph.x.shape[0]
+    else:
+        size = graph.num_nodes()
+    return size
+
+def get_graph_node_features(graph):
+    if isinstance(graph, GeneralStaticGraph):
+        if BACKEND == 'dgl' and 'feat' in graph.nodes.data:
+            return graph.nodes.data['feat']
+        if BACKEND == 'pyg' and 'x' in graph.nodes.data:
+            return graph.nodes.data['x']
+        return None
+    if BACKEND == 'pyg' and hasattr(graph, 'x'):
+        return graph.x
+    elif BACKEND == 'dgl' and 'feat' in graph.ndata:
+        return graph.ndata['feat']
+    return None
+
+def get_graph_masks(graph, mask='train'):
+    if isinstance(graph, GeneralStaticGraph):
+        if f'{mask}_mask' in graph.nodes.data:
+            return graph.nodes.data[f'{mask}_mask']
+        return None
+    if BACKEND == 'pyg' and hasattr(graph, f'{mask}_mask'):
+        return getattr(graph, f'{mask}_mask')
+    if BACKEND == 'dgl' and f'{mask}_mask' in graph.ndata:
+        return graph.ndata[f'{mask}_mask']
+    return None
+
+def get_graph_labels(graph):
+    if isinstance(graph, GeneralStaticGraph):
+        if 'label' in graph.nodes.data and BACKEND == 'dgl':
+            return graph.nodes.data['label']
+        if 'y' in graph.nodes.data and BACKEND == 'pyg':
+            return graph.nodes.data['y']
+        return None
+    if BACKEND == 'pyg' and hasattr(graph, 'y'): return graph.y
+    if BACKEND == 'dgl' and 'label' in graph.ndata: return graph.ndata['label']
+    return None
+
+def get_dataset_labels(dataset):
+    if isinstance(dataset, Dataset):
+        return torch.LongTensor([d.data['label' if BACKEND == 'dgl' else 'y'] for d in dataset])
+    if BACKEND == 'pyg':
+        return dataset.data.y
+    else:
+        return torch.LongTensor([d[1] for d in dataset])
 
 def set_seed(seed=None):
     """
