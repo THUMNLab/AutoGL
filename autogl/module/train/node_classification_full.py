@@ -191,7 +191,13 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         """
         data = data.to(self.device)
-        mask = data.train_mask if train_mask is None else train_mask
+        if train_mask is None:
+            if self.pyg_dgl == 'pyg':
+                mask = data.train_mask
+            elif self.pyg_dgl == 'dgl':
+                mask = data.ndata['train_mask']
+        else:
+            mask = train_mask
         optimizer = self.optimizer(
             self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
@@ -438,6 +444,9 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 mask = getattr(data, f'{mask}_mask')
             elif self.pyg_dgl == 'dgl':
                 mask = data.ndata[f'{mask}_mask']
+        
+        if self.pyg_dgl == 'pyg': label = data.y
+        elif self.pyg_dgl == 'dgl': label = data.ndata['label']
 
         if feval is None:
             feval = self.feval
@@ -446,7 +455,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         y_pred_prob = self.predict_proba(dataset, mask)
         
-        y_true = data.y[mask] if mask is not None else data.y
+        y_true = label[mask] if mask is not None else label
 
         if not isinstance(feval, list):
             feval = [feval]
