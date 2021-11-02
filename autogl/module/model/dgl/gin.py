@@ -205,7 +205,7 @@ class GIN(torch.nn.Module):
     #def forward(self, g, h):
     def forward(self, data):
         g, _ = data
-        h = g.ndata.pop('attr')
+        h = g.ndata.pop('feat')
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 

@@ -15,12 +15,13 @@ from ...module.feature import FEATURE_DICT
 from ...module.model import BaseModel, MODEL_DICT
 from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space
-from ..utils import LeaderBoard, set_seed
+from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features, convert_dataset
 from ...datasets import utils
-from ...utils import get_logger
+from ..utils import get_logger
+from ...backend import DependentBackend
 
 LOGGER = get_logger("GraphClassifier")
-
+BACKEND = DependentBackend.get_backend_name()
 
 class AutoGraphClassifier(BaseClassifier):
     """
@@ -239,7 +240,7 @@ class AutoGraphClassifier(BaseClassifier):
 
         Parameters
         ----------
-        dataset: torch_geometric.data.dataset.Dataset
+        dataset: autogl.data.dataset
             The multi-graph dataset needed to fit on.
 
         time_limit: int
@@ -276,6 +277,8 @@ class AutoGraphClassifier(BaseClassifier):
 
         set_seed(seed)
 
+        num_classes = max(get_dataset_labels(dataset)) + 1
+
         if time_limit < 0:
             time_limit = 3600 * 24
         time_begin = time.time()
@@ -285,8 +288,7 @@ class AutoGraphClassifier(BaseClassifier):
             if hasattr(dataset, "metric"):
                 evaluation_method = [dataset.metric]
             else:
-                num_of_label = dataset.num_classes
-                if num_of_label == 2:
+                if num_classes == 2:
                     evaluation_method = ["auc"]
                 else:
                     evaluation_method = ["acc"]
@@ -327,23 +329,31 @@ class AutoGraphClassifier(BaseClassifier):
             dataset = self.feature_module.transform(dataset, inplace=inplace)
 
         self.dataset = dataset
-        assert dataset[0].x is not None, (
+        
+        # check whether the dataset has features.
+        # currently we only support graph classification with features.
+        
+        feat = get_graph_node_features(get_graph_from_dataset(dataset))
+        assert feat is not None, (
             "Does not support fit on non node-feature dataset!"
             " Please add node features to dataset or specify feature engineers that generate"
             " node features."
         )
+        num_features = feat.size(-1)
 
         # initialize graph networks
         self._init_graph_module(
             self.gml,
-            num_features=dataset.num_node_features,
-            num_classes=dataset.num_classes,
+            # TODO: what should we use to get feature dimension?
+            num_features=num_features,
+            num_classes=num_classes,
             feval=evaluator_list,
             device=self.runtime_device,
             loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
-            num_graph_features=0
-            if not hasattr(dataset.data, "gf")
-            else dataset.data.gf.size(1),
+            num_graph_features=(0
+            if not hasattr(dataset[0], "gf")
+            else dataset[0].gf.size(1)) if BACKEND == 'pyg' else 
+            (0 if 'gf' not in dataset[0].data else dataset[0].data['gf'].size(1)),
         )
 
         # currently disabled
@@ -381,11 +391,11 @@ class AutoGraphClassifier(BaseClassifier):
                 )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(dataset, True)
+                model.train(convert_dataset(dataset), True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=dataset, time_limit=time_for_each_model
+                    trainer=model, dataset=convert_dataset(dataset), time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
@@ -410,7 +420,7 @@ class AutoGraphClassifier(BaseClassifier):
         if self.ensemble_module is not None:
             performance = self.ensemble_module.fit(
                 result_valid,
-                dataset.data.y[dataset.val_index].cpu().detach().numpy(),
+                get_dataset_labels(dataset)[dataset.val_index].cpu().numpy(),
                 names,
                 evaluator_list,
                 n_classes=dataset.num_classes,
@@ -519,7 +529,7 @@ class AutoGraphClassifier(BaseClassifier):
 
         Parameters
         ----------
-        dataset: torch_geometric.data.dataset.Dataset or None
+        dataset: autogl.data.Dataset or None
             The dataset needed to predict. If ``None``, will use the processed dataset
             passed to ``fit()`` instead. Default ``None``.
 
@@ -606,7 +616,7 @@ class AutoGraphClassifier(BaseClassifier):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
             self.trained_models[name]
-            .predict_proba(dataset, mask=mask)
+            .predict_proba(convert_dataset(dataset), mask=mask)
             .detach()
             .cpu()
             .numpy()
@@ -629,7 +639,7 @@ class AutoGraphClassifier(BaseClassifier):
 
         Parameters
         ----------
-        dataset: torch_geometric.data.dataset.Dataset or None
+        dataset: autogl.data.Dataset or None
             The dataset needed to predict. If ``None``, will use the processed dataset passed
             to ``fit()`` instead. Default ``None``.
 

@@ -4,7 +4,7 @@ Node classification Full Trainer Implementation
 
 from . import register_trainer
 
-from .base import BaseNodeClassificationTrainer, EarlyStopping, Evaluation
+from .base import BaseNodeClassificationTrainer, EarlyStopping
 import torch
 from torch.optim.lr_scheduler import (
     StepLR,
@@ -14,12 +14,13 @@ from torch.optim.lr_scheduler import (
 )
 import torch.nn.functional as F
 from ..model import MODEL_DICT, BaseModel
-from ..model.base import ClassificationSupportedSequentialModel
 from .evaluation import get_feval, Logloss
 from typing import Union
 from copy import deepcopy
 
 from ...utils import get_logger
+
+from ...backend import DependentBackend
 
 LOGGER = get_logger("node classification trainer")
 
@@ -115,6 +116,8 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         self.initialized = False
 
+        self.pyg_dgl = DependentBackend.get_backend_name()
+
         self.space = [
             {
                 "parameterName": "max_epoch",
@@ -188,7 +191,13 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         """
         data = data.to(self.device)
-        mask = data.train_mask if train_mask is None else train_mask
+        if train_mask is None:
+            if self.pyg_dgl == 'pyg':
+                mask = data.train_mask
+            elif self.pyg_dgl == 'dgl':
+                mask = data.ndata['train_mask']
+        else:
+            mask = train_mask
         optimizer = self.optimizer(
             self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
@@ -210,12 +219,15 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
             optimizer.zero_grad()
-            if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+            if hasattr(self.model.model, 'cls_forward'):
                 res = self.model.model.cls_forward(data)
             else:
                 res = self.model.model.forward(data)
             if hasattr(F, self.loss):
-                loss = getattr(F, self.loss)(res[mask], data.y[mask])
+                if self.pyg_dgl == 'pyg':
+                    loss = getattr(F, self.loss)(res[mask], data.y[mask])
+                elif self.pyg_dgl == 'dgl':
+                    loss = getattr(F, self.loss)(res[mask], data.ndata['label'][mask])
             else:
                 raise TypeError(
                     "PyTorch does not support loss type {}".format(self.loss)
@@ -226,22 +238,31 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             if self.lr_scheduler_type:
                 scheduler.step()
 
-            if hasattr(data, "val_mask") and data.val_mask is not None:
+            if self.pyg_dgl == 'pyg' and hasattr(data, "val_mask") and data.val_mask is not None:
+                val_mask = data.val_mask
+            elif self.pyg_dgl == 'dgl' and data.ndata.get('val_mask', None) is not None:
+                val_mask = data.ndata['val_mask']
+            else:
+                val_mask = None
+
+            if val_mask is not None:
                 if type(self.feval) is list:
                     feval = self.feval[0]
                 else:
                     feval = self.feval
-                val_loss = self.evaluate([data], mask=data.val_mask, feval=feval)
+                val_loss = self.evaluate([data], mask=val_mask, feval=feval)
                 if feval.is_higher_better() is True:
                     val_loss = -val_loss
+
                 self.early_stopping(val_loss, self.model.model)
                 if self.early_stopping.early_stop:
                     LOGGER.debug("Early stopping at %d", epoch)
                     break
+
         if hasattr(data, "val_mask") and data.val_mask is not None:
             self.early_stopping.load_checkpoint(self.model.model)
 
-    def predict_only(self, data, test_mask=None):
+    def predict_only(self, data, mask=None):
         """
         The function of predicting on the given dataset and mask.
 
@@ -255,15 +276,16 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         res: The result of predicting on the given dataset.
 
         """
-        try:
-            mask = data.test_mask if test_mask is None else test_mask
-        except:
-            mask = None
+        if isinstance(mask, str):
+            if self.pyg_dgl == 'pyg':
+                mask = getattr(data, f'{mask}_mask')
+            elif self.pyg_dgl == 'dgl':
+                mask = data.ndata[f'{mask}_mask']
 
         data = data.to(self.device)
         self.model.model.eval()
         with torch.no_grad():
-            if isinstance(self.model.model, ClassificationSupportedSequentialModel):
+            if hasattr(self.model.model, 'cls_forward'):
                 res = self.model.model.cls_forward(data)
             else:
                 res = self.model.model.forward(data)
@@ -273,7 +295,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         else:
             return res[mask]
 
-    def train(self, dataset, keep_valid_result=True):
+    def train(self, dataset, keep_valid_result=True, train_mask=None):
         """
         The function of training on the given dataset and keeping valid result.
 
@@ -284,6 +306,8 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         keep_valid_result: ``bool``
             If True(False), save the validation result after training.
 
+        train_mask: The mask for training data
+
         Returns
         -------
         self: ``autogl.train.NodeClassificationTrainer``
@@ -291,13 +315,20 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         """
         data = dataset[0]
-        self.train_only(data)
+        self.train_only(data, train_mask)
         if keep_valid_result:
-            self.valid_result = self.predict_only(data)[data.val_mask].max(1)[1]
-            self.valid_result_prob = self.predict_only(data)[data.val_mask]
+            if self.pyg_dgl == 'pyg':
+                val_mask = data.val_mask
+            elif self.pyg_dgl == 'dgl':
+                val_mask = data.ndata['val_mask']
+            else:
+                assert False
+            self.valid_result = self.predict_only(data)[val_mask].max(1)[1]
+            self.valid_result_prob = self.predict_only(data)[val_mask]
             self.valid_score = self.evaluate(
-                dataset, mask=data.val_mask, feval=self.feval
+                dataset, mask=val_mask, feval=self.feval
             )
+            # print(self.valid_score)
 
     def predict(self, dataset, mask=None):
         """
@@ -324,7 +355,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         ----------
         dataset: The node classification dataset used to be predicted.
 
-        mask: ``train``, ``val``, or ``test``.
+        mask: ``train``, ``val``, ``test``, or ``Tensor``.
             The dataset mask.
 
         in_log_format: ``bool``.
@@ -336,16 +367,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         """
         data = dataset[0]
         data = data.to(self.device)
-        if mask is not None:
-            if mask == "val":
-                mask = data.val_mask
-            elif mask == "test":
-                mask = data.test_mask
-            elif mask == "train":
-                mask = data.train_mask
-        else:
-            mask = data.test_mask
-        ret = self.predict_only(data, mask)[mask]
+        ret = self.predict_only(data, mask)
         if in_log_format is True:
             return ret
         else:
@@ -416,22 +438,24 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         """
         data = dataset[0]
         data = data.to(self.device)
-        test_mask = mask
+
+        if isinstance(mask, str):
+            if self.pyg_dgl == 'pyg':
+                mask = getattr(data, f'{mask}_mask')
+            elif self.pyg_dgl == 'dgl':
+                mask = data.ndata[f'{mask}_mask']
+        
+        if self.pyg_dgl == 'pyg': label = data.y
+        elif self.pyg_dgl == 'dgl': label = data.ndata['label']
+
         if feval is None:
             feval = self.feval
         else:
             feval = get_feval(feval)
-        if test_mask is None:
-            test_mask = data.test_mask
-        elif test_mask == "test":
-            test_mask = data.test_mask
-        elif test_mask == "val":
-            test_mask = data.val_mask
-        elif test_mask == "train":
-            test_mask = data.train_mask
+
         y_pred_prob = self.predict_proba(dataset, mask)
-        y_pred = y_pred_prob.max(1)[1]
-        y_true = data.y[test_mask]
+        
+        y_true = label[mask] if mask is not None else label
 
         if not isinstance(feval, list):
             feval = [feval]
