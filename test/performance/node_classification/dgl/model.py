@@ -1,66 +1,20 @@
 """
-Performance check of DGL model + trainer + dataset
+Performance check of AutoGL model + DGL (trainer + dataset)
 """
+import os
 import numpy as np
 from tqdm import tqdm
 
+os.environ["AUTOGL_BACKEND"] = "dgl"
+
 import torch
 import torch.nn.functional as F
-
 from dgl.data import CoraGraphDataset, PubmedGraphDataset, CiteseerGraphDataset
-from dgl.nn.pytorch import GraphConv, GATConv, SAGEConv
+from autogl.module.model.dgl import AutoGCN, AutoGAT, AutoSAGE
+from autogl.solver.utils import set_seed
 import logging
 
 logging.basicConfig(level=logging.ERROR)
-
-class GCN(torch.nn.Module):
-    def __init__(self, num_features, num_classes):
-        super(GCN, self).__init__()
-        self.conv1 = GraphConv(num_features, 16)
-        self.conv2 = GraphConv(16, num_classes)
-
-    def forward(self, graph):
-        features = graph.ndata['feat']
-        features = F.relu(self.conv1(graph, features))
-        features = F.dropout(features, training=self.training)
-        features = self.conv2(graph, features)
-        return F.log_softmax(features, dim=-1)
-
-class GAT(torch.nn.Module):
-    def __init__(self, num_features, num_classes):
-        super(GAT, self).__init__()
-        self.conv1 = GATConv(num_features, 8, 8, feat_drop=.6, attn_drop=.6, activation=F.relu)
-        self.conv2 = GATConv(8 * 8, num_classes, 8, feat_drop=.6, attn_drop=.6)
-
-    def forward(self, graph):
-        features = graph.ndata['feat']
-        features = self.conv1(graph, features).flatten(1)
-        features = self.conv2(graph, features).mean(1)
-        return F.log_softmax(features, dim=-1)
-
-class SAGE(torch.nn.Module):
-    def __init__(self, num_features, hidden_channels, num_layers, num_classes):
-        super(SAGE, self).__init__()
-        self.num_layers = num_layers
-        self.convs = torch.nn.ModuleList()
-        for i in range(num_layers):
-            inc = outc = hidden_channels
-            if i == 0:
-                inc = num_features
-            if i == num_layers - 1:
-                outc = num_classes
-            self.convs.append(SAGEConv(inc, outc, "gcn"))
-        self.dropout = torch.nn.Dropout()
-
-    def forward(self, graph):
-        h = graph.ndata['feat']
-        h = self.dropout(h)
-        for i, conv in enumerate(self.convs):
-            h = conv(graph, h)
-            if i != self.num_layers - 1:
-                h = h.relu()
-                h = self.dropout(h)
-        return F.log_softmax(h, dim=-1)
 
 def test(model, graph, mask, label):
     model.eval()
@@ -90,10 +44,11 @@ def train(model, graph, args, label, train_mask, val_mask):
     model.load_state_dict(parameters)
     return model
 
+
 if __name__ == '__main__':
 
     import argparse
-    parser = argparse.ArgumentParser('dgl')
+    parser = argparse.ArgumentParser('dgl model')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--dataset', type=str, choices=['Cora', 'CiteSeer', 'PubMed'], default='Cora')
     parser.add_argument('--repeat', type=int, default=50)
@@ -116,18 +71,52 @@ if __name__ == '__main__':
     train_mask = graph.ndata['train_mask']
     val_mask = graph.ndata['val_mask']
     test_mask = graph.ndata['test_mask']
+    num_features = graph.ndata['feat'].size(1)
+    num_classes = dataset.num_classes
     accs = []
 
     for seed in tqdm(range(args.repeat)):
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+        set_seed(seed)
 
         if args.model == 'gat':
-            model = GAT(graph.ndata['feat'].size(1), dataset.num_classes)
+            model = AutoGAT(
+                num_features=num_features,
+                num_classes=num_classes,
+                device=args.device,
+                init=False
+            ).from_hyper_parameter({
+                # hp from model
+                "num_layers": 2,
+                "hidden": [8],
+                "heads": 8,
+                "dropout": 0.6,
+                "act": "elu",
+            }).model
         elif args.model == 'gcn':
-            model = GCN(graph.ndata['feat'].size(1), dataset.num_classes)
+            model = AutoGCN(
+                num_features=num_features,
+                num_classes=num_classes,
+                device=args.device,
+                init=False
+            ).from_hyper_parameter({
+                "num_layers": 2,
+                "hidden": [16],
+                "dropout": 0.5,
+                "act": "relu"
+            }).model
         elif args.model == 'sage':
-            model = SAGE(graph.ndata['feat'].size(1), 64, 2, dataset.num_classes)
+            model = AutoSAGE(
+                num_features=num_features,
+                num_classes=num_classes,
+                device=args.device,
+                init=False
+            ).from_hyper_parameter({
+                "num_layers": 2,
+                "hidden": [64],
+                "dropout": 0.5,
+                "act": "relu",
+                "agg": "mean",
+            }).model
         
         model.to(args.device)
 
