@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GATConv
+from dgl.nn.pytorch.conv import GATConv
 from . import register_model
 from .base import BaseModel, activate_func
 from ....utils import get_logger
@@ -45,8 +45,8 @@ class GAT(torch.nn.Module):
             GATConv(
                 self.args["features_num"],
                 self.args["hidden"][0],
-                heads=self.args["heads"],
-                dropout=self.args["dropout"],
+                num_heads =self.args["heads"],
+                attn_drop=self.args["dropout"],
             )
         )
         last_dim = self.args["hidden"][0] * self.args["heads"]
@@ -55,8 +55,8 @@ class GAT(torch.nn.Module):
                 GATConv(
                     last_dim,
                     self.args["hidden"][i + 1],
-                    heads=self.args["heads"],
-                    dropout=self.args["dropout"],
+                    num_heads=self.args["heads"],
+                    attn_drop=self.args["dropout"],
                 )
             )
             last_dim = self.args["hidden"][i + 1] * self.args["heads"]
@@ -64,41 +64,30 @@ class GAT(torch.nn.Module):
             GATConv(
                 last_dim,
                 self.args["num_class"],
-                heads=1,
-                concat=False,
-                dropout=self.args["dropout"],
+                num_heads=1,
+                attn_drop=self.args["dropout"],
             )
         )
 
     def forward(self, data):
         try:
-            x = data.x
+            x = data.ndata['feat']
         except:
             print("no x")
             pass
-        try:
-            edge_index = data.edge_index
-        except:
-            print("no index")
-            pass
-        try:
-            edge_weight = data.edge_weight
-        except:
-            edge_weight = None
-            pass
-
+        
         for i in range(self.num_layer):
             x = F.dropout(x, p=self.args["dropout"], training=self.training)
-            x = self.convs[i](x, edge_index, edge_weight)
+            x = self.convs[i](data, x).flatten(1)
             if i != self.num_layer - 1:
                 x = activate_func(x, self.args["act"])
 
         return F.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        x = data.x
+        x = data.ndata['feat']
         for i in range(self.num_layer - 1):
-            x = self.convs[i](x, data.train_pos_edge_index)
+            x = self.convs[i](x, data.train_pos_edge_index).flatten(1)
             if i != self.num_layer - 2:
                 x = activate_func(x, self.args["act"])
                 # x = F.dropout(x, p=self.args["dropout"], training=self.training)
@@ -161,6 +150,7 @@ class AutoGAT(BaseModel):
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
+        self.init = True
 
         self.params = {
             "features_num": self.num_features,
