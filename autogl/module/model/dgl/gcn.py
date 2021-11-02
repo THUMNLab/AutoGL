@@ -1,6 +1,7 @@
 import torch
-import torch.nn.functional
-import typing as _typing
+import torch.nn.functional as F
+from typing import Sequence, Optional, Union, Tuple
+from numbers import Real
 
 from dgl.nn.pytorch.conv import GraphConv
 from dgl import remove_self_loop, add_self_loop
@@ -21,8 +22,8 @@ class GCN(ClassificationSupportedSequentialModel):
             output_channels: int,
             add_self_loops: bool = True,
             normalize: bool = True,
-            activation_name: _typing.Optional[str] = ...,
-            dropout_probability: _typing.Optional[float] = ...,
+            activation_name: Optional[str] = None,
+            dropout_probability: Optional[Real] = None,
         ):
             super().__init__()
             self._convolution: GraphConv = GraphConv(
@@ -31,28 +32,18 @@ class GCN(ClassificationSupportedSequentialModel):
                 norm='both' if normalize else 'none',
             )
             self.add_self_loops = bool(add_self_loops),
-            if (
-                activation_name is not Ellipsis
-                and activation_name is not None
-                and type(activation_name) == str
-            ):
-                self._activation_name: _typing.Optional[str] = activation_name
+            if isinstance(activation_name, str):
+                self._activation_name = activation_name
             else:
-                self._activation_name: _typing.Optional[str] = None
-            if (
-                dropout_probability is not Ellipsis
-                and dropout_probability is not None
-                and type(dropout_probability) == float
-            ):
+                self._activation_name = None
+            if isinstance(dropout_probability, Real):
                 if dropout_probability < 0:
                     dropout_probability = 0
                 if dropout_probability > 1:
                     dropout_probability = 1
-                self._dropout: _typing.Optional[torch.nn.Dropout] = torch.nn.Dropout(
-                    dropout_probability
-                )
+                self._dropout = torch.nn.Dropout(dropout_probability)
             else:
-                self._dropout: _typing.Optional[torch.nn.Dropout] = None
+                self._dropout = None
 
         def forward(self, data, x, enable_activation: bool = True) -> torch.Tensor:
             
@@ -71,37 +62,35 @@ class GCN(ClassificationSupportedSequentialModel):
         self,
         num_features: int,
         num_classes: int,
-        hidden_features: _typing.Sequence[int],
+        hidden_features: Sequence[int],
         activation_name: str,
-        dropout: _typing.Union[
-            _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
-        ] = None,
+        dropout: Union[Real, Sequence[Optional[Real]], None] = None,
         add_self_loops: bool = True,
         normalize: bool = True,
     ):
-        if isinstance(dropout, _typing.Sequence):
+        if isinstance(dropout, Sequence):
             if len(dropout) != len(hidden_features) + 1:
                 raise TypeError(
                     "When the dropout argument is a sequence, "
                     "The sequence length must equal to the number of layers to construct."
                 )
             for _dropout in dropout:
-                if _dropout is not None and type(_dropout) != float:
+                if _dropout is not None and not isinstance(_dropout, Real):
                     raise TypeError(
                         "When the dropout argument is a sequence, "
                         "every item in the sequence must be float or None"
                     )
-            dropout_list: _typing.Sequence[_typing.Optional[float]] = dropout
-        elif type(dropout) == float:
+            dropout_list: Sequence[Optional[Real]] = dropout
+        elif isinstance(dropout, Real):
             if dropout < 0:
                 dropout = 0
             if dropout > 1:
                 dropout = 1
-            dropout_list: _typing.Sequence[_typing.Optional[float]] = [
+            dropout_list: Sequence[Real] = [
                 dropout for _ in range(len(hidden_features))
             ] + [None]
-        elif dropout in (None, Ellipsis, ...):
-            dropout_list: _typing.Sequence[_typing.Optional[float]] = [
+        elif dropout is None:
+            dropout_list: Sequence[None] = [
                 None for _ in range(len(hidden_features) + 1)
             ]
         else:
@@ -125,9 +114,7 @@ class GCN(ClassificationSupportedSequentialModel):
                 )
             )
         else:
-            self.__sequential_encoding_layers: torch.nn.ModuleList = (
-                torch.nn.ModuleList()
-            )
+            self.__sequential_encoding_layers = torch.nn.ModuleList()
             self.__sequential_encoding_layers.append(
                 self._GCNLayer(
                     num_features,
@@ -138,6 +125,7 @@ class GCN(ClassificationSupportedSequentialModel):
                     dropout_list[0],
                 )
             )
+
             for hidden_feature_index in range(len(hidden_features)):
                 if hidden_feature_index + 1 < len(hidden_features):
                     self.__sequential_encoding_layers.append(
@@ -167,28 +155,26 @@ class GCN(ClassificationSupportedSequentialModel):
 
     def __extract_edge_indexes_and_weights(
         self, data
-    ) -> _typing.Union[
-        _typing.Sequence[
-            _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
-        ],
-        _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]],
+    ) -> Union[
+        Sequence[Tuple[torch.LongTensor, Optional[torch.Tensor]]],
+        Tuple[torch.LongTensor, Optional[torch.Tensor]],
     ]:
         def __compose_edge_index_and_weight(
             _edge_index: torch.LongTensor,
-            _edge_weight: _typing.Optional[torch.Tensor] = None,
-        ) -> _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]:
+            _edge_weight: Optional[torch.Tensor] = None,
+        ) -> Tuple[torch.LongTensor, Optional[torch.Tensor]]:
             if type(_edge_index) != torch.Tensor or _edge_index.dtype != torch.int64:
                 raise TypeError
             if _edge_weight is not None and (
                 type(_edge_weight) != torch.Tensor
                 or _edge_index.size() != (2, _edge_weight.size(0))
             ):
-                _edge_weight: _typing.Optional[torch.Tensor] = None
+                _edge_weight: Optional[torch.Tensor] = None
             return _edge_index, _edge_weight
 
         if not (
             hasattr(data, "edge_indexes")
-            and isinstance(getattr(data, "edge_indexes"), _typing.Sequence)
+            and isinstance(getattr(data, "edge_indexes"), Sequence)
             and len(getattr(data, "edge_indexes"))
             == len(self.__sequential_encoding_layers)
         ):
@@ -205,7 +191,7 @@ class GCN(ClassificationSupportedSequentialModel):
 
         if (
             data.edata.has_key('edge_weights')
-            and isinstance(data.edata['edge_weights'], _typing.Sequence)
+            and isinstance(data.edata['edge_weights'], Sequence)
             and len(data.edata.has_key('edge_weights'))
             == len(self.__sequential_encoding_layers)
         ):
@@ -225,14 +211,14 @@ class GCN(ClassificationSupportedSequentialModel):
         x = data.ndata['feat']
         for gcn in self.__sequential_encoding_layers:
             x = gcn(data,x)
-        return x
+        return F.log_softmax(x, dim=-1)
 
     def cls_encode(self, data) -> torch.Tensor:
-        edge_indexes_and_weights: _typing.Union[
-            _typing.Sequence[
-                _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
-            ],
-            _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]],
+        return self(data)
+        
+        edge_indexes_and_weights: Union[
+            Sequence[Tuple[torch.LongTensor, Optional[torch.Tensor]]],
+            Tuple[torch.LongTensor, Optional[torch.Tensor]],
         ] = self.__extract_edge_indexes_and_weights(data)
 
         if (not isinstance(edge_indexes_and_weights, tuple)) and isinstance(
@@ -319,9 +305,9 @@ class AutoGCN(BaseModel):
 
     def __init__(
         self,
-        num_features: int = ...,
-        num_classes: int = ...,
-        device: _typing.Union[str, torch.device] = ...,
+        num_features: Optional[int] = None,
+        num_classes: Optional[int] = None,
+        device: Union[str, torch.device] = 'cpu',
         init: bool = False,
         **kwargs
     ) -> None:
