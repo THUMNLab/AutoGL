@@ -12,7 +12,7 @@ from .autone_file import utils
 
 from torch_geometric.data import GraphSAINTRandomWalkSampler
 
-from ..feature.graph import SgNetLSD
+from ..feature import NetLSD as SgNetLSD
 
 from torch_geometric.data import InMemoryDataset
 
