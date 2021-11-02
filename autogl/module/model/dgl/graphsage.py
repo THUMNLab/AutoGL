@@ -151,6 +151,8 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
         return self.__sequential_encoding_layers
 
     def cls_encode(self, data) -> torch.Tensor:
+        return self(data)
+
         # if (
         #     hasattr(data, "edge_indexes")
         #     and isinstance(getattr(data, "edge_indexes"), _typing.Sequence)
