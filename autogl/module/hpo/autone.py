@@ -84,8 +84,8 @@ class AutoNE(BaseHPOptimizer):
             # find data with different labels
             # random walk
             start = [random.randint(0, data.num_nodes - 1) for i in range(self.subgraphs)]
-            traces, _  = dgl.sampling.random_walk_with_restart(data, start, length=self.sample_batch_size, restart_prob= 1 / self.sample_walk_length))
-            subgraphs = dgl.node_subgraph(data, traces[i, :] for i in traces.size(0))
+            traces, _  = dgl.sampling.random_walk_with_restart(data, start, length=self.sample_batch_size, restart_prob= 1 / self.sample_walk_length)
+            subgraphs = dgl.node_subgraph(data, [traces[i, :] for i in traces.size(0)])
             return subgraphs
 
         func = SgNetLSD()
