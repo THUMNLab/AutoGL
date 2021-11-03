@@ -7,7 +7,6 @@ import json
 from copy import deepcopy
 
 import torch
-import torch.nn.functional as F
 import numpy as np
 import yaml
 
@@ -20,14 +19,11 @@ from ...module.train import get_feval
 from ...module.nas.space import NAS_SPACE_DICT
 from ...module.nas.algorithm import NAS_ALGO_DICT
 from ...module.nas.estimator import NAS_ESTIMATOR_DICT, BaseEstimator
-from ..utils import LeaderBoard, set_seed
+from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_labels, get_graph_masks, get_graph_node_features, get_graph_node_number, set_seed, convert_dataset
 from ...datasets import utils
 from ...utils import get_logger
 
-from torch_geometric.nn import GATConv, GCNConv
-
 LOGGER = get_logger("NodeClassifier")
-
 
 class AutoNodeClassifier(BaseClassifier):
     """
@@ -241,7 +237,7 @@ class AutoNodeClassifier(BaseClassifier):
 
         Parameters
         ----------
-        dataset: torch_geometric.data.dataset.Dataset
+        dataset: autogl.data.Dataset
             The dataset needed to fit on. This dataset must have only one graph.
 
         time_limit: int
@@ -286,12 +282,16 @@ class AutoNodeClassifier(BaseClassifier):
             time_limit = 3600 * 24
         time_begin = time.time()
 
+        graph_data = get_graph_from_dataset(dataset, 0)
+        all_labels = get_graph_labels(graph_data)
+        num_classes = all_labels.max().item() + 1
+
         # initialize leaderboard
         if evaluation_method == "infer":
             if hasattr(dataset, "metric"):
                 evaluation_method = [dataset.metric]
             else:
-                num_of_label = dataset.num_classes
+                num_of_label = num_classes
                 if num_of_label == 2:
                     evaluation_method = ["auc"]
                 else:
@@ -304,9 +304,10 @@ class AutoNodeClassifier(BaseClassifier):
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
 
+
         # set up the dataset
         if train_split is not None and val_split is not None:
-            size = dataset.data.x.shape[0]
+            size = get_graph_node_number(graph_data)
             if balanced:
                 train_split = (
                     train_split if train_split > 1 else int(train_split * size)
@@ -314,8 +315,8 @@ class AutoNodeClassifier(BaseClassifier):
                 val_split = val_split if val_split > 1 else int(val_split * size)
                 utils.random_splits_mask_class(
                     dataset,
-                    num_train_per_class=train_split // dataset.num_classes,
-                    num_val_per_class=val_split // dataset.num_classes,
+                    num_train_per_class=train_split // num_classes,
+                    num_val_per_class=val_split // num_classes,
                     seed=seed,
                 )
             else:
@@ -325,9 +326,7 @@ class AutoNodeClassifier(BaseClassifier):
                     dataset, train_ratio=train_split, val_ratio=val_split
                 )
         else:
-            assert hasattr(dataset.data, "train_mask") and hasattr(
-                dataset.data, "val_mask"
-            ), (
+            assert get_graph_masks(graph_data, 'train') is not None and get_graph_masks(graph_data, 'val') is not None, (
                 "The dataset has no default train/val split! Please manually pass "
                 "train and val ratio."
             )
@@ -338,27 +337,34 @@ class AutoNodeClassifier(BaseClassifier):
             dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
 
         self.dataset = dataset
-        assert self.dataset[0].x is not None, (
+
+        # check whether the dataset has features.
+        # currently we only support graph classification with features.
+
+        feat = get_graph_node_features(graph_data)
+        assert feat is not None, (
             "Does not support fit on non node-feature dataset!"
             " Please add node features to dataset or specify feature engineers that generate"
             " node features."
         )
 
+        num_features = feat.size(-1)
+
         # initialize graph networks
         self._init_graph_module(
             self.gml,
-            num_features=self.dataset[0].x.shape[1],
-            num_classes=dataset.num_classes,
+            num_features=num_features,
+            num_classes=num_classes,
             feval=evaluator_list,
             device=self.runtime_device,
-            loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
+            loss="nll_loss" if not hasattr(dataset, "loss") else self.dataset.loss,
         )
 
         if self.nas_algorithms is not None:
             # perform neural architecture search
             self._init_nas_module(
-                num_features=self.dataset[0].x.shape[1],
-                num_classes=self.dataset.num_classes,
+                num_features=num_features,
+                num_classes=num_classes,
                 feval=evaluator_list,
                 device=self.runtime_device,
                 loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
@@ -375,7 +381,7 @@ class AutoNodeClassifier(BaseClassifier):
             for algo, space, estimator in zip(
                 self.nas_algorithms, self.nas_spaces, self.nas_estimators
             ):
-                model = algo.search(space, self.dataset, estimator)
+                model = algo.search(space, convert_dataset(self.dataset), estimator)
                 # insert model into default trainer
                 if isinstance(self._default_trainer, list):
                     train_name = self._default_trainer[idx_trainer]
@@ -385,8 +391,8 @@ class AutoNodeClassifier(BaseClassifier):
                 if isinstance(train_name, str):
                     trainer = TRAINER_DICT[train_name](
                         model=model,
-                        num_features=self.dataset[0].x.shape[1],
-                        num_classes=self.dataset.num_classes,
+                        num_features=num_features,
+                        num_classes=num_classes,
                         loss="nll_loss"
                         if not hasattr(dataset, "loss")
                         else dataset.loss,
@@ -398,8 +404,8 @@ class AutoNodeClassifier(BaseClassifier):
                     trainer = train_name
                     trainer.model = model
                     trainer.update_parameters(
-                        num_classes=self.dataset.num_classes,
-                        num_features=self.dataset[0].x.shape[1],
+                        num_features=num_features,
+                        num_classes=num_classes,
                         loss="nll_loss"
                         if not hasattr(dataset, "loss")
                         else dataset.loss,
@@ -417,11 +423,11 @@ class AutoNodeClassifier(BaseClassifier):
             )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(self.dataset, True)
+                model.train(convert_dataset(self.dataset), True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model
+                    trainer=model, dataset=convert_dataset(self.dataset), time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
@@ -444,10 +450,10 @@ class AutoNodeClassifier(BaseClassifier):
         if self.ensemble_module is not None:
             performance = self.ensemble_module.fit(
                 result_valid,
-                self.dataset[0].y[self.dataset[0].val_mask].cpu().numpy(),
+                all_labels[get_graph_masks(graph_data, 'val')].cpu().numpy(),
                 names,
                 evaluator_list,
-                n_classes=dataset.num_classes,
+                n_classes=num_classes,
             )
             self.leaderboard.insert_model_performance(
                 "ensemble",
@@ -644,7 +650,7 @@ class AutoNodeClassifier(BaseClassifier):
     def _predict_proba_by_name(self, dataset, name, mask="test"):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
-            self.trained_models[name].predict_proba(dataset, mask=mask).cpu().numpy()
+            self.trained_models[name].predict_proba(convert_dataset(dataset), mask=mask).cpu().numpy()
         )
         self.trained_models[name].to(torch.device("cpu"))
         return predicted
