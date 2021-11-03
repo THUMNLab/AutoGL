@@ -39,8 +39,8 @@ class GraphSAGE(torch.nn.Module):
         if not self.num_layer == len(self.args["hidden"]) + 1:
             LOGGER.warn("Warning: layer size does not match the length of hidden units")
         
-        if self.args["agg"] not in ("add", "max", "mean"):
-            self.args["agg"] = "mean"
+        if self.args["agg"] not in ("gcn", "pool", "mean", "lstm"):
+            self.args["agg"] = "gcn"
         
         self.convs = torch.nn.ModuleList()
         self.convs.append(
