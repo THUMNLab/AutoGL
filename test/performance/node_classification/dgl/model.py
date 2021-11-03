@@ -4,7 +4,7 @@ Performance check of AutoGL model + DGL (trainer + dataset)
 import os
 import numpy as np
 from tqdm import tqdm
-
+import dgl
 os.environ["AUTOGL_BACKEND"] = "dgl"
 import sys
 sys.path.append("../../../../")
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser('dgl model')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--dataset', type=str, choices=['Cora', 'CiteSeer', 'PubMed'], default='Cora')
-    parser.add_argument('--repeat', type=int, default=50)
+    parser.add_argument('--repeat', type=int, default=1)
     parser.add_argument('--model', type=str, choices=['gat', 'gcn', 'sage'], default='gat')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.0)
@@ -69,6 +69,10 @@ if __name__ == '__main__':
     elif args.dataset == 'PubMed':
         dataset = PubmedGraphDataset()
     graph = dataset[0].to(args.device)
+
+    graph = dgl.remove_self_loop(graph)
+    graph = dgl.add_self_loop(graph)
+
     label = graph.ndata['label']
     train_mask = graph.ndata['train_mask']
     val_mask = graph.ndata['val_mask']
