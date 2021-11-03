@@ -193,13 +193,6 @@ class AutoGCN(BaseModel):
         ]
 
         # initial point of hp search
-        # self.hyperparams = {
-        #     "num_layers": 2,
-        #     "hidden": [16],
-        #     "dropout": 0.2,
-        #     "act": "leaky_relu",
-        # }
-
         self.hyperparams = {
             "num_layers": 3,
             "hidden": [128, 64],
@@ -215,12 +208,4 @@ class AutoGCN(BaseModel):
         if self.initialized:
             return
         self.initialized = True
-        self.model = GCN(
-            self.num_features,
-            self.num_classes,
-            self.hyperparams.get("hidden"),
-            self.hyperparams.get("act"),
-            self.hyperparams.get("dropout", None),
-            bool(self.hyperparams.get("add_self_loops", True)),
-            bool(self.hyperparams.get("normalize", True)),
-        ).to(self.device)
+        self.model = GCN({**self.params, **self.hyperparams}).to(self.device)

@@ -15,7 +15,7 @@ LOGGER = get_logger("SAGEModel")
 class GraphSAGE(torch.nn.Module):
 
     def __init__(self, args):
-        super(GraphSAGE).__init__()
+        super(GraphSAGE, self).__init__()
         self.args = args
         self.num_layer = int(self.args["num_layers"])
 
@@ -90,7 +90,7 @@ class GraphSAGE(torch.nn.Module):
         except:
             print("no x")
             pass
-        
+
         for i in range(self.num_layer):
             x = self.convs[i](data, x)
             if i != self.num_layer - 1:
@@ -137,7 +137,6 @@ class AutoSAGE(BaseModel):
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
-        self.init = True
 
         self.params = {
             "features_num": self.num_features,
@@ -195,11 +194,12 @@ class AutoSAGE(BaseModel):
         if self.initialized:
             return
         self.initialized = True
-        self.model = GraphSAGE(
-            self.num_features,
-            self.num_classes,
-            self.hyperparams.get("hidden"),
-            self.hyperparams.get("act", "relu"),
-            self.hyperparams.get("dropout", None),
-            self.hyperparams.get("agg", "mean"),
-        ).to(self.device)
+        # self.model = GraphSAGE(
+        #     self.num_features,
+        #     self.num_classes,
+        #     self.hyperparams.get("hidden"),
+        #     self.hyperparams.get("act", "relu"),
+        #     self.hyperparams.get("dropout", None),
+        #     self.hyperparams.get("agg", "mean"),
+        # ).to(self.device)
+        self.model = GraphSAGE({**self.params, **self.hyperparams}).to(self.device)
