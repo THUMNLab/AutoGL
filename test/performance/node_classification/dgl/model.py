@@ -89,6 +89,7 @@ if __name__ == '__main__':
                 "num_layers": 2,
                 "hidden": [8],
                 "heads": 8,
+                "feat_drop": 0.6,
                 "dropout": 0.6,
                 "act": "elu",
             }).model

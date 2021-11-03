@@ -5,6 +5,7 @@ from . import register_model
 from .base import BaseModel, activate_func
 from ....utils import get_logger
 
+
 LOGGER = get_logger("GATModel")
 
 
@@ -41,11 +42,14 @@ class GAT(torch.nn.Module):
         if not self.num_layer == len(self.args["hidden"]) + 1:
             LOGGER.warn("Warning: layer size does not match the length of hidden units")
         self.convs = torch.nn.ModuleList()
+
+        
         self.convs.append(
             GATConv(
                 self.args["features_num"],
                 self.args["hidden"][0],
                 num_heads =self.args["heads"],
+                feat_drop=self.args.get("feat_drop", self.args["dropout"]),
                 attn_drop=self.args["dropout"],
             )
         )
@@ -56,6 +60,7 @@ class GAT(torch.nn.Module):
                     last_dim,
                     self.args["hidden"][i + 1],
                     num_heads=self.args["heads"],
+                    feat_drop=self.args.get("feat_drop", self.args["dropout"]),
                     attn_drop=self.args["dropout"],
                 )
             )
@@ -65,6 +70,7 @@ class GAT(torch.nn.Module):
                 last_dim,
                 self.args["num_class"],
                 num_heads=1,
+                feat_drop=self.args.get("feat_drop", self.args["dropout"]),
                 attn_drop=self.args["dropout"],
             )
         )
@@ -77,7 +83,6 @@ class GAT(torch.nn.Module):
             pass
         
         for i in range(self.num_layer):
-            x = F.dropout(x, p=self.args["dropout"], training=self.training)
             x = self.convs[i](data, x).flatten(1)
             if i != self.num_layer - 1:
                 x = activate_func(x, self.args["act"])
@@ -87,10 +92,10 @@ class GAT(torch.nn.Module):
     def lp_encode(self, data):
         x = data.ndata['feat']
         for i in range(self.num_layer - 1):
-            x = self.convs[i](x, data.train_pos_edge_index).flatten(1)
+            x = self.convs[i](data).flatten(1)
             if i != self.num_layer - 2:
                 x = activate_func(x, self.args["act"])
-                # x = F.dropout(x, p=self.args["dropout"], training=self.training)
+                
         return x
 
     def lp_decode(self, z, pos_edge_index, neg_edge_index):
