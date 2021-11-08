@@ -17,8 +17,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from autogl.module.model.ginparser import Parser
-from autogl.module.model.dataloader_gin import GINDataLoader
+from autogl.module.model.utils.ginparser import Parser
+from autogl.module.model.utils.dataloader_gin import GINDataLoader
 from autogl.module.model import AutoTopkpool
 
 from pdb import set_trace

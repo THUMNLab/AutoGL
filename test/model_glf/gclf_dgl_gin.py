@@ -17,8 +17,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from autogl.module.model.ginparser import Parser
-from autogl.module.model.dataloader_gin import GINDataLoader
+from autogl.module.model.utils.ginparser import Parser
+from autogl.module.model.utils.dataloader_gin import GINDataLoader
 from autogl.module.model import AutoGIN
 
 from pdb import set_trace
@@ -44,7 +44,6 @@ def train(args, net, trainloader, optimizer, criterion, epoch):
         #feat = graphs.ndata.pop('attr')
         #outputs = net(graphs, feat)
         outputs = net(data)
-
         loss = criterion(outputs, labels)
         running_loss += loss.item()
 

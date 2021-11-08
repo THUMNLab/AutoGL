@@ -260,11 +260,20 @@ class AutoTopkpool(BaseModel):
         }
         self.space = [
             {
-                "parameterName": "ratio",
-                "type": "DOUBLE",
-                "maxValue": 0.9,
-                "minValue": 0.1,
-                "scalingType": "LINEAR",
+                "parameterName": "num_layers",
+                "type": "DISCRETE",
+                "feasiblePoints": "4,5,6",
+            },
+            {
+                "parameterName": "hidden",
+                "type": "NUMERICAL_LIST",
+                "numericalType": "INTEGER",
+                "length": 5,
+                "minValue": [8, 8, 8, 8, 8],
+                "maxValue": [64, 64, 64, 64, 64],
+                "scalingType": "LOG",
+                "cutPara": ("num_layers",),
+                "cutFunc": lambda x: x[0] - 1,
             },
             {
                 "parameterName": "dropout",
@@ -278,12 +287,16 @@ class AutoTopkpool(BaseModel):
                 "type": "CATEGORICAL",
                 "feasiblePoints": ["leaky_relu", "relu", "elu", "tanh"],
             },
+            {
+                "parameterName": "mlp_layers",
+                "type": "DISCRETE",
+                "feasiblePoints": "2,3,4",
+            },
         ]
 
-        #self.hyperparams = {"ratio": 0.8, "dropout": 0.5, "act": "relu"}
         self.hyperparams = {
             "num_layers": 5,
-            "hidden": [64],
+            "hidden": [64,64,64,64],
             "dropout": 0.5,
             "act": "relu",
             "mlp_layers": 2
