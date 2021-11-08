@@ -3,6 +3,8 @@ Test file for nas on node classification
 
 AUTOGL_BACKEND=pyg python test/nas/node_classification.py
 AUTOGL_BACKEND=dgl python test/nas/node_classification.py
+
+TODO: make it a unit test file to test all the possible combinations
 """
 
 import os
