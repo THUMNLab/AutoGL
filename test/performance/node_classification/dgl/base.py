@@ -30,7 +30,7 @@ class GAT(torch.nn.Module):
     def __init__(self, num_features, num_classes):
         super(GAT, self).__init__()
         self.conv1 = GATConv(num_features, 8, 8, feat_drop=.6, attn_drop=.6, activation=F.relu)
-        self.conv2 = GATConv(8 * 8, num_classes, 8, feat_drop=.6, attn_drop=.6)
+        self.conv2 = GATConv(8 * 8, num_classes, 1, feat_drop=.6, attn_drop=.6)
 
     def forward(self, graph):
         features = graph.ndata['feat']
