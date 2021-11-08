@@ -5,7 +5,7 @@ logging.basicConfig(level=logging.INFO)
 
 sys.path.append("../../")
 print(os.getcwd())
-os.environ["AUTOGL_BACKEND"] = "pyg"
+os.environ["AUTOGL_BACKEND"] = "dgl"
 from autogl.backend import DependentBackend
 import dgl
 from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset
@@ -17,12 +17,15 @@ from autogl.module.nas.space.graph_nas_macro import GraphNasMacroNodeClassificat
 from autogl.module.nas.estimator.one_shot import OneShotEstimator
 from autogl.module.nas.estimator.train_scratch import TrainEstimator
 from autogl.module.nas.backend import bk_feat, bk_label
-from autogl.module.nas.algorithm import Darts,RL,GraphNasRL,Enas,RandomSearch
+from autogl.module.nas.algorithm import Darts,RL,GraphNasRL,Enas,RandomSearch,Spos
 from pdb import set_trace
 import numpy as np
 from autogl.datasets import build_dataset_from_name
 from autogl.solver.utils import set_seed
 set_seed(202106)
+
+import nni.retiarii.strategy as strategy
+
 
 if __name__ == '__main__':
     isdgl=DependentBackend.is_dgl()
@@ -30,6 +33,20 @@ if __name__ == '__main__':
     data = CoraGraphDataset()
     di=bk_feat(data[0]).shape[1]
     do=len(np.unique(bk_label(data[0])))
+
+    print("evolutionary + singlepath ")
+    space=SinglePathNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di,output_dim=do)
+    esti=OneShotEstimator()
+    algo=Spos(cycles=200)
+    algo.search(space,data,esti)
+
+    print("evolutionary + graphnas ")
+    space=GraphNasNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di,output_dim=do)
+    esti=OneShotEstimator()
+    algo=Spos(cycles=200)
+    algo.search(space,data,esti)
 
     print("Random search + graphnas ")
     space=GraphNasNodeClassificationSpace().cuda()
