@@ -1,20 +1,20 @@
 ensemble:
   name: null
 feature:
-- name: PYGNormalizeFeatures
+- name: NormalizeFeatures
 hpo:
   max_evals: 10
   name: random
 nas:
   space:
-    name: graphnas
+    name: singlepath
     hidden_dim: 64
     layer_number: 2
   algorithm:
-    name: rl
+    name: enas
     num_epochs: 200
   estimator:
-    name: scratch_hardware
+    name: oneshot
 models: []
 trainer:
   hp_space:
