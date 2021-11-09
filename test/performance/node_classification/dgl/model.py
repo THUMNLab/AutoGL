@@ -4,8 +4,10 @@ Performance check of AutoGL model + DGL (trainer + dataset)
 import os
 import numpy as np
 from tqdm import tqdm
-
+import dgl
 os.environ["AUTOGL_BACKEND"] = "dgl"
+import sys
+sys.path.append("../../../../")
 
 import torch
 import torch.nn.functional as F
@@ -67,6 +69,10 @@ if __name__ == '__main__':
     elif args.dataset == 'PubMed':
         dataset = PubmedGraphDataset()
     graph = dataset[0].to(args.device)
+
+    graph = dgl.remove_self_loop(graph)
+    graph = dgl.add_self_loop(graph)
+
     label = graph.ndata['label']
     train_mask = graph.ndata['train_mask']
     val_mask = graph.ndata['val_mask']
@@ -89,6 +95,7 @@ if __name__ == '__main__':
                 "num_layers": 2,
                 "hidden": [8],
                 "heads": 8,
+                "feat_drop": 0.6,
                 "dropout": 0.6,
                 "act": "elu",
             }).model
@@ -115,7 +122,7 @@ if __name__ == '__main__':
                 "hidden": [64],
                 "dropout": 0.5,
                 "act": "relu",
-                "agg": "mean",
+                "agg": "gcn",
             }).model
         
         model.to(args.device)

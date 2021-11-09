@@ -14,246 +14,77 @@ from ....utils import get_logger
 LOGGER = get_logger("GCNModel")
 
 
-class GCN(ClassificationSupportedSequentialModel):
-    class _GCNLayer(torch.nn.Module):
-        def __init__(
-            self,
-            input_channels: int,
-            output_channels: int,
-            add_self_loops: bool = True,
-            normalize: bool = True,
-            activation_name: Optional[str] = None,
-            dropout_probability: Optional[Real] = None,
-        ):
-            super().__init__()
-            self._convolution: GraphConv = GraphConv(
-                input_channels,
-                output_channels,
-                norm='both' if normalize else 'none',
+class GCN(torch.nn.Module):
+    def __init__(self, args):
+        super(GCN, self).__init__()
+        self.args = args
+        self.num_layer = int(self.args["num_layers"])
+
+        missing_keys = list(
+            set(
+                [
+                    "features_num",
+                    "num_class",
+                    "num_layers",
+                    "hidden",
+                    "dropout",
+                    "act",
+                ]
             )
-            self.add_self_loops = bool(add_self_loops),
-            if isinstance(activation_name, str):
-                self._activation_name = activation_name
-            else:
-                self._activation_name = None
-            if isinstance(dropout_probability, Real):
-                if dropout_probability < 0:
-                    dropout_probability = 0
-                if dropout_probability > 1:
-                    dropout_probability = 1
-                self._dropout = torch.nn.Dropout(dropout_probability)
-            else:
-                self._dropout = None
+            - set(self.args.keys())
+        )
+        if len(missing_keys) > 0:
+            raise Exception("Missing keys: %s." % ",".join(missing_keys))
 
-        def forward(self, data, x, enable_activation: bool = True) -> torch.Tensor:
-            
-            if self.add_self_loops:
-                data = remove_self_loop(data)
-                data = add_self_loop(data)
+        if not self.num_layer == len(self.args["hidden"]) + 1:
+            LOGGER.warn("Warning: layer size does not match the length of hidden units")
+        self.convs = torch.nn.ModuleList()
 
-            x: torch.Tensor = self._convolution.forward(data, x)
-            if self._activation_name is not None and enable_activation:
-                x: torch.Tensor = activate_func(x, self._activation_name)
-            if self._dropout is not None:
-                x: torch.Tensor = self._dropout.forward(x)
-            return x
-
-    def __init__(
-        self,
-        num_features: int,
-        num_classes: int,
-        hidden_features: Sequence[int],
-        activation_name: str,
-        dropout: Union[Real, Sequence[Optional[Real]], None] = None,
-        add_self_loops: bool = True,
-        normalize: bool = True,
-    ):
-        if isinstance(dropout, Sequence):
-            if len(dropout) != len(hidden_features) + 1:
-                raise TypeError(
-                    "When the dropout argument is a sequence, "
-                    "The sequence length must equal to the number of layers to construct."
-                )
-            for _dropout in dropout:
-                if _dropout is not None and not isinstance(_dropout, Real):
-                    raise TypeError(
-                        "When the dropout argument is a sequence, "
-                        "every item in the sequence must be float or None"
-                    )
-            dropout_list: Sequence[Optional[Real]] = dropout
-        elif isinstance(dropout, Real):
-            if dropout < 0:
-                dropout = 0
-            if dropout > 1:
-                dropout = 1
-            dropout_list: Sequence[Real] = [
-                dropout for _ in range(len(hidden_features))
-            ] + [None]
-        elif dropout is None:
-            dropout_list: Sequence[None] = [
-                None for _ in range(len(hidden_features) + 1)
-            ]
-        else:
-            raise TypeError(
-                "The provided dropout argument must be a float number or None or "
-                "a sequence in which each item is either a float Number or None."
+        
+        self.convs.append(
+            GraphConv(
+                self.args["features_num"],
+                self.args["hidden"][0]
             )
-        super().__init__()
-        if len(hidden_features) == 0:
-            self.__sequential_encoding_layers: torch.nn.ModuleList = (
-                torch.nn.ModuleList(
-                    (
-                        self._GCNLayer(
-                            num_features,
-                            num_classes,
-                            add_self_loops,
-                            normalize,
-                            dropout_probability=dropout_list[0],
-                        ),
-                    )
+        )
+
+        for i in range(self.num_layer - 2):
+            self.convs.append(
+                GraphConv(
+                    self.args["hidden"][0],
+                    self.args["hidden"][i + 1]
                 )
             )
-        else:
-            self.__sequential_encoding_layers = torch.nn.ModuleList()
-            self.__sequential_encoding_layers.append(
-                self._GCNLayer(
-                    num_features,
-                    hidden_features[0],
-                    add_self_loops,
-                    normalize,
-                    activation_name,
-                    dropout_list[0],
-                )
+        self.convs.append(
+            GraphConv(
+                self.args["hidden"][-1],
+                self.args["num_class"]
             )
-
-            for hidden_feature_index in range(len(hidden_features)):
-                if hidden_feature_index + 1 < len(hidden_features):
-                    self.__sequential_encoding_layers.append(
-                        self._GCNLayer(
-                            hidden_features[hidden_feature_index],
-                            hidden_features[hidden_feature_index + 1],
-                            add_self_loops,
-                            normalize,
-                            activation_name,
-                            dropout_list[hidden_feature_index + 1],
-                        )
-                    )
-                else:
-                    self.__sequential_encoding_layers.append(
-                        self._GCNLayer(
-                            hidden_features[hidden_feature_index],
-                            num_classes,
-                            add_self_loops,
-                            normalize,
-                            dropout_list[-1],
-                        )
-                    )
-
-    @property
-    def sequential_encoding_layers(self) -> torch.nn.ModuleList:
-        return self.__sequential_encoding_layers
-
-    def __extract_edge_indexes_and_weights(
-        self, data
-    ) -> Union[
-        Sequence[Tuple[torch.LongTensor, Optional[torch.Tensor]]],
-        Tuple[torch.LongTensor, Optional[torch.Tensor]],
-    ]:
-        def __compose_edge_index_and_weight(
-            _edge_index: torch.LongTensor,
-            _edge_weight: Optional[torch.Tensor] = None,
-        ) -> Tuple[torch.LongTensor, Optional[torch.Tensor]]:
-            if type(_edge_index) != torch.Tensor or _edge_index.dtype != torch.int64:
-                raise TypeError
-            if _edge_weight is not None and (
-                type(_edge_weight) != torch.Tensor
-                or _edge_index.size() != (2, _edge_weight.size(0))
-            ):
-                _edge_weight: Optional[torch.Tensor] = None
-            return _edge_index, _edge_weight
-
-        if not (
-            hasattr(data, "edge_indexes")
-            and isinstance(getattr(data, "edge_indexes"), Sequence)
-            and len(getattr(data, "edge_indexes"))
-            == len(self.__sequential_encoding_layers)
-        ):
-            if not data.edata.has_key('edge_weights'):
-                data.edata['edge_weights']=None
-            return __compose_edge_index_and_weight(
-                data.edges(), data.edata['edge_weights']
-            )
-        # for __edge_index in getattr(data, "edge_indexes"):
-        #     if type(__edge_index) != torch.Tensor or __edge_index.dtype != torch.int64:
-        #         return __compose_edge_index_and_weight(
-        #             data.edges(), getattr(data, "edge_weight", None)
-        #         )
-
-        if (
-            data.edata.has_key('edge_weights')
-            and isinstance(data.edata['edge_weights'], Sequence)
-            and len(data.edata.has_key('edge_weights'))
-            == len(self.__sequential_encoding_layers)
-        ):
-            return [
-                __compose_edge_index_and_weight(_edge_index, _edge_weight)
-                for _edge_index, _edge_weight in zip(
-                    getattr(data, "edge_indexes"), getattr(data, "edge_weights")
-                )
-            ]
-        else:
-            return [
-                __compose_edge_index_and_weight(__edge_index)
-                for __edge_index in getattr(data, "edge_indexes")
-            ]
+        )
 
     def forward(self, data):
         x = data.ndata['feat']
-        for gcn in self.__sequential_encoding_layers:
-            x = gcn(data,x)
-        return F.log_softmax(x, dim=-1)
+        for i in range(len(self.convs)):
+            if i!=0:
+                x = F.dropout(x, p=self.args["dropout"], training=self.training)
+            x = self.convs[i](data, x)
+
+            if i != self.num_layer - 1:
+                x = activate_func(x, self.args["act"])
+
+        return F.log_softmax(x, dim=1)
+
 
     def cls_encode(self, data) -> torch.Tensor:
         return self(data)
-        
-        edge_indexes_and_weights: Union[
-            Sequence[Tuple[torch.LongTensor, Optional[torch.Tensor]]],
-            Tuple[torch.LongTensor, Optional[torch.Tensor]],
-        ] = self.__extract_edge_indexes_and_weights(data)
-
-        if (not isinstance(edge_indexes_and_weights, tuple)) and isinstance(
-            edge_indexes_and_weights[0], tuple
-        ):
-            """ edge_indexes_and_weights is sequence of (edge_index, edge_weight) """
-            assert len(edge_indexes_and_weights) == len(
-                self.__sequential_encoding_layers
-            )
-            x: torch.Tensor = data.ndata['feat']
-            for _edge_index_and_weight, gcn in zip(
-                edge_indexes_and_weights, self.__sequential_encoding_layers
-            ):
-                _temp_data = autogl.data.Data(x=x, edge_index=_edge_index_and_weight[0])
-                _temp_data.edge_weight = _edge_index_and_weight[1]
-                x = gcn(_temp_data)
-            return x
-        else:
-            """ edge_indexes_and_weights is (edge_index, edge_weight) """
-            x = data.ndata['feat']
-            for gcn in self.__sequential_encoding_layers:
-                _temp_data = autogl.data.Data(
-                    x=x, edge_index=edge_indexes_and_weights[0]
-                )
-                _temp_data.edge_weight = edge_indexes_and_weights[1]
-                x = gcn(_temp_data)
-            return x
 
     def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
         x: torch.Tensor = data.ndata['feat']
-        for i in range(len(self.__sequential_encoding_layers) - 2):
-            x = self.__sequential_encoding_layers[i](
+        for i in range(len(self.convs) - 2):
+            x = self.convs[i](
                 autogl.data.Data(x, data.edges())
             )
         x = self.__sequential_encoding_layers[-2](
@@ -362,13 +193,6 @@ class AutoGCN(BaseModel):
         ]
 
         # initial point of hp search
-        # self.hyperparams = {
-        #     "num_layers": 2,
-        #     "hidden": [16],
-        #     "dropout": 0.2,
-        #     "act": "leaky_relu",
-        # }
-
         self.hyperparams = {
             "num_layers": 3,
             "hidden": [128, 64],
@@ -384,12 +208,4 @@ class AutoGCN(BaseModel):
         if self.initialized:
             return
         self.initialized = True
-        self.model = GCN(
-            self.num_features,
-            self.num_classes,
-            self.hyperparams.get("hidden"),
-            self.hyperparams.get("act"),
-            self.hyperparams.get("dropout", None),
-            bool(self.hyperparams.get("add_self_loops", True)),
-            bool(self.hyperparams.get("normalize", True)),
-        ).to(self.device)
+        self.model = GCN({**self.params, **self.hyperparams}).to(self.device)

@@ -81,6 +81,7 @@ if __name__ == "__main__":
     di = bk_feat(data).shape[1]
     do = len(np.unique(bk_label(data)))
 
+
     print("evolutionary + singlepath ")
     space=SinglePathNodeClassificationSpace().cuda()
     space.instantiate(input_dim=di,output_dim=do)
@@ -96,8 +97,9 @@ if __name__ == "__main__":
     algo=Spos(cycles=200)
     model = algo.search(space, dataset, esti)
     test_model(model, data, True)
-
+    
     print("Random search + graphnas ")
+    
     space = GraphNasNodeClassificationSpace().cuda()
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
