@@ -5,26 +5,21 @@ _isdgl=DependentBackend.is_dgl()
 def is_dgl():
     return _isdgl
 
-def bk_mask(data,mask):
-    if is_dgl():
+if is_dgl():
+    def bk_mask(data,mask):
         return data.ndata[f'{mask}_mask']
-    else:
-        return data[f'{mask}_mask']
-
-def bk_label(data):
-    if is_dgl():
+    def bk_label(data):
         return data.ndata['label']
-    else:
-        return data.y
-
-def bk_feat(data):
-    if is_dgl():
+    def bk_feat(data):
         return data.ndata['feat']
-    else:
-        return data.x
-
-def bk_gconv(op,data,feat):
-    if is_dgl():
+    def bk_gconv(op,data,feat):
         return op(data,feat)
-    else:
+else:
+    def bk_mask(data,mask):
+        return data[f'{mask}_mask']
+    def bk_label(data):
+        return data.y
+    def bk_feat(data):
+        return data.x
+    def bk_gconv(op,data,feat):
         return op(feat,data.edge_index)
