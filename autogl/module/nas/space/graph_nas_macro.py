@@ -407,7 +407,11 @@ class GeoLayerPYG(MessagePassing):
 
         if agg_key in params and hasattr(self, "pool_layer"):
             self.pool_layer.load_state_dict(params[agg_key])
-class GeoLayerDGL(MessagePassing):
+
+from dgl.utils import expand_as_pair
+from dgl.nn.functional import edge_softmax
+
+class GeoLayerDGL(nn.Module):
     def __init__(
         self,
         in_channels,
@@ -421,11 +425,11 @@ class GeoLayerDGL(MessagePassing):
         agg_type="sum",
         pool_dim=0,
     ):
-
+        super(GeoLayerDGL,self).__init__()
         if agg_type in ["sum", "mlp"]:
-            super(GeoLayerDGL, self).__init__("add")
+            agg_type="add"
         elif agg_type in ["mean", "max"]:
-            super(GeoLayerDGL, self).__init__(agg_type)
+            pass
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.heads = heads
@@ -434,6 +438,11 @@ class GeoLayerDGL(MessagePassing):
         self.dropout = dropout
         self.att_type = att_type
         self.agg_type = agg_type
+        self.reduce_func={
+            'add':fn.sum,
+            'mean':fn.mean,
+            'max':fn.max
+        }.get(self.agg_type,None)
 
         # GCN weight
         self.gcn_weight = None
@@ -497,33 +506,37 @@ class GeoLayerDGL(MessagePassing):
 
     def forward(self, graph,feat):
         """"""
-        edge_index=torch.stack(graph.edges())
-        x = feat
-        edge_index, _ = remove_self_loops(edge_index)
-        edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
+        # add self_loop
+        graph=dgl.remove_self_loop(graph)
+        graph=dgl.add_self_loop(graph)
         # prepare
+        x = feat
         x = torch.mm(x, self.weight).view(-1, self.heads, self.out_channels)
-        # x [2708,2,4] weight [1433,8]
-        return self.propagate(edge_index, x=x, num_nodes=x.size(0))
-
-    def message(self, x_i, x_j, edge_index, num_nodes):
-
+        out = self.propagate(graph, x)
+        return out  
+    
+    def propagate(self,graph,feat):
         # x_i torch.Size([13264, 2, 4])
         # x_j torch.Size([13264, 2, 4])
         # edge_index torch.Size([2, 13264])
         # num_nodes 2708
-        if self.att_type == "const":
+        # x_i is target; x_j is source 
+        edge_index=torch.stack(graph.edges())
+        x_i=torch.index_select(feat,0,edge_index[1])
+        x_j=torch.index_select(feat,0,edge_index[0])
+        num_nodes=graph.num_nodes()
+        if self.att_type == "const": # Const OK
             if self.training and self.dropout > 0:
                 x_j = F.dropout(x_j, p=self.dropout, training=True)
             neighbor = x_j
-        elif self.att_type == "gcn":
+        elif self.att_type == "gcn": # GCN OK
             if self.gcn_weight is None or self.gcn_weight.size(0) != x_j.size(
                 0
-            ):  # 对于不同的图gcn_weight需要重新计算
+            ):  # calculate norm by degree like GCN
                 _, norm = self.norm(edge_index, num_nodes, None)
                 self.gcn_weight = norm
             neighbor = self.gcn_weight.view(-1, 1, 1) * x_j
-        else:
+        else: # Attention OK
             # Compute attention coefficients.
             alpha = self.apply_attention(edge_index, num_nodes, x_i, x_j)
             alpha = softmax(alpha, edge_index[0], num_nodes=num_nodes)
@@ -531,15 +544,25 @@ class GeoLayerDGL(MessagePassing):
             if self.training and self.dropout > 0:
                 alpha = F.dropout(alpha, p=self.dropout, training=True)
 
-            neighbor = x_j * alpha.view(-1, self.heads, 1)
-        # pool_layer
-        # (0): Linear(in_features=4, out_features=128, bias=True)
-        #   (1): Linear(in_features=128, out_features=4, bias=True)
+            neighbor = x_j *  alpha.view(-1, self.heads, 1)
+
         if self.pool_dim > 0:
             # neighbor torch.Size([13264, 2, 4])
             for layer in self.pool_layer:
                 neighbor = layer(neighbor)
-        return neighbor
+        
+        graph.edata['e']=neighbor
+        # aggregate : need neighbor as edge, ok
+        if self.reduce_func is not None:
+            graph.update_all(fn.copy_e('e', 'e'),self.reduce_func('e','h'))
+            out=graph.ndata['h']
+            graph.edata.pop('e')
+        else:
+            out=neighbor
+            pass
+
+        out = self.update(out)
+        return out
 
     def apply_attention(self, edge_index, num_nodes, x_i, x_j):
         if self.att_type == "gat":
