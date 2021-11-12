@@ -1,4 +1,3 @@
-import torch_geometric.nn
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -24,6 +23,6 @@ def act_map(act):
 
 from ..backend import *
 if is_dgl():
-    from .operation_dgl import gnn_map
+    from .operation_dgl import gnn_map,GeoLayer
 else:
-    from .operation_pyg import gnn_map
+    from .operation_pyg import gnn_map,GeoLayer
