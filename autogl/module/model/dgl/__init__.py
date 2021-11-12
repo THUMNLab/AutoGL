@@ -3,7 +3,7 @@ from .base import BaseModel
 from .topkpool import AutoTopkpool
 
 
-from .graph_saint import GraphSAINTAggregationModel
+# from .graph_saint import GraphSAINTAggregationModel
 from .gcn import GCN, AutoGCN
 from .graphsage import GraphSAGE, AutoSAGE
 from .gat import GAT,AutoGAT
@@ -14,7 +14,7 @@ __all__ = [
     "register_model",
     "BaseModel",
     "AutoTopkpool",
-    "GraphSAINTAggregationModel",
+    # "GraphSAINTAggregationModel",
     "GCN",
     "AutoGCN",
     "GraphSAGE",
