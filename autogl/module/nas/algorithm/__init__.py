@@ -29,7 +29,7 @@ from .darts import Darts
 from .enas import Enas
 from .random_search import RandomSearch
 from .rl import RL, GraphNasRL
-
+from .spos import Spos
 
 def build_nas_algo_from_name(name: str) -> BaseNAS:
     """
@@ -52,4 +52,4 @@ def build_nas_algo_from_name(name: str) -> BaseNAS:
     return NAS_ALGO_DICT[name]()
 
 
-__all__ = ["BaseNAS", "Darts", "Enas", "RandomSearch", "RL", "GraphNasRL"]
+__all__ = ["BaseNAS", "Darts", "Enas", "RandomSearch", "RL", "GraphNasRL","Spos"]
