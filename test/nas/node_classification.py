@@ -28,7 +28,7 @@ from autogl.module.nas.space.graph_nas import GraphNasNodeClassificationSpace
 from autogl.module.nas.space.graph_nas_macro import GraphNasMacroNodeClassificationSpace
 from autogl.module.nas.estimator.one_shot import OneShotEstimator
 from autogl.module.nas.backend import bk_feat, bk_label
-from autogl.module.nas.algorithm import Darts, RL, GraphNasRL, Enas, RandomSearch
+from autogl.module.nas.algorithm import Darts, RL, GraphNasRL, Enas, RandomSearch,Spos
 import numpy as np
 from autogl.solver.utils import set_seed
 
@@ -81,7 +81,25 @@ if __name__ == "__main__":
     di = bk_feat(data).shape[1]
     do = len(np.unique(bk_label(data)))
 
+
+    print("evolutionary + singlepath ")
+    space=SinglePathNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di,output_dim=do)
+    esti=OneShotEstimator()
+    algo=Spos(cycles=200)
+    model = algo.search(space, dataset, esti)
+    test_model(model, data, True)
+
+    print("evolutionary + graphnas ")
+    space=GraphNasNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di,output_dim=do)
+    esti=OneShotEstimator()
+    algo=Spos(cycles=200)
+    model = algo.search(space, dataset, esti)
+    test_model(model, data, True)
+    
     print("Random search + graphnas ")
+    
     space = GraphNasNodeClassificationSpace().cuda()
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
