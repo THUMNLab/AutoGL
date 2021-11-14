@@ -20,7 +20,6 @@ class GAT(torch.nn.Module):
     def __init__(self, args):
         super(GAT, self).__init__()
         self.args = args
-        self.num_layer = int(self.args["num_layers"])
 
         missing_keys = list(
             set(
@@ -39,11 +38,11 @@ class GAT(torch.nn.Module):
         if len(missing_keys) > 0:
             raise Exception("Missing keys: %s." % ",".join(missing_keys))
 
+        self.num_layer = int(self.args["num_layers"])
         if not self.num_layer == len(self.args["hidden"]) + 1:
             LOGGER.warn("Warning: layer size does not match the length of hidden units")
         self.convs = torch.nn.ModuleList()
 
-        
         self.convs.append(
             GATConv(
                 self.args["features_num"],
