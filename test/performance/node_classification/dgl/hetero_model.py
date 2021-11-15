@@ -12,7 +12,6 @@ sys.path.append("../../../../")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dgl.data import CoraGraphDataset, PubmedGraphDataset, CiteseerGraphDataset
 from autogl.module.model.dgl import AutoHGT
 from autogl.solver.utils import set_seed
 import logging
@@ -150,7 +149,7 @@ if __name__=='__main__':
         ).from_hyper_parameter({
             # hp from model
             "num_layers": 2,
-            "hidden": [256],
+            "hidden": [256,256,256],
             "heads": 4,
             "dropout": 0.2,
             "act": "gelu",

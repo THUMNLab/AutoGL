@@ -120,7 +120,7 @@ class HGTLayer(nn.Module):
             return new_h
 
 class HGT(nn.Module):
-    def __init__(self, G, node_dict, edge_dict, args):
+    def __init__(self, args):
 
         super(HGT, self).__init__()
         self.args = args 
@@ -128,7 +128,7 @@ class HGT(nn.Module):
             set(
                 [
                     "features_num",
-                    "num_classes",
+                    "num_class",
                     "num_layers",
                     "hidden",
                     "heads",
@@ -142,22 +142,23 @@ class HGT(nn.Module):
         if len(missing_keys) > 0:
             raise Exception("Missing keys: %s." % ",".join(missing_keys))
 
-        self.node_dict = node_dict
-        self.edge_dict = edge_dict
+        self.node_dict = self.args["node_dict"]
+        self.edge_dict = self.args["edge_dict"]
         self.gcs = nn.ModuleList()
         self.num_layers = int(self.args["num_layers"])
 
-        self.adapt_ws  = nn.ModuleList()
-        for t in range(len(node_dict)):
-            self.adapt_ws.append(nn.Linear(self.args["features_num"], self.args["hidden"][0]))
-        last_dim = self.args["hidden"][0]
-        
-        for i in range(self.num_layers):
-            self.gcs.append(HGTLayer(last_dim, self.args["hidden"][i+1], node_dict, edge_dict, \
-                self.args["heads"], use_norm = self.args["use_norm"], dropout = self.args["dropout"]))
-            last_dim = self.args["hidden"][i+1] * self.args["heads"]
+        if not self.num_layers == len(self.args["hidden"])-1:
+            LOGGER.warn("Warning: layer size does not match the length of hidden units")
 
-        self.out = nn.Linear(last_dim, self.args["num_classes"])
+        self.adapt_ws  = nn.ModuleList()
+        for t in range(len(self.node_dict)):
+            self.adapt_ws.append(nn.Linear(self.args["features_num"], self.args["hidden"][0]))
+
+        for i in range(self.num_layers):
+            self.gcs.append(HGTLayer(self.args["hidden"][i], self.args["hidden"][i+1], self.node_dict, self.edge_dict, \
+                self.args["heads"], use_norm = self.args["use_norm"], dropout = self.args["dropout"]))
+            
+        self.out = nn.Linear(self.args["hidden"][-1], self.args["num_class"])
 
     def forward(self, G, out_key):
         h = {}
