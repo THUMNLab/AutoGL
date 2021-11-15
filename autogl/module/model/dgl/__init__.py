@@ -9,6 +9,7 @@ from .graphsage import GraphSAGE, AutoSAGE
 from .gat import GAT,AutoGAT
 from .gin import AutoGIN
 from .hetero.hgt import AutoHGT
+from .hetero.han import AutoHAN
 
 __all__ = [
     "ModelUniversalRegistry",
@@ -23,5 +24,6 @@ __all__ = [
     "GAT",
     "AutoGAT",
     "AutoGIN",
-    "AutoHGT"
+    "AutoHGT",
+    "AutoHAN"
 ]
