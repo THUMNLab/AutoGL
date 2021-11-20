@@ -42,7 +42,6 @@ if __name__ == '__main__':
     accs = []
 
     for seed in tqdm(range(args.repeat)):
-        set_seed(seed)
 
         if args.model == 'gat':
             model_hp = {
@@ -84,7 +83,7 @@ if __name__ == '__main__':
             model_hp_spaces=[fixed(**model_hp)]
         )
 
-        solver.fit(dataset)
+        solver.fit(dataset, seed=seed)
         output = solver.predict(dataset)
         acc = (output == label).astype('float').mean()
         accs.append(acc)
