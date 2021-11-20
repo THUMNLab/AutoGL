@@ -72,6 +72,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         init=True,
         feval=[Auc],
         loss="binary_cross_entropy_with_logits",
+        lr_scheduler_type=None,
         *args,
         **kwargs,
     ):
@@ -83,6 +84,8 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             self.optimizer = torch.optim.SGD
         else:
             self.optimizer = torch.optim.Adam
+
+        self.lr_scheduler_type = lr_scheduler_type
 
         self.lr = lr
         self.max_epoch = max_epoch
@@ -243,23 +246,38 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             A reference of current trainer.
         """
 
-        pos_data = dataset['train_pos'].to(self.device)
-        neg_data = dataset['train_neg'].to(self.device)
+        train_graph = dataset['train'].to(self.device)
+        train_pos_graph = dataset['train_pos'].to(self.device)
+        train_neg_data = dataset['train_neg'].to(self.device)
 
         optimizer = self.optimizer(
             self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-        scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        lr_scheduler_type = self.lr_scheduler_type
+        if type(lr_scheduler_type) == str and lr_scheduler_type == "steplr":
+            scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == "multisteplr":
+            scheduler = MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == "exponentiallr":
+            scheduler = ExponentialLR(optimizer, gamma=0.1)
+        elif (
+            type(lr_scheduler_type) == str and lr_scheduler_type == "reducelronplateau"
+        ):
+            scheduler = ReduceLROnPlateau(optimizer, "min")
+        else:
+            scheduler = None
+
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
 
             optimizer.zero_grad()
-            z = self.model.model.lp_encode(pos_data)
+            z = self.model.model.lp_encode(train_graph)
             link_logits = self.model.model.lp_decode(
-                z, torch.stack(pos_data.edges()), torch.stack(neg_data.edges())
+                z, torch.stack(train_pos_graph.edges()), torch.stack(train_neg_data.edges())
             )
             link_labels = self.get_link_labels(
-                torch.stack(pos_data.edges()), torch.stack(neg_data.edges())
+                torch.stack(train_pos_graph.edges()), torch.stack(train_neg_data.edges())
             )
             if hasattr(F, self.loss):
                 loss = getattr(F, self.loss)(link_logits, link_labels)
@@ -270,7 +288,8 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            if self.lr_scheduler_type:
+                scheduler.step()
 
             if type(self.feval) is list:
                 feval = self.feval[0]
@@ -283,6 +302,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             if self.early_stopping.early_stop:
                 LOGGER.debug("Early stopping at %d", epoch)
                 break
+
         self.early_stopping.load_checkpoint(self.model.model)
 
     def predict_only(self, data, test_mask=None):
@@ -327,12 +347,11 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         res: The result of predicting on the given dataset.
 
         """
-        pos_data = dataset[f'train_pos']
 
+        pos_data = dataset['train']
         self.model.model.eval()
         with torch.no_grad():
             z = self.model.model.lp_encode(pos_data)
-
         return z
 
     def train(self, dataset, keep_valid_result=True):
@@ -425,20 +444,20 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
     def predict_proba_dgl(self, dataset, mask=None, in_log_format=False):
 
-        if mask in ["train", "val", "test"]:
-            pos_edge_index = dataset[f'{mask}_pos'].edges()
-            neg_edge_index = dataset[f'{mask}_neg'].edges()
-        else:
-            pos_edge_index = dataset[f'test_pos'].edges()
-            neg_edge_index = dataset[f'test_neg'].edges()
-
-        pos_edge_index = torch.stack(pos_edge_index)
-        neg_edge_index = torch.stack(neg_edge_index)
+        train_graph = dataset['train']
+        try:
+            pos_graph = dataset[f'{mask}_pos']
+            neg_graph = dataset[f'{mask}_neg']
+        except:
+            pos_graph = dataset[f'test_pos']
+            neg_graph = dataset[f'test_neg']
 
         self.model.model.eval()
         with torch.no_grad():
-            z = self.predict_only_dgl(dataset)
-            link_logits = self.model.model.lp_decode(z, pos_edge_index, neg_edge_index)
+            z = self.model.model.lp_encode(train_graph)
+            link_logits = self.model.model.lp_decode(
+                    z, torch.stack(pos_graph.edges()), torch.stack(neg_graph.edges())
+                )
             link_probs = link_logits.sigmoid()
 
         return link_probs
@@ -516,38 +535,41 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         res: The evaluation result on the given dataset.
 
         """
-        data = dataset[0]
-        data = data.to(self.device)
-        test_mask = mask
-        if feval is None:
-            feval = self.feval
-        else:
-            feval = get_feval(feval)
+        if self.pyg_dgl == 'pyg':
+            data = dataset[0]
+            data = data.to(self.device)
+            test_mask = mask
+            if feval is None:
+                feval = self.feval
+            else:
+                feval = get_feval(feval)
 
-        if mask in ["train", "val", "test"]:
-            pos_edge_index = data[f"{mask}_pos_edge_index"]
-            neg_edge_index = data[f"{mask}_neg_edge_index"]
-        else:
-            pos_edge_index = data[f"test_pos_edge_index"]
-            neg_edge_index = data[f"test_neg_edge_index"]
+            if mask in ["train", "val", "test"]:
+                pos_edge_index = data[f"{mask}_pos_edge_index"]
+                neg_edge_index = data[f"{mask}_neg_edge_index"]
+            else:
+                pos_edge_index = data[f"test_pos_edge_index"]
+                neg_edge_index = data[f"test_neg_edge_index"]
 
-        self.model.model.eval()
-        with torch.no_grad():
-            link_probs = self.predict_proba(dataset, mask)
-            link_labels = self.get_link_labels(pos_edge_index, neg_edge_index)
+            self.model.model.eval()
+            with torch.no_grad():
+                link_probs = self.predict_proba(dataset, mask)
+                link_labels = self.get_link_labels(pos_edge_index, neg_edge_index)
 
-        if not isinstance(feval, list):
-            feval = [feval]
-            return_signle = True
-        else:
-            return_signle = False
+            if not isinstance(feval, list):
+                feval = [feval]
+                return_signle = True
+            else:
+                return_signle = False
 
-        res = []
-        for f in feval:
-            res.append(f.evaluate(link_probs.cpu().numpy(), link_labels.cpu().numpy()))
-        if return_signle:
-            return res[0]
-        return res
+            res = []
+            for f in feval:
+                res.append(f.evaluate(link_probs.cpu().numpy(), link_labels.cpu().numpy()))
+            if return_signle:
+                return res[0]
+            return res
+        elif self.pyg_dgl == 'dgl':
+            return self.evaluate_dgl(dataset,mask,feval)
 
     def evaluate_dgl(self, dataset, mask=None, feval=None):
 
@@ -556,21 +578,24 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         else:
             feval = get_feval(feval)
 
-        if mask in ["train", "val", "test"]:
-            pos_edge_index = dataset[f'{mask}_pos'].edges()
-            neg_edge_index = dataset[f'{mask}_neg'].edges()
-        else:
-            pos_edge_index = dataset[f'test_pos'].edges()
-            neg_edge_index = dataset[f'test_neg'].edges()
-
-        pos_edge_index = torch.stack(pos_edge_index)
-        neg_edge_index = torch.stack(neg_edge_index)
+        train_graph = dataset['train']
+        try:
+            pos_graph = dataset[f'{mask}_pos']
+            neg_graph = dataset[f'{mask}_neg']
+        except:
+            pos_graph = dataset[f'test_pos']
+            neg_graph = dataset[f'test_neg']
 
         self.model.model.eval()
         with torch.no_grad():
-            link_probs = self.predict_proba_dgl(dataset, mask)
-            link_labels = self.get_link_labels(pos_edge_index, neg_edge_index)
-
+            z = self.model.model.lp_encode(train_graph)
+            link_logits = self.model.model.lp_decode(
+                    z, torch.stack(pos_graph.edges()), torch.stack(neg_graph.edges())
+                )
+            link_probs = link_logits.sigmoid()
+            link_labels = self.get_link_labels(
+                torch.stack(pos_graph.edges()), torch.stack(neg_graph.edges())
+            )
         if not isinstance(feval, list):
             feval = [feval]
             return_signle = True

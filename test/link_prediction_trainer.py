@@ -14,6 +14,13 @@ import random
 import torch
 import numpy as np
 import dgl
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import itertools
+import numpy as np
+import scipy.sparse as sp
+from autogl.module.model.dgl import AutoSAGE
 
 
 def construct_negative_graph(graph, k):
@@ -33,7 +40,47 @@ tmp_utils.negative_sampling = negative_sample
 from dgl.data import CoraGraphDataset, PubmedGraphDataset, CiteseerGraphDataset
 from autogl.module.train.link_prediction_full import LinkPredictionTrainer
 
+def setup_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    np.random.seed(seed)
+    random.seed(seed)
+
+
+
+def split_train_test(g):
+    u, v = g.edges()
+
+    eids = np.arange(g.number_of_edges())
+    eids = np.random.permutation(eids)
+    test_size = int(len(eids) * 0.1)
+    train_size = g.number_of_edges() - test_size
+    test_pos_u, test_pos_v = u[eids[:test_size]], v[eids[:test_size]]
+    train_pos_u, train_pos_v = u[eids[test_size:]], v[eids[test_size:]]
+
+    # Find all negative edges and split them for training and testing
+    adj = sp.coo_matrix((np.ones(len(u)), (u.numpy(), v.numpy())))
+    adj_neg = 1 - adj.todense() - np.eye(g.number_of_nodes())
+    neg_u, neg_v = np.where(adj_neg != 0)
+
+    neg_eids = np.random.choice(len(neg_u), g.number_of_edges())
+    test_neg_u, test_neg_v = neg_u[neg_eids[:test_size]], neg_v[neg_eids[:test_size]]
+    train_neg_u, train_neg_v = neg_u[neg_eids[train_size:]], neg_v[neg_eids[train_size:]]
+
+    train_g = dgl.remove_edges(g, eids[:test_size])
+
+    train_pos_g = dgl.graph((train_pos_u, train_pos_v), num_nodes=g.number_of_nodes())
+    train_neg_g = dgl.graph((train_neg_u, train_neg_v), num_nodes=g.number_of_nodes())
+
+    test_pos_g = dgl.graph((test_pos_u, test_pos_v), num_nodes=g.number_of_nodes())
+    test_neg_g = dgl.graph((test_neg_u, test_neg_v), num_nodes=g.number_of_nodes())
+
+    return train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g
+
 if __name__ == "__main__":
+
+    setup_seed(1234)
 
     from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
@@ -82,32 +129,47 @@ if __name__ == "__main__":
     graph = dataset[0].to(args.device)
     num_features = graph.ndata['feat'].size(1)
 
+    autoSAGE = AutoSAGE(
+        num_features=num_features,
+        num_classes=2,
+        device=args.device
+    )
+    autoSAGE.hyperparams = {
+        "num_layers": 3,
+        "hidden": [16, 16],
+        "dropout": 0.0,
+        "act": "relu",
+        "agg": "mean",
+    }
+    autoSAGE.initialize()
+
     trainer = LinkPredictionTrainer(
-        model = 'gcn',
+        model = autoSAGE,
         num_features = num_features,
         optimizer = None,
-        lr = 1e-4,
+        lr = 1e-2,
         max_epoch = 100,
         early_stopping_round = 101,
-        weight_decay = 1e-4,
+        weight_decay = 0.0,
         device = "auto",
         init = True,
         feval = [Auc],
         loss = "binary_cross_entropy_with_logits",
     )
 
+    train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g = split_train_test(graph.cpu())
+
     dataset = {
-        'train_pos': graph,
-        'train_neg': graph,
-        'val_pos': graph,
-        'val_neg': graph,
-        'test_pos': graph,
-        'test_neg': graph,
+        'train': train_g.to(args.device),
+        'train_pos': train_pos_g.to(args.device),
+        'train_neg': train_neg_g.to(args.device),
+        'test_pos': test_pos_g.to(args.device),
+        'test_neg': test_neg_g.to(args.device),
     }
 
     trainer.train(dataset, True)
-    pre = trainer.evaluate_dgl(dataset, mask="val", feval=[Auc])
-    print(pre)
+    pre = trainer.evaluate(dataset, mask="test", feval=Auc)
+    print(pre.item())
     res = trainer.predict(dataset)
     print(res)
 
@@ -139,3 +201,7 @@ if __name__ == "__main__":
         "test auc: %.4f"
         % (Auc.evaluate(predict_result, link_labels.detach().cpu().numpy()))
     )
+
+"""
+AUC 0.8151564430268863
+"""
