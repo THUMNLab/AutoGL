@@ -29,6 +29,7 @@ from scipy import sparse
 from scipy import io as sio 
 #from model import *
 from sklearn.metrics import f1_score
+import autogl.module.model
 
 class EarlyStopping(object):
     def __init__(self, patience=10):
