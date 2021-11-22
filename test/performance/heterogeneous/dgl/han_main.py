@@ -168,7 +168,8 @@ def load_acm_raw(remove_self_loop):
         ('field', 'fp', 'paper'): p_vs_l.transpose().nonzero()
     })
 
-    features = torch.FloatTensor(p_vs_t.toarray())
+    hg.nodes['paper'].data['feat'] = torch.FloatTensor(p_vs_t.toarray())
+    #features = torch.FloatTensor(p_vs_t.toarray())
 
     pc_p, pc_c = p_vs_c.nonzero()
     labels = np.zeros(len(p_selected), dtype=np.int64)
@@ -191,7 +192,8 @@ def load_acm_raw(remove_self_loop):
     val_mask = get_binary_mask(num_nodes, val_idx)
     test_mask = get_binary_mask(num_nodes, test_idx)
 
-    return hg, features, labels, num_classes, train_idx, val_idx, test_idx, \
+    #return hg, features, labels, num_classes, train_idx, val_idx, test_idx, \
+    return hg, labels, num_classes, train_idx, val_idx, test_idx, \
             train_mask, val_mask, test_mask
 
 def load_data(dataset, remove_self_loop=False):
@@ -213,10 +215,10 @@ def score(logits, labels):
 
     return accuracy, micro_f1, macro_f1
 
-def evaluate(model, g, features, labels, mask, loss_func):
+def evaluate(model, g, labels, mask, loss_func):
     model.eval()
     with torch.no_grad():
-        logits = model(g, features)
+        logits = model(g, 'paper')
     loss = loss_func(logits[mask], labels[mask])
     accuracy, micro_f1, macro_f1 = score(logits[mask], labels[mask])
 
@@ -225,7 +227,8 @@ def evaluate(model, g, features, labels, mask, loss_func):
 def main(args):
     # If args['hetero'] is True, g would be a heterogeneous graph.
     # Otherwise, it will be a list of homogeneous graphs.
-    g, features, labels, num_classes, train_idx, val_idx, test_idx, train_mask, \
+    #g, features, labels, num_classes, train_idx, val_idx, test_idx, train_mask, \
+    g, labels, num_classes, train_idx, val_idx, test_idx, train_mask, \
     val_mask, test_mask = load_data(args['dataset'])
 
     if hasattr(torch, 'BoolTensor'):
@@ -233,14 +236,14 @@ def main(args):
         val_mask = val_mask.bool()
         test_mask = test_mask.bool()
 
-    features = features.to(args['device'])
+    #features = features.to(args['device'])
     labels = labels.to(args['device'])
     train_mask = train_mask.to(args['device'])
     val_mask = val_mask.to(args['device'])
     test_mask = test_mask.to(args['device'])
 
     model = AutoHAN(meta_paths=[['pa', 'ap'], ['pf', 'fp']],
-                num_features=features.shape[1],
+                num_features=g.nodes['paper'].data['feat'].shape[1],
                 num_classes=num_classes,
                 device = args['device']
                 ).model
@@ -253,7 +256,7 @@ def main(args):
 
     for epoch in range(args['num_epochs']):
         model.train()
-        logits = model(g, features)
+        logits = model(g, 'paper')
         loss = loss_fcn(logits[train_mask], labels[train_mask])
 
         optimizer.zero_grad()
@@ -261,7 +264,7 @@ def main(args):
         optimizer.step()
 
         train_acc, train_micro_f1, train_macro_f1 = score(logits[train_mask], labels[train_mask])
-        val_loss, val_acc, val_micro_f1, val_macro_f1 = evaluate(model, g, features, labels, val_mask, loss_fcn)
+        val_loss, val_acc, val_micro_f1, val_macro_f1 = evaluate(model, g, labels, val_mask, loss_fcn)
         early_stop = stopper.step(val_loss.data.item(), val_acc, model)
 
         print('Epoch {:d} | Train Loss {:.4f} | Train Micro f1 {:.4f} | Train Macro f1 {:.4f} | '
@@ -272,7 +275,7 @@ def main(args):
             break
 
     stopper.load_checkpoint(model)
-    test_loss, test_acc, test_micro_f1, test_macro_f1 = evaluate(model, g, features, labels, test_mask, loss_fcn)
+    test_loss, test_acc, test_micro_f1, test_macro_f1 = evaluate(model, g, labels, test_mask, loss_fcn)
     print('Test loss {:.4f} | Test Micro f1 {:.4f} | Test Macro f1 {:.4f}'.format(
         test_loss.item(), test_micro_f1, test_macro_f1))
 

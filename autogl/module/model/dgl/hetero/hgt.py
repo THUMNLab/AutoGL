@@ -164,7 +164,7 @@ class HGT(nn.Module):
         h = {}
         for ntype in G.ntypes:
             n_id = self.node_dict[ntype]
-            h[ntype] = activate_func(self.adapt_ws[n_id](G.nodes[ntype].data['inp']), self.args["act"])
+            h[ntype] = activate_func(self.adapt_ws[n_id](G.nodes[ntype].data['feat']), self.args["act"])
         for i in range(self.num_layers):
             h = self.gcs[i](G, h)
         return self.out(h[out_key])
@@ -173,21 +173,17 @@ class HGT(nn.Module):
 class AutoHGT(BaseModel):
 
     def __init__(
-        self,  G=None, node_dict=None, edge_dict=None, num_features=None, num_classes=None, device=None, init=False, **args
+        #self,  dataset=None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
+        self,  G = None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
     ):
         super(AutoHGT, self).__init__()
-        self.G = G
-        self.node_dict = node_dict
-        self.edge_dict = edge_dict
+        self.meta_paths = meta_paths
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
         self.init = True
 
         self.params = {
-            "G": self.G, 
-            "node_dict": self.node_dict, 
-            "edge_dict": self.edge_dict,
             "features_num": self.num_features,
             "num_class": self.num_classes,
         }
@@ -241,9 +237,15 @@ class AutoHGT(BaseModel):
             "use_norm": True
         }
 
+        if G is not None:
+            self.from_dataset(G)
+        #if dataset is not None:
+        #    self.from_dataset(dataset)
         self.initialized = False
         if init is True:
             self.initialize()
+
+
 
     def initialize(self):
         # """Initialize model."""
@@ -253,11 +255,24 @@ class AutoHGT(BaseModel):
         print(self.params)
         self.model = HGT({**self.params, **self.hyperparams}).to(self.device)
 
+
+    def from_dataset(self, dataset):
+        G = dataset
+        #G = dataset[0]
+        node_dict = {}
+        edge_dict = {}
+        for ntype in G.ntypes:
+            node_dict[ntype] = len(node_dict)
+        for etype in G.etypes:
+            edge_dict[etype] = len(edge_dict)
+        self.params["node_dcit"] = node_dict
+        self.params["edge_dcit"] = edge_dict
+
+
+
     def from_hyper_parameter(self, hp):
         ret_self = self.__class__(
             G=self.G,
-            node_dict=self.node_dict,
-            edge_dict=self.edge_dict,
             num_features=self.num_features,
             num_classes=self.num_classes,
             device=self.device,

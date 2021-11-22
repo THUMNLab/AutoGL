@@ -85,7 +85,7 @@ if __name__=='__main__':
     parser.add_argument('--device', type=str, default='cuda')
 
     args = parser.parse_args()
-        
+
     torch.manual_seed(0)
     data_url = 'https://data.dgl.ai/dataset/ACM.mat'
     data_file_path = '/tmp/ACM.mat'
@@ -117,19 +117,21 @@ if __name__=='__main__':
     val_idx = torch.tensor(shuffle[800:900]).long()
     test_idx = torch.tensor(shuffle[900:]).long()
 
-    node_dict = {}
-    edge_dict = {}
-    for ntype in G.ntypes:
-        node_dict[ntype] = len(node_dict)
-    for etype in G.etypes:
-        edge_dict[etype] = len(edge_dict)
-        G.edges[etype].data['id'] = torch.ones(G.number_of_edges(etype), dtype=torch.long) * edge_dict[etype] 
+    #node_dict = {}
+    #edge_dict = {}
+    #for ntype in G.ntypes:
+    #    node_dict[ntype] = len(node_dict)
+    #for etype in G.etypes:
+    #    edge_dict[etype] = len(edge_dict)
 
-    #     Random initialize input feature
+    for etype in G.etypes:
+        G.edges[etype].data['id'] = torch.ones(G.number_of_edges(etype), dtype=torch.long) * len(edge_dict)
+
+    #Random initialize input feature
     for ntype in G.ntypes:
         emb = nn.Parameter(torch.Tensor(G.number_of_nodes(ntype), 256), requires_grad = False)
         nn.init.xavier_uniform_(emb)
-        G.nodes[ntype].data['inp'] = emb
+        G.nodes[ntype].data['feat'] = emb
 
     G = G.to(args.device)
 
