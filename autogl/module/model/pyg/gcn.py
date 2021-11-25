@@ -4,14 +4,14 @@ import typing as _typing
 
 from torch_geometric.nn.conv import GCNConv
 import autogl.data
-from . import register_model
-from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from . import _decoder, register_model
+from .base import BaseModel, activate_func
 from ....utils import get_logger
 
 LOGGER = get_logger("GCNModel")
 
 
-class GCN(ClassificationSupportedSequentialModel):
+class GCN(torch.nn.Module):
     class _GCNLayer(torch.nn.Module):
         def __init__(
             self,
@@ -74,18 +74,30 @@ class GCN(ClassificationSupportedSequentialModel):
                 x: torch.Tensor = self._dropout.forward(x)
             return x
 
-    def __init__(
-        self,
-        num_features: int,
-        num_classes: int,
-        hidden_features: _typing.Sequence[int],
-        activation_name: str,
+    def __init__(self, hyper_parameters: _typing.Mapping[str, _typing.Any], *args, **kwargs):
+        num_features: int = hyper_parameters["num_features"]
+        num_classes: int = hyper_parameters["num_classes"]
+        hidden_features: _typing.Sequence[int] = hyper_parameters["hidden"]
+        activation_name: str = hyper_parameters["act"]
         dropout: _typing.Union[
-            _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
-        ] = None,
-        add_self_loops: bool = True,
-        normalize: bool = True,
-    ):
+            _typing.Optional[float],
+            _typing.Sequence[_typing.Optional[float]]
+        ] = hyper_parameters.get("dropout")
+        add_self_loops: bool = bool(hyper_parameters.get("add_self_loops", True))
+        normalize: bool = bool(self.hyperparams.get("normalize", True))
+
+        ''' Set decoder '''
+        decoder: _typing.Union[str, _typing.Type[_decoder.RepresentationDecoder], None] = kwargs.get("decoder")
+        if issubclass(decoder, _decoder.RepresentationDecoder):
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = decoder(self.args)
+        elif isinstance(decoder, str) and len(decoder.strip()) > 0:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = (
+                _decoder.RepresentationDecoderUniversalRegistry.get_representation_decoder(decoder)(
+                    self.args
+                ) if not ('no' in decoder.lower() or 'null' in decoder.lower()) else None
+            )
+        else:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = None
         if isinstance(dropout, _typing.Sequence):
             if len(dropout) != len(hidden_features) + 1:
                 raise TypeError(
@@ -226,7 +238,7 @@ class GCN(ClassificationSupportedSequentialModel):
                 for __edge_index in getattr(data, "edge_indexes")
             ]
 
-    def cls_encode(self, data) -> torch.Tensor:
+    def forward(self, data, *args, **kwargs) -> torch.Tensor:
         edge_indexes_and_weights: _typing.Union[
             _typing.Sequence[
                 _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]
@@ -248,7 +260,6 @@ class GCN(ClassificationSupportedSequentialModel):
                 _temp_data = autogl.data.Data(x=x, edge_index=_edge_index_and_weight[0])
                 _temp_data.edge_weight = _edge_index_and_weight[1]
                 x = gcn(_temp_data)
-            return x
         else:
             """ edge_indexes_and_weights is (edge_index, edge_weight) """
             x = getattr(data, "x")
@@ -258,10 +269,11 @@ class GCN(ClassificationSupportedSequentialModel):
                 )
                 _temp_data.edge_weight = edge_indexes_and_weights[1]
                 x = gcn(_temp_data)
+        if self._decoder is not None:
+            data.x = x
+            return self._decoder(data, *args, **kwargs)
+        else:
             return x
-
-    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
         x: torch.Tensor = getattr(data, "x")
@@ -322,17 +334,14 @@ class AutoGCN(BaseModel):
         num_classes: int = ...,
         device: _typing.Union[str, torch.device] = ...,
         init: bool = False,
+        decoder: _typing.Union[_typing.Type[_decoder.RepresentationDecoder], str, None] = ...,
         **kwargs
     ) -> None:
         super().__init__()
         self.num_features = num_features
         self.num_classes = num_classes
-        self.device = device
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
+        self.decoder = decoder
+        self.device = device if device is not None else torch.device("cpu")
         self.space = [
             {
                 "parameterName": "add_self_loops",
@@ -398,11 +407,12 @@ class AutoGCN(BaseModel):
             return
         self.initialized = True
         self.model = GCN(
-            self.num_features,
-            self.num_classes,
-            self.hyperparams.get("hidden"),
-            self.hyperparams.get("act"),
-            self.hyperparams.get("dropout", None),
-            bool(self.hyperparams.get("add_self_loops", True)),
-            bool(self.hyperparams.get("normalize", True)),
+            {
+                **self.hyperparams,
+                **{
+                    "num_classes": self.num_classes,
+                    "num_features": self.num_features
+                }
+            },
+            decoder=self.decoder
         ).to(self.device)

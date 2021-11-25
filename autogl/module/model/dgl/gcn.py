@@ -1,13 +1,12 @@
 import torch
+import typing as _typing
 import torch.nn.functional as F
-from typing import Sequence, Optional, Union, Tuple
-from numbers import Real
+from typing import Optional, Union
 
 from dgl.nn.pytorch.conv import GraphConv
-from dgl import remove_self_loop, add_self_loop
 import autogl.data
-from . import register_model
-from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from . import _decoder, register_model
+from .base import BaseModel, activate_func
 from ....utils import get_logger
 
 
@@ -15,7 +14,7 @@ LOGGER = get_logger("GCNModel")
 
 
 class GCN(torch.nn.Module):
-    def __init__(self, args):
+    def __init__(self, args, **kwargs):
         super(GCN, self).__init__()
         self.args = args
         self.num_layer = int(self.args["num_layers"])
@@ -40,7 +39,19 @@ class GCN(torch.nn.Module):
             LOGGER.warn("Warning: layer size does not match the length of hidden units")
         self.convs = torch.nn.ModuleList()
 
-        
+        ''' Set decoder '''
+        decoder: _typing.Union[str, _typing.Type[_decoder.RepresentationDecoder], None] = kwargs.get("decoder")
+        if issubclass(decoder, _decoder.RepresentationDecoder):
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = decoder(self.args)
+        elif isinstance(decoder, str) and len(decoder.strip()) > 0:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = (
+                _decoder.RepresentationDecoderUniversalRegistry.get_representation_decoder(decoder)(
+                    self.args
+                ) if not ('no' in decoder.lower() or 'null' in decoder.lower()) else None
+            )
+        else:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = None
+
         self.convs.append(
             GraphConv(
                 self.args["features_num"],
@@ -62,7 +73,7 @@ class GCN(torch.nn.Module):
             )
         )
 
-    def forward(self, data):
+    def forward(self, data, *args, **kwargs):
         x = data.ndata['feat']
         for i in range(len(self.convs)):
             if i!=0:
@@ -72,7 +83,13 @@ class GCN(torch.nn.Module):
             if i != self.num_layer - 1:
                 x = activate_func(x, self.args["act"])
 
-        return F.log_softmax(x, dim=1)
+        if (
+                self._decoder is not None and
+                isinstance(self._decoder, _decoder.RepresentationDecoder)
+        ):
+            return self._decoder(data, x, *args, **kwargs)
+        else:
+            return x
 
 
     def cls_encode(self, data) -> torch.Tensor:
@@ -140,13 +157,14 @@ class AutoGCN(BaseModel):
         num_classes: Optional[int] = None,
         device: Union[str, torch.device] = 'cpu',
         init: bool = False,
+        decoder: _typing.Union[_typing.Type[_decoder.RepresentationDecoder], str, None] = ...,
         **kwargs
     ) -> None:
         super().__init__()
         self.num_features = num_features
         self.num_classes = num_classes
         self.device = device
-
+        self.decoder = decoder
         self.params = {
             "features_num": self.num_features,
             "num_class": self.num_classes,
@@ -208,4 +226,4 @@ class AutoGCN(BaseModel):
         if self.initialized:
             return
         self.initialized = True
-        self.model = GCN({**self.params, **self.hyperparams}).to(self.device)
+        self.model = GCN({**self.params, **self.hyperparams}, decoder=self.decoder).to(self.device)

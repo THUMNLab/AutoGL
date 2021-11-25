@@ -101,6 +101,9 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         self.initialized = False
         self.device = device
 
+        if self.model is not None:
+            self.model.decoder = self.__get_model_decoder()
+
         self.space = [
             {
                 "parameterName": "max_epoch",
@@ -143,6 +146,12 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         if init is True:
             self.initialize()
+
+    def __get_model_decoder(self) -> Union[str, None]:
+        if "model_decoder" in self.kwargs:
+            return self.kwargs["model_decoder"]
+        else:
+            return "lp_decoder"
 
     def initialize(self):
         #  Initialize the auto model in trainer.
@@ -484,6 +493,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 ]
             )
         )
+        model.decoder = self.__get_model_decoder()
 
         ret = self.__class__(
             model=model,

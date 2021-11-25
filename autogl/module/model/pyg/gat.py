@@ -1,7 +1,8 @@
 import torch
+import typing as _typing
 import torch.nn.functional as F
 from torch_geometric.nn import GATConv
-from . import register_model
+from . import _decoder, register_model
 from .base import BaseModel, activate_func
 from ....utils import get_logger
 
@@ -16,7 +17,7 @@ def set_default(args, d):
 
 
 class GAT(torch.nn.Module):
-    def __init__(self, args):
+    def __init__(self, args, **kwargs):
         super(GAT, self).__init__()
         self.args = args
         self.num_layer = int(self.args["num_layers"])
@@ -37,6 +38,21 @@ class GAT(torch.nn.Module):
         )
         if len(missing_keys) > 0:
             raise Exception("Missing keys: %s." % ",".join(missing_keys))
+
+        num_output_heads: int = self.args.get("num_output_heads", 1)
+
+        ''' Set decoder '''
+        decoder: _typing.Union[str, _typing.Type[_decoder.RepresentationDecoder], None] = kwargs.get("decoder")
+        if issubclass(decoder, _decoder.RepresentationDecoder):
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = decoder(self.args)
+        elif isinstance(decoder, str) and len(decoder.strip()) > 0:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = (
+                _decoder.RepresentationDecoderUniversalRegistry.get_representation_decoder(decoder)(
+                    self.args
+                ) if not ('no' in decoder.lower() or 'null' in decoder.lower()) else None
+            )
+        else:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = None
 
         if not self.num_layer == len(self.args["hidden"]) + 1:
             LOGGER.warn("Warning: layer size does not match the length of hidden units")
@@ -64,13 +80,13 @@ class GAT(torch.nn.Module):
             GATConv(
                 last_dim,
                 self.args["num_class"],
-                heads=1,
+                heads=num_output_heads,
                 concat=False,
                 dropout=self.args["dropout"],
             )
         )
 
-    def forward(self, data):
+    def forward(self, data, *args, **kwargs):
         try:
             x = data.x
         except:
@@ -93,7 +109,11 @@ class GAT(torch.nn.Module):
             if i != self.num_layer - 1:
                 x = activate_func(x, self.args["act"])
 
-        return F.log_softmax(x, dim=1)
+        if self._decoder is not None:
+            data.x = x
+            return self._decoder(data, *args, **kwargs)
+        else:
+            return x
 
     def lp_encode(self, data):
         x = data.x
@@ -151,16 +171,19 @@ class AutoGAT(BaseModel):
     init: `bool`.
         If True(False), the model will (not) be initialized.
 
-    args: Other parameters.
+    kwargs: Other parameters.
     """
 
     def __init__(
-        self, num_features=None, num_classes=None, device=None, init=False, **args
+            self, num_features=None, num_classes=None, device=None, init=False,
+            decoder: _typing.Union[_typing.Type[_decoder.RepresentationDecoder], str, None] = ...,
+            **kwargs
     ):
         super(AutoGAT, self).__init__()
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.device = device if device is not None else "cpu"
+        self.decoder = decoder
+        self.device = device if device is not None else torch.device("cpu")
 
         self.params = {
             "features_num": self.num_features,
@@ -219,4 +242,4 @@ class AutoGAT(BaseModel):
         if self.initialized:
             return
         self.initialized = True
-        self.model = GAT({**self.params, **self.hyperparams}).to(self.device)
+        self.model = GAT({**self.params, **self.hyperparams},  decoder=self.decoder).to(self.device)

@@ -64,6 +64,7 @@ class BaseModel:
             num_classes=self.num_classes,
             device=self.device,
             init=False,
+            decoder=getattr(self, "decoder")
         )
         ret_self.hyperparams.update(hp)
         ret_self.params.update(self.params)

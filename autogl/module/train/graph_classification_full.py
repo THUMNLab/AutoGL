@@ -130,6 +130,9 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         self.pyg_dgl = DependentBackend.get_backend_name()
         self.criterion = criterion
 
+        if self.model is not None:
+            self.model.decoder = self.__get_model_decoder()
+
         self.space = [
             {
                 "parameterName": "max_epoch",
@@ -178,6 +181,12 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
         if init is True:
             self.initialize()
+
+    def __get_model_decoder(self) -> Union[str, None]:
+        if "model_decoder" in self.kwargs:
+            return self.kwargs["model_decoder"]
+        else:
+            return "gin_decoder"
 
     def initialize(self):
         # """Initialize the auto model in trainer."""
@@ -254,9 +263,9 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
                     loss_all += data.num_graphs * loss.item()
                 elif self.pyg_dgl == 'dgl':
                     data = [data[i].to(self.device) for i in range(len(data))]
-                    _, labels = data
+                    graph, labels = data
                     optimizer.zero_grad()
-                    output = self.model.model(data)
+                    output = self.model.model(graph)
 
                     if hasattr(F, self.loss):
                         loss = getattr(F, self.loss)(output, labels)
@@ -419,8 +428,6 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         else:
             return ret
 
-
-
     def get_valid_predict(self):
         # """Get the valid result."""
         return self.valid_result
@@ -489,7 +496,6 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
             dataset, mask, batch_size=self.batch_size, num_workers=self.num_workers
         )
         return self._evaluate(loader, feval)
-
 
     def _evaluate(self, loader, feval=None):
         if feval is None:
@@ -597,6 +603,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
                 ]
             )
         )
+        model.decoder = self.__get_model_decoder()
 
         ret = self.__class__(
             model=model,

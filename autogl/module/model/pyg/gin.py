@@ -1,11 +1,10 @@
 import torch
-import torch.nn.functional as F
+import typing as _typing
 from torch.nn import Linear, ReLU, Sequential, LeakyReLU, Tanh, ELU
 from torch_geometric.nn import GINConv, global_add_pool
 from torch.nn import BatchNorm1d
-from . import register_model
+from . import _decoder, register_model
 from .base import BaseModel, activate_func
-from copy import deepcopy
 from ....utils import get_logger
 
 LOGGER = get_logger("GINModel")
@@ -19,7 +18,7 @@ def set_default(args, d):
 
 
 class GIN(torch.nn.Module):
-    def __init__(self, args):
+    def __init__(self, args, **kwargs):
         super(GIN, self).__init__()
         self.args = args
         self.num_layer = int(self.args["num_layers"])
@@ -82,15 +81,20 @@ class GIN(torch.nn.Module):
             self.convs.append(GINConv(Sequential(*nn), train_eps=train_eps))
             self.bns.append(BatchNorm1d(self.args["hidden"][i + 1]))
 
-        self.fc1 = Linear(
-            self.args["hidden"][self.num_layer - 3] + self.num_graph_features,
-            self.args["hidden"][self.num_layer - 2],
-        )
-        self.fc2 = Linear(
-            self.args["hidden"][self.num_layer - 2], self.args["num_class"]
-        )
+        ''' Set decoder '''
+        decoder: _typing.Union[str, _typing.Type[_decoder.RepresentationDecoder], None] = kwargs.get("decoder")
+        if issubclass(decoder, _decoder.RepresentationDecoder):
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = decoder(self.args)
+        elif isinstance(decoder, str) and len(decoder.strip()) > 0:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = (
+                _decoder.RepresentationDecoderUniversalRegistry.get_representation_decoder(decoder)(
+                    self.args
+                ) if not ('no' in decoder.lower() or 'null' in decoder.lower()) else None
+            )
+        else:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = None
 
-    def forward(self, data):
+    def forward(self, data, *args, **kwargs):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
         if self.num_graph_features > 0:
@@ -104,13 +108,12 @@ class GIN(torch.nn.Module):
         x = global_add_pool(x, batch)
         if self.num_graph_features > 0:
             x = torch.cat([x, graph_feature], dim=-1)
-        x = self.fc1(x)
-        x = activate_func(x, self.args["act"])
-        x = F.dropout(x, p=self.args["dropout"], training=self.training)
 
-        x = self.fc2(x)
-
-        return F.log_softmax(x, dim=1)
+        if self._decoder is not None:
+            data.x = x
+            return self._decoder(data, *args, **kwargs)
+        else:
+            return x
 
 
 @register_model("gin")
@@ -153,6 +156,7 @@ class AutoGIN(BaseModel):
         device=None,
         init=False,
         num_graph_features=None,
+        decoder: _typing.Union[_typing.Type[_decoder.RepresentationDecoder], str, None] = ...,
         **args
     ):
 
@@ -163,7 +167,7 @@ class AutoGIN(BaseModel):
             int(num_graph_features) if num_graph_features is not None else 0
         )
         self.device = device if device is not None else "cpu"
-
+        self.decoder = decoder
         self.params = {
             "features_num": self.num_features,
             "num_class": self.num_classes,
@@ -228,4 +232,4 @@ class AutoGIN(BaseModel):
         if self.initialized:
             return
         self.initialized = True
-        self.model = GIN({**self.params, **self.hyperparams}).to(self.device)
+        self.model = GIN({**self.params, **self.hyperparams}, decoder=self.decoder).to(self.device)

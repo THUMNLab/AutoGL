@@ -1,9 +1,10 @@
 import torch
+import typing as _typing
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn.pytorch.conv import GraphConv
 from dgl.nn.pytorch.glob import SortPooling
-from . import register_model
+from . import _decoder, register_model
 from .base import BaseModel
 from ....utils import get_logger
 
@@ -87,7 +88,7 @@ class MLP(nn.Module):
 
 class Topkpool(torch.nn.Module):
     """Topkpool model"""
-    def __init__(self, args):
+    def __init__(self, args, **kwargs):
         """model parameters setting
 
         Paramters
@@ -137,7 +138,19 @@ class Topkpool(torch.nn.Module):
         final_dropout = self.args["dropout"]
         output_dim = self.args["num_class"]
 
-        # List of MLPs
+        ''' Set decoder '''
+        decoder: _typing.Union[str, _typing.Type[_decoder.RepresentationDecoder], None] = kwargs.get("decoder")
+        if issubclass(decoder, _decoder.RepresentationDecoder):
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = decoder(self.args)
+        elif isinstance(decoder, str) and len(decoder.strip()) > 0:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = (
+                _decoder.RepresentationDecoderUniversalRegistry.get_representation_decoder(decoder)(
+                    self.args
+                ) if not ('no' in decoder.lower() or 'null' in decoder.lower()) else None
+            )
+        else:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = None
+
         self.gcnlayers = torch.nn.ModuleList()
         self.batch_norms = torch.nn.ModuleList()
 
@@ -150,28 +163,8 @@ class Topkpool(torch.nn.Module):
             #self.gcnlayers.append(GraphConv(input_dim, hidden_dim))
             self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
 
-        # Linear function for graph poolings of output of each layer
-        # which maps the output of different layers into a prediction score
-        self.linears_prediction = torch.nn.ModuleList()
-
-        #TopKPool
-        k = 3
-        self.pool = SortPooling(k)
-
-        for layer in range(self.num_layers):
-            if layer == 0:
-                self.linears_prediction.append(
-                    nn.Linear(input_dim * k, output_dim))
-            else:
-                self.linears_prediction.append(
-                    nn.Linear(hidden_dim * k, output_dim))
-
-        self.drop = nn.Dropout(final_dropout)
-
-
-    #def forward(self, g, h):
-    def forward(self, data):
-        g, _ = data
+    def forward(self, data, *args, **kwargs):
+        g = data
         h = g.ndata.pop('feat')
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
@@ -182,15 +175,13 @@ class Topkpool(torch.nn.Module):
             h = F.relu(h)
             hidden_rep.append(h)
 
-        score_over_layer = 0
-
-        # perform pooling over all nodes in each graph in every layer
-        for i, h in enumerate(hidden_rep):
-            pooled_h = self.pool(g, h)
-            #import pdb; pdb.set_trace()
-            score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
-
-        return score_over_layer
+        if (
+                self._decoder is not None and
+                isinstance(self._decoder, _decoder.RepresentationDecoder)
+        ):
+            return self._decoder(g, hidden_rep, *args, **kwargs)
+        else:
+            return hidden_rep[-1]
 
 
 @register_model("topkpool")
@@ -216,7 +207,8 @@ class AutoTopkpool(BaseModel):
         device=None,
         init=False,
         num_graph_features=None,
-        **args
+        decoder: _typing.Union[_typing.Type[_decoder.RepresentationDecoder], str, None] = ...,
+        **kwargs
     ):
         super(AutoTopkpool, self).__init__()
         LOGGER.debug(
@@ -230,7 +222,7 @@ class AutoTopkpool(BaseModel):
             int(num_graph_features) if num_graph_features is not None else 0
         )
         self.device = device if device is not None else "cpu"
-
+        self.decoder = decoder
         self.params = {
             "features_num": self.num_features,
             "num_class": self.num_classes,
@@ -291,5 +283,4 @@ class AutoTopkpool(BaseModel):
             return
         self.initialized = True
         LOGGER.debug("topkpool initialize with parameters {}".format(self.params))
-        self.model = Topkpool({**self.params, **self.hyperparams}).to(self.device)
-
+        self.model = Topkpool({**self.params, **self.hyperparams}, decoder=self.decoder).to(self.device)

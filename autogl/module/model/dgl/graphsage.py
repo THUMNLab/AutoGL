@@ -5,8 +5,8 @@ import torch.nn.functional as F
 from dgl.nn.pytorch.conv import SAGEConv
 import torch.nn.functional
 
-from . import register_model
-from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from . import _decoder, register_model
+from .base import BaseModel, activate_func
 from ....utils import get_logger
 
 LOGGER = get_logger("SAGEModel")
@@ -14,7 +14,7 @@ LOGGER = get_logger("SAGEModel")
 
 class GraphSAGE(torch.nn.Module):
 
-    def __init__(self, args):
+    def __init__(self, args, **kwargs):
         super(GraphSAGE, self).__init__()
         self.args = args
         self.num_layer = int(self.args["num_layers"])
@@ -58,7 +58,20 @@ class GraphSAGE(torch.nn.Module):
                     aggregator_type=self.args["agg"]
                 )
             )
-            
+
+        ''' Set decoder '''
+        decoder: _typing.Union[str, _typing.Type[_decoder.RepresentationDecoder], None] = kwargs.get("decoder")
+        if issubclass(decoder, _decoder.RepresentationDecoder):
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = decoder(self.args)
+        elif isinstance(decoder, str) and len(decoder.strip()) > 0:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = (
+                _decoder.RepresentationDecoderUniversalRegistry.get_representation_decoder(decoder)(
+                    self.args
+                ) if not ('no' in decoder.lower() or 'null' in decoder.lower()) else None
+            )
+        else:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = None
+
         self.convs.append(
             SAGEConv(
                 self.args["hidden"][-1],
@@ -84,12 +97,8 @@ class GraphSAGE(torch.nn.Module):
         prob_adj = z @ z.t()
         return (prob_adj > 0).nonzero(as_tuple=False).t()
     
-    def forward(self, data):
-        try:
-            x = data.ndata['feat']
-        except:
-            print("no x")
-            pass
+    def forward(self, data, *args, **kwargs):
+        x = data.ndata['feat']
 
         for i in range(self.num_layer):
             x = self.convs[i](data, x)
@@ -97,7 +106,13 @@ class GraphSAGE(torch.nn.Module):
                 x = activate_func(x, self.args["act"])
                 x = F.dropout(x, p=self.args["dropout"], training=self.training)
 
-        return F.log_softmax(x, dim=1)
+        if (
+                self._decoder is not None and
+                isinstance(self._decoder, _decoder.RepresentationDecoder)
+        ):
+            return self._decoder(data, x, *args, **kwargs)
+        else:
+            return x
 
 
 
@@ -129,7 +144,9 @@ class AutoSAGE(BaseModel):
     """
 
     def __init__(
-        self, num_features=None, num_classes=None, device=None, init=False, **args
+            self, num_features=None, num_classes=None, device=None, init=False,
+            decoder: _typing.Union[_typing.Type[_decoder.RepresentationDecoder], str, None] = ...,
+            **kwargs
     ):
 
         super(AutoSAGE, self).__init__()
@@ -137,7 +154,7 @@ class AutoSAGE(BaseModel):
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
-
+        self.decoder = decoder
         self.params = {
             "features_num": self.num_features,
             "num_class": self.num_classes,
@@ -194,12 +211,4 @@ class AutoSAGE(BaseModel):
         if self.initialized:
             return
         self.initialized = True
-        # self.model = GraphSAGE(
-        #     self.num_features,
-        #     self.num_classes,
-        #     self.hyperparams.get("hidden"),
-        #     self.hyperparams.get("act", "relu"),
-        #     self.hyperparams.get("dropout", None),
-        #     self.hyperparams.get("agg", "mean"),
-        # ).to(self.device)
-        self.model = GraphSAGE({**self.params, **self.hyperparams}).to(self.device)
+        self.model = GraphSAGE({**self.params, **self.hyperparams}, decoder=self.decoder).to(self.device)

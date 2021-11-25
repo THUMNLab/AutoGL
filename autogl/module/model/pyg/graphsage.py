@@ -4,14 +4,14 @@ import typing as _typing
 from torch_geometric.nn.conv import SAGEConv
 import torch.nn.functional
 import autogl.data
-from . import register_model
-from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from . import _decoder, register_model
+from .base import BaseModel, activate_func
 from ....utils import get_logger
 
 LOGGER = get_logger("SAGEModel")
 
 
-class GraphSAGE(ClassificationSupportedSequentialModel):
+class GraphSAGE(torch.nn.Module):
     class _SAGELayer(torch.nn.Module):
         def __init__(
             self,
@@ -61,18 +61,29 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
                 x: torch.Tensor = self._dropout.forward(x)
             return x
 
-    def __init__(
-        self,
-        num_features: int,
-        num_classes: int,
-        hidden_features: _typing.Sequence[int],
-        activation_name: str,
+    def __init__(self, hyper_parameters: _typing.Mapping[str, _typing.Any], *args, **kwargs):
+        super().__init__()
+        num_features: int = hyper_parameters["num_features"]
+        num_classes: int = hyper_parameters["num_classes"]
+        hidden_features: _typing.Sequence[int] = hyper_parameters["hidden"]
+        activation_name: str = hyper_parameters.get("act", "relu")
         layers_dropout: _typing.Union[
             _typing.Optional[float], _typing.Sequence[_typing.Optional[float]]
-        ] = None,
-        aggr: str = "mean",
-    ):
-        super().__init__()
+        ] = hyper_parameters.get("dropout")
+        aggr: str = hyper_parameters.get("agg", "mean")
+
+        ''' Set decoder '''
+        decoder: _typing.Union[str, _typing.Type[_decoder.RepresentationDecoder], None] = kwargs.get("decoder")
+        if issubclass(decoder, _decoder.RepresentationDecoder):
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = decoder(self.args)
+        elif isinstance(decoder, str) and len(decoder.strip()) > 0:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = (
+                _decoder.RepresentationDecoderUniversalRegistry.get_representation_decoder(decoder)(
+                    self.args
+                ) if not ('no' in decoder.lower() or 'null' in decoder.lower()) else None
+            )
+        else:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = None
         if not type(num_features) == type(num_classes) == int:
             raise TypeError
         if not isinstance(hidden_features, _typing.Sequence):
@@ -153,7 +164,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
     def sequential_encoding_layers(self) -> torch.nn.ModuleList:
         return self.__sequential_encoding_layers
 
-    def cls_encode(self, data) -> torch.Tensor:
+    def forward(self, data, *args, **kwargs) -> torch.Tensor:
         if (
             hasattr(data, "edge_indexes")
             and isinstance(getattr(data, "edge_indexes"), _typing.Sequence)
@@ -169,17 +180,17 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
                 x: torch.Tensor = self.__sequential_encoding_layers[i](
                     autogl.data.Data(x=x, edge_index=__edge_index)
                 )
-            return x
         else:
             x: torch.Tensor = getattr(data, "x")
             for i in range(len(self.__sequential_encoding_layers)):
                 x = self.__sequential_encoding_layers[i](
                     autogl.data.Data(x, getattr(data, "edge_index"))
                 )
+        if self._decoder is not None:
+            data.x = x
+            return self._decoder(data, *args, **kwargs)
+        else:
             return x
-
-    def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.nn.functional.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
         x: torch.Tensor = getattr(data, "x")
@@ -230,7 +241,9 @@ class AutoSAGE(BaseModel):
     """
 
     def __init__(
-        self, num_features=None, num_classes=None, device=None, init=False, **args
+            self, num_features=None, num_classes=None, device=None, init=False,
+            decoder: _typing.Union[_typing.Type[_decoder.RepresentationDecoder], str, None] = ...,
+            **kwargs
     ):
 
         super(AutoSAGE, self).__init__()
@@ -238,11 +251,7 @@ class AutoSAGE(BaseModel):
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
+        self.decoder = decoder
         self.space = [
             {
                 "parameterName": "num_layers",
@@ -296,10 +305,12 @@ class AutoSAGE(BaseModel):
             return
         self.initialized = True
         self.model = GraphSAGE(
-            self.num_features,
-            self.num_classes,
-            self.hyperparams.get("hidden"),
-            self.hyperparams.get("act", "relu"),
-            self.hyperparams.get("dropout", None),
-            self.hyperparams.get("agg", "mean"),
+            {
+                **self.hyperparams,
+                **{
+                    "num_classes": self.num_classes,
+                    "num_features": self.num_features
+                }
+            },
+            decoder=self.decoder
         ).to(self.device)

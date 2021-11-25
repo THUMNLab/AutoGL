@@ -1,13 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Linear, ReLU, Sequential, LeakyReLU, Tanh, ELU
+import typing as _typing
+from torch.nn import ReLU, LeakyReLU, Tanh, ELU
 from dgl.nn.pytorch.conv import GINConv
-from dgl.nn.pytorch.glob import SumPooling, AvgPooling, MaxPooling
-from torch.nn import BatchNorm1d
-from . import register_model
+from . import _decoder, register_model
 from .base import BaseModel, activate_func
-from copy import deepcopy
 from ....utils import get_logger
 
 LOGGER = get_logger("GINModel")
@@ -90,7 +88,7 @@ class MLP(nn.Module):
 
 class GIN(torch.nn.Module):
     """GIN model"""
-    def __init__(self, args):
+    def __init__(self, args, **kwargs):
         """model parameters setting
 
         Paramters
@@ -177,41 +175,21 @@ class GIN(torch.nn.Module):
                 GINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, self.eps))
             self.batch_norms.append(nn.BatchNorm1d(hidden[layer]))
 
-
-        self.fc1 = Linear(
-            hidden[self.num_layers - 3] + self.num_graph_features,
-            hidden[self.num_layers - 3],
-        )
-        self.fc2 = Linear(
-            hidden[self.num_layers - 2], self.args["num_class"]
-        )
-
-        # Linear function for graph poolings of output of each layer
-        # which maps the output of different layers into a prediction score
-        # self.linears_prediction = torch.nn.ModuleList()
-
-        # for layer in range(self.num_layers):
-        #     if layer == 0:
-        #         self.linears_prediction.append(
-        #             nn.Linear(input_dim, output_dim))
-        #     else:
-        #         self.linears_prediction.append(
-        #             nn.Linear(hidden[layer], output_dim))
-
-        # self.drop = nn.Dropout(final_dropout)
-
-        if graph_pooling_type == 'sum':
-            self.pool = SumPooling()
-        elif graph_pooling_type == 'mean':
-            self.pool = AvgPooling()
-        elif graph_pooling_type == 'max':
-            self.pool = MaxPooling()
+        ''' Set decoder '''
+        decoder: _typing.Union[str, _typing.Type[_decoder.RepresentationDecoder], None] = kwargs.get("decoder")
+        if issubclass(decoder, _decoder.RepresentationDecoder):
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = decoder(self.args)
+        elif isinstance(decoder, str) and len(decoder.strip()) > 0:
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = (
+                _decoder.RepresentationDecoderUniversalRegistry.get_representation_decoder(decoder)(
+                    self.args
+                ) if not ('no' in decoder.lower() or 'null' in decoder.lower()) else None
+            )
         else:
-            raise NotImplementedError
+            self._decoder: _typing.Optional[_decoder.RepresentationDecoder] = None
 
-    #def forward(self, g, h):
-    def forward(self, data):
-        g, _ = data
+    def forward(self, data, *args, **kwargs):
+        g = data
         x = g.ndata.pop('feat')
 
         if self.num_graph_features > 0:
@@ -228,19 +206,13 @@ class GIN(torch.nn.Module):
             # hidden_rep.append(h)
         if self.num_graph_features > 0:
             x = torch.cat([x, graph_feature], dim=-1)
-        x = self.fc1(x)
-        x = activate_func(x, self.args["act"])
-        x = F.dropout(x, p=self.args["dropout"], training=self.training)
-
-        x = self.fc2(x)
-        x = self.pool(g, x)
-        return F.log_softmax(x, dim=1)
-        # score_over_layer = 0
-        # perform pooling over all nodes in each graph in every layer
-        # for i, h in enumerate(hidden_rep):
-        #     pooled_h = self.pool(g, h)
-        #     score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
-        # return score_over_layer
+        if (
+                self._decoder is not None and
+                isinstance(self._decoder, _decoder.RepresentationDecoder)
+        ):
+            return self._decoder(g, x, *args, **kwargs)
+        else:
+            return x
 
 
 @register_model("gin")
@@ -283,7 +255,8 @@ class AutoGIN(BaseModel):
         device=None,
         init=False,
         num_graph_features=None,
-        **args
+        decoder: _typing.Union[_typing.Type[_decoder.RepresentationDecoder], str, None] = ...,
+        **kwargs
     ):
 
         super(AutoGIN, self).__init__()
@@ -293,7 +266,7 @@ class AutoGIN(BaseModel):
             int(num_graph_features) if num_graph_features is not None else 0
         )
         self.device = device if device is not None else "cpu"
-
+        self.decoder = decoder
         self.params = {
             "features_num": self.num_features,
             "num_class": self.num_classes,
@@ -370,4 +343,4 @@ class AutoGIN(BaseModel):
         if self.initialized:
             return
         self.initialized = True
-        self.model = GIN({**self.params, **self.hyperparams}).to(self.device)
+        self.model = GIN({**self.params, **self.hyperparams}, decoder=self.decoder).to(self.device)
