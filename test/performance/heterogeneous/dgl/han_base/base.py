@@ -1,7 +1,8 @@
 import torch
 from sklearn.metrics import f1_score
-
+from tqdm import tqdm
 from utils import load_data, EarlyStopping
+import numpy as np
 
 def score(logits, labels):
     _, indices = torch.max(logits, dim=1)
@@ -89,6 +90,8 @@ def main(args):
     print('Test loss {:.4f} | Test Micro f1 {:.4f} | Test Macro f1 {:.4f}'.format(
         test_loss.item(), test_micro_f1, test_macro_f1))
 
+    return test_acc
+
 if __name__ == '__main__':
     import argparse
 
@@ -104,5 +107,11 @@ if __name__ == '__main__':
     args = parser.parse_args().__dict__
 
     args = setup(args)
+    accs = []
 
-    main(args)
+    for seed in tqdm(range(50)):
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        acc = main(args)
+        accs.append(acc)
+    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))

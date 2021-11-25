@@ -270,17 +270,19 @@ def main(args):
         val_loss, val_acc, val_micro_f1, val_macro_f1 = evaluate(model, g, labels, val_mask, loss_fcn)
         early_stop = stopper.step(val_loss.data.item(), val_acc, model)
 
-        print('Epoch {:d} | Train Loss {:.4f} | Train Micro f1 {:.4f} | Train Macro f1 {:.4f} | '
-              'Val Loss {:.4f} | Val Micro f1 {:.4f} | Val Macro f1 {:.4f}'.format(
-            epoch + 1, loss.item(), train_micro_f1, train_macro_f1, val_loss.item(), val_micro_f1, val_macro_f1))
+        # print('Epoch {:d} | Train Loss {:.4f} | Train Micro f1 {:.4f} | Train Macro f1 {:.4f} | '
+        #       'Val Loss {:.4f} | Val Micro f1 {:.4f} | Val Macro f1 {:.4f}'.format(
+            # epoch + 1, loss.item(), train_micro_f1, train_macro_f1, val_loss.item(), val_micro_f1, val_macro_f1))
 
         if early_stop:
             break
 
     stopper.load_checkpoint(model)
     test_loss, test_acc, test_micro_f1, test_macro_f1 = evaluate(model, g, labels, test_mask, loss_fcn)
-    print('Test loss {:.4f} | Test Micro f1 {:.4f} | Test Macro f1 {:.4f}'.format(
-        test_loss.item(), test_micro_f1, test_macro_f1))
+    # print('Test loss {:.4f} | Test Micro f1 {:.4f} | Test Macro f1 {:.4f}'.format(
+    #     test_loss.item(), test_micro_f1, test_macro_f1))
+
+    return test_acc
 
 if __name__ == '__main__':
 
@@ -305,7 +307,12 @@ if __name__ == '__main__':
     args['num_epochs'] = 10
     set_random_seed(args['seed'])
     print(args)
+    accs = []
 
-    main(args)
-
+    for seed in tqdm(range(50)):
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        acc = main(args)
+        accs.append(acc)
+    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
 
