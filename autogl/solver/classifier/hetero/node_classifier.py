@@ -1,5 +1,5 @@
 """
-Auto Classfier for Node Classification
+Auto Classfier for Heterogeneous Node Classification
 """
 import time
 import json
@@ -12,26 +12,26 @@ import yaml
 
 from typing import Iterable
 
-from .base import BaseClassifier
-from ..base import _parse_hp_space, _initialize_single_model
-from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT, BaseModel
-from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
-from ...module.train import get_feval
-from ...module.nas.space import NAS_SPACE_DICT
-from ...module.nas.algorithm import NAS_ALGO_DICT
-from ...module.nas.estimator import NAS_ESTIMATOR_DICT, BaseEstimator
-from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_labels, get_graph_masks, get_graph_node_features, get_graph_node_number, set_seed, convert_dataset
-from ...datasets import utils
-from ...utils import get_logger
+from ..base import BaseClassifier
+from ...base import _parse_hp_space, _initialize_single_model
+from ....module.feature import FEATURE_DICT
+from ....module.model import MODEL_DICT, BaseModel
+from ....module.train import TRAINER_DICT, BaseNodeClassificationTrainer
+from ....module.train import get_feval
+from ....module.nas.space import NAS_SPACE_DICT
+from ....module.nas.algorithm import NAS_ALGO_DICT
+from ....module.nas.estimator import NAS_ESTIMATOR_DICT, BaseEstimator
+from ...utils import LeaderBoard, get_graph_from_dataset, get_graph_labels, get_graph_masks, get_graph_node_features, get_graph_node_number, set_seed, convert_dataset
+from ....datasets import utils
+from ....utils import get_logger
 
-LOGGER = get_logger("NodeClassifier")
+LOGGER = get_logger("HeteroNodeClassifier")
 
-class AutoNodeClassifier(BaseClassifier):
+class AutoHeteroNodeClassifier(BaseClassifier):
     """
-    Auto Multi-class Graph Node Classifier.
+    Auto Multi-class HeteroGraph Node Classifier.
 
-    Used to automatically solve the node classification problems.
+    Used to automatically solve the heterogeneous node classification problems.
 
     Parameters
     ----------
@@ -41,15 +41,6 @@ class AutoNodeClassifier(BaseClassifier):
 
     graph_models: list of autogl.module.model.BaseModel or list of str
         The (name of) models to be optimized as backbone. Default ``['gat', 'gcn']``.
-
-    nas_algorithms: (list of) autogl.module.nas.algorithm.BaseNAS or str (Optional)
-        The (name of) nas algorithms used. Default ``None``.
-
-    nas_spaces: (list of) autogl.module.nas.space.BaseSpace or str (Optional)
-        The (name of) nas spaces used. Default ``None``.
-
-    nas_estimators: (list of) autogl.module.nas.estimator.BaseEstimator or str (Optional)
-        The (name of) nas estimators used. Default ``None``.
 
     hpo_module: autogl.module.hpo.BaseHPOptimizer or str or None
         The (name of) hpo module used to search for best hyper parameters. Default ``anneal``.
@@ -86,14 +77,11 @@ class AutoNodeClassifier(BaseClassifier):
     def __init__(
         self,
         feature_module=None,
-        graph_models=("gat", "gcn"),
-        nas_algorithms=None,
-        nas_spaces=None,
-        nas_estimators=None,
+        graph_models=("han", "hgt"),
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
-        default_trainer=None,
+        default_trainer="NodeClassificationHet",
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -103,13 +91,14 @@ class AutoNodeClassifier(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
-            nas_algorithms=nas_algorithms,
-            nas_spaces=nas_spaces,
-            nas_estimators=nas_estimators,
+            # currently we do not support nas for heterogeneous node classifier
+            nas_algorithms=None,
+            nas_spaces=None,
+            nas_estimators=None,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "NodeClassificationFull",
+            default_trainer=default_trainer,
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -121,13 +110,15 @@ class AutoNodeClassifier(BaseClassifier):
 
     def _init_graph_module(
         self, graph_models, num_classes, num_features, feval, device, loss
-    ) -> "AutoNodeClassifier":
+    ) -> "AutoHeteroNodeClassifier":
+        # TODO: fix model initialization because hetero model should receive additional arguments
         # load graph network module
         self.graph_model_list = []
         if isinstance(graph_models, Iterable):
             for model in graph_models:
                 if isinstance(model, str):
                     if model in MODEL_DICT:
+                        # TODO: fix model initialization because hetero model should receive additional arguments
                         self.graph_model_list.append(
                             MODEL_DICT[model](
                                 num_classes=num_classes,
@@ -139,6 +130,7 @@ class AutoNodeClassifier(BaseClassifier):
                     else:
                         raise KeyError("cannot find model %s" % (model))
                 elif isinstance(model, type) and issubclass(model, BaseModel):
+                    # TODO: fix model initialization because hetero model should receive additional arguments
                     self.graph_model_list.append(
                         model(
                             num_classes=num_classes,
@@ -149,6 +141,7 @@ class AutoNodeClassifier(BaseClassifier):
                     )
                 elif isinstance(model, BaseModel):
                     # setup the hp of num_classes and num_features
+                    # TODO: setup model
                     model.set_num_classes(num_classes)
                     model.set_num_features(num_features)
                     self.graph_model_list.append(model.to(device))
@@ -212,16 +205,6 @@ class AutoNodeClassifier(BaseClassifier):
 
         return self
 
-    def _init_nas_module(self, num_features, num_classes, feval, device, loss):
-        for algo, space, estimator in zip(
-            self.nas_algorithms, self.nas_spaces, self.nas_estimators
-        ):
-            estimator: BaseEstimator
-            algo.to(device)
-            space.instantiate(input_dim=num_features, output_dim=num_classes)
-            estimator.setEvaluation(feval)
-            estimator.setLossFunction(loss)
-
     # pylint: disable=arguments-differ
     def fit(
         self,
@@ -233,7 +216,7 @@ class AutoNodeClassifier(BaseClassifier):
         balanced=True,
         evaluation_method="infer",
         seed=None,
-    ) -> "AutoNodeClassifier":
+    ) -> "AutoHeteroNodeClassifier":
         """
         Fit current solver on given dataset.
 
@@ -712,7 +695,7 @@ class AutoNodeClassifier(BaseClassifier):
         return np.argmax(proba, axis=1)
 
     @classmethod
-    def from_config(cls, path_or_dict, filetype="auto") -> "AutoNodeClassifier":
+    def from_config(cls, path_or_dict, filetype="auto") -> "AutoHeteroNodeClassifier":
         """
         Load solver from config file.
 
