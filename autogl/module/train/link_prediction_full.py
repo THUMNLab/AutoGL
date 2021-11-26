@@ -193,11 +193,14 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         for epoch in range(1, self.max_epoch):
             self.model.model.train()
 
-            neg_edge_index = negative_sampling(
-                edge_index=data.train_pos_edge_index,
-                num_nodes=data.num_nodes,
-                num_neg_samples=data.train_pos_edge_index.size(1),
-            )
+            try:
+                neg_edge_index = data.train_neg_edge_index
+            except:
+                neg_edge_index = negative_sampling(
+                    edge_index=data.train_pos_edge_index,
+                    num_nodes=data.num_nodes,
+                    num_neg_samples=data.train_pos_edge_index.size(1),
+                )
 
             optimizer.zero_grad()
             # res = self.model.model.forward(data)
@@ -427,12 +430,16 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         data = dataset[0]
         data.edge_index = data.train_pos_edge_index
         data = data.to(self.device)
-        if mask in ["train", "val", "test"]:
-            pos_edge_index = data[f"{mask}_pos_edge_index"]
-            neg_edge_index = data[f"{mask}_neg_edge_index"]
-        else:
-            pos_edge_index = data[f"test_pos_edge_index"]
-            neg_edge_index = data[f"test_neg_edge_index"]
+        try:
+            if mask in ["train", "val", "test"]:
+                pos_edge_index = data[f"{mask}_pos_edge_index"]
+                neg_edge_index = data[f"{mask}_neg_edge_index"]
+            else:
+                pos_edge_index = data[f"test_pos_edge_index"]
+                neg_edge_index = data[f"test_neg_edge_index"]
+        except:
+            pos_edge_index = data[f"test_edge_index"]
+            neg_edge_index = torch.zeros(2, 0).to(self.device)
 
         self.model.model.eval()
         with torch.no_grad():
@@ -446,11 +453,15 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         train_graph = dataset['train']
         try:
-            pos_graph = dataset[f'{mask}_pos']
-            neg_graph = dataset[f'{mask}_neg']
+            try:
+                pos_graph = dataset[f'{mask}_pos']
+                neg_graph = dataset[f'{mask}_neg']
+            except:
+                pos_graph = dataset[f'test_pos']
+                neg_graph = dataset[f'test_neg']
         except:
-            pos_graph = dataset[f'test_pos']
-            neg_graph = dataset[f'test_neg']
+            pos_graph = dataset[mask]
+            neg_graph = dgl.graph([], num_nodes=0).to(self.device)
 
         self.model.model.eval()
         with torch.no_grad():
