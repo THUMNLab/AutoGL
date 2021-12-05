@@ -8,6 +8,7 @@ import time
 import math
 import dill
 import multiprocessing as mp
+import copy
 
 mp.set_start_method("spawn", True)
 
@@ -19,6 +20,31 @@ class BaseHPOptimizer:
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.logger = LOGGER
+
+    def _decompose_dld(self, config):
+        self._dld = {}
+        if isinstance(config, list):
+            return config
+        # config is dict
+        list_config = []
+        for key in config:
+            self._dld[key] = []
+            for para in config[key]:
+                self._dld[key].append(para["parameterName"])
+                newpara = para.copy()
+                newpara["parameterName"] = key + ":" + para["parameterName"]
+                list_config.append(newpara)
+        return list_config
+
+    def _compose_dld(self, para):
+        if not self._dld:
+            return para
+        fin = {}
+        for key in self._dld:
+            fin[key] = {}
+            for pname in self._dld[key]:
+                fin[key][panme] = para[key + ":" + panme]
+        return fin
 
     def _decompose_depend_list_para(self, config):
         self._depend_map = {}
@@ -57,7 +83,6 @@ class BaseHPOptimizer:
         return config
 
     def _decompose_list_fixed_para(self, config):
-        config = self._decompose_depend_list_para(config)
         fin = []
         self._list_map = {}
         self._fix_map = {}
@@ -114,10 +139,9 @@ class BaseHPOptimizer:
             fin[pname[:-1]] = config[pname]
         for pname in self._fix_map:
             fin[pname] = self._fix_map[pname]
-        fin = self._compose_depend_list_para(fin)
         return fin
 
-    def _encode_para(self, config):
+    def _encode_para_convert(self, config):
         """
         Convert all types of para space to DOUBLE(linear), DISCRETE
         config: [{
@@ -142,7 +166,6 @@ class BaseHPOptimizer:
         self._category_map = {}
         self._discrete_map = {}
         self._numerical_map = {}
-        config = self._decompose_list_fixed_para(config)
 
         current_config = []
         for para in config:
@@ -173,7 +196,7 @@ class BaseHPOptimizer:
                 current_config.append(para)
         return current_config
 
-    def _decode_para(self, para):
+    def _decode_para_convert(self, para):
         """
         decode HPO given para to user(externel) para and trial para
         """
@@ -201,8 +224,25 @@ class BaseHPOptimizer:
             elif name in self._discrete_map:
                 externel_para[name] = eval(self._discrete_map[name][int(para[name])])
                 trial_para[name] = para[name]
-        externel_para = self._compose_list_fixed_para(externel_para)
         return externel_para, trial_para
+
+    def _encode_para(self, config):
+        # dict(list(dict)) -> list(dict)
+        config = self._decompose_dld(config)
+        # (dependent list) -> list
+        config = self._decompose_depend_list_para(config)
+        # list -> double/discrete; fixed -> removed
+        config = self._decompose_list_fixed_para(config)
+        # discrete -> categorical; log -> linear
+        config = self._encode_para_convert(config)
+        return config
+
+    def _decode_para(self, para):
+        para, trial_para = self._decode_para_convert(para)
+        para = self._compose_list_fixed_para(para)
+        para = self._compose_depend_list_para(para)
+        para = self._compose_dld(para)
+        return para, trial_para
 
     def _print_info(self, para, perf):
         if self.is_higher_better:
