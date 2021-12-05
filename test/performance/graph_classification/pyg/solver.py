@@ -16,15 +16,6 @@ import logging
 
 logging.basicConfig(level=logging.ERROR)
 
-def graph_get_split(dataset, mask, is_loader=True, batch_size=128, num_workers=0):
-    out = getattr(dataset, f'{mask}_split')
-    from torch_geometric.data import DataLoader
-    if is_loader:
-        out = DataLoader(out, batch_size, num_workers=num_workers)
-    return out
-
-utils.graph_get_split = graph_get_split
-
 def fixed(**kwargs):
     return [{
         'parameterName': k,

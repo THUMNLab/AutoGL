@@ -25,14 +25,6 @@ def fixed(**kwargs):
         "value": v
     } for k, v in kwargs.items()]
 
-def graph_get_split(dataset, mask, is_loader=True, batch_size=128, num_workers=0):
-    out = getattr(dataset, f'{mask}_split')
-    if is_loader:
-        out = DataLoader(out, batch_size, num_workers=num_workers)
-    return out
-
-utils.graph_get_split = graph_get_split
-
 if __name__ == '__main__':
 
     import argparse

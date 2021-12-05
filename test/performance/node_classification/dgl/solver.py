@@ -63,7 +63,7 @@ if __name__ == '__main__':
                 "hidden": [64],
                 "dropout": 0.5,
                 "act": "relu",
-                "agg": "mean",
+                "agg": "gcn",
             }
         
         solver = AutoNodeClassifier(

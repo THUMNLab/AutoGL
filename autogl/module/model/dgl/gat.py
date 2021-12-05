@@ -82,8 +82,8 @@ class GAT(torch.nn.Module):
             print("no x")
             pass
 
-        data = dgl.remove_self_loop(data)
-        data = dgl.add_self_loop(data)
+        # data = dgl.remove_self_loop(data)
+        # data = dgl.add_self_loop(data)
         
         for i in range(self.num_layer-1):
             x = self.convs[i](data, x).flatten(1)

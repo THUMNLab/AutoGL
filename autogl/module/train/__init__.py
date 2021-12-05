@@ -1,3 +1,5 @@
+from ...backend import DependentBackend
+
 TRAINER_DICT = {}
 from .base import (
     BaseTrainer,
@@ -24,7 +26,10 @@ def register_trainer(name):
 
 from .graph_classification_full import GraphClassificationFullTrainer
 from .node_classification_full import NodeClassificationFullTrainer
-from .link_prediction import LinkPredictionTrainer
+if DependentBackend.is_pyg():
+    from .link_prediction import LinkPredictionTrainer
+elif DependentBackend.is_dgl():
+    LinkPredictionTrainer = None
 from .node_classification_trainer import *
 from .evaluation import get_feval, Acc, Auc, Logloss, Mrr, MicroF1
 

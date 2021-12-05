@@ -70,8 +70,8 @@ if __name__ == '__main__':
         dataset = PubmedGraphDataset()
     graph = dataset[0].to(args.device)
 
-    graph = dgl.remove_self_loop(graph)
-    graph = dgl.add_self_loop(graph)
+    # graph = dgl.remove_self_loop(graph)
+    # graph = dgl.add_self_loop(graph)
 
     label = graph.ndata['label']
     train_mask = graph.ndata['train_mask']
@@ -97,7 +97,7 @@ if __name__ == '__main__':
                 "heads": 8,
                 "feat_drop": 0.6,
                 "dropout": 0.6,
-                "act": "elu",
+                "act": "relu",
             }).model
         elif args.model == 'gcn':
             model = AutoGCN(

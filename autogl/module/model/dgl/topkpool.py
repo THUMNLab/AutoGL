@@ -1,13 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Linear, ReLU, Sequential, LeakyReLU, Tanh, ELU
 from dgl.nn.pytorch.conv import GraphConv
 from dgl.nn.pytorch.glob import SortPooling
-from torch.nn import BatchNorm1d
 from . import register_model
-from .base import BaseModel, activate_func
-from copy import deepcopy
+from .base import BaseModel
 from ....utils import get_logger
 
 LOGGER = get_logger("TopkModel")
@@ -241,15 +238,20 @@ class AutoTopkpool(BaseModel):
         }
         self.space = [
             {
+                "parameterName": "num_layers",
+                "type": "DISCRETE",
+                "feasiblePoints": "4,5,6",
+            },
+            {
                 "parameterName": "hidden",
                 "type": "NUMERICAL_LIST",
                 "numericalType": "INTEGER",
-                "length": 1,
-                "minValue": [128],
-                "maxValue": [32],
+                "length": 5,
+                "minValue": [8, 8, 8, 8, 8],
+                "maxValue": [64, 64, 64, 64, 64],
                 "scalingType": "LOG",
-                "cutPara": (),
-                "cutFunc": lambda:1,
+                "cutPara": ("num_layers",),
+                "cutFunc": lambda x: x[0] - 1,
             },
             {
                 "parameterName": "dropout",
@@ -265,12 +267,19 @@ class AutoTopkpool(BaseModel):
                 "maxValue": 2,
                 "scalingType": "LINEAR"
             },
+            {
+                "parameterName": "mlp_layers",
+                "type": "DISCRETE",
+                "feasiblePoints": "2,3,4",
+            },
         ]
 
         self.hyperparams = {
             "num_layers": 5,
-            "hidden": [64],
-            "dropout": 0.5
+            "hidden": [64,64,64,64],
+            "dropout": 0.5,
+            "act": "relu",
+            "mlp_layers": 2
         }
 
         self.initialized = False

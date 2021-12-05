@@ -335,7 +335,7 @@ def graph_random_splits(
 
 
 def graph_get_split(
-        dataset: Dataset, mask: str = "train",
+        dataset, mask: str = "train",
         is_loader: bool = True, batch_size: int = 128,
         num_workers: int = 0
 ) -> _typing.Union[torch.utils.data.DataLoader, _typing.Iterable]:
@@ -356,8 +356,6 @@ def graph_get_split(
     num_workers : int
         number of workers parameter for data loader
     """
-    if not isinstance(dataset, Dataset):
-        raise TypeError
     if not isinstance(mask, str):
         raise TypeError
     elif mask.lower() not in ("train", "val", "test"):
@@ -386,10 +384,7 @@ def graph_get_split(
             f"The provided mask parameter must be a str in ['train', 'val', 'test'], "
             f"illegal provided value is [{mask}]"
         )
-    if (
-            optional_dataset_split is None or
-            not isinstance(optional_dataset_split, _typing.Iterable)
-    ):
+    if optional_dataset_split is None:
         raise ValueError(
             f"Provided dataset do NOT have {mask} split"
         )
@@ -405,7 +400,12 @@ def graph_get_split(
         elif _backend.DependentBackend.is_pyg():
             dataset_split: _typing.Any = optional_dataset_split
             import torch_geometric
-            return torch_geometric.data.DataLoader(
+            if int(torch_geometric.__version__.split('.')[0]) >= 2:
+                # version 2.x
+                from torch_geometric.loader import DataLoader
+            else:
+                from torch_geometric.data import DataLoader
+            return DataLoader(
                 dataset_split, batch_size=batch_size, num_workers=num_workers
             )
     else:
