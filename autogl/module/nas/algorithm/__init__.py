@@ -29,7 +29,9 @@ from .darts import Darts
 from .enas import Enas
 from .random_search import RandomSearch
 from .rl import RL, GraphNasRL
-
+from ..backend import *
+if not is_dgl():
+    from .gasso import Gasso
 
 def build_nas_algo_from_name(name: str) -> BaseNAS:
     """
@@ -53,3 +55,6 @@ def build_nas_algo_from_name(name: str) -> BaseNAS:
 
 
 __all__ = ["BaseNAS", "Darts", "Enas", "RandomSearch", "RL", "GraphNasRL"]
+
+if not is_dgl():
+    __all__.append("Gasso")

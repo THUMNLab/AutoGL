@@ -81,16 +81,16 @@ if __name__ == "__main__":
     di = bk_feat(data).shape[1]
     do = len(np.unique(bk_label(data)))
 
-    print("Random search + graphnas ")
-    space = GraphNasNodeClassificationSpace().cuda()
+    print("Random search + singlepath ")
+    space = SinglePathNodeClassificationSpace().cuda()
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
     algo = RandomSearch(num_epochs=10)
     model = algo.search(space, dataset, esti)
     test_model(model, data, True)
 
-    print("Random search + singlepath ")
-    space = SinglePathNodeClassificationSpace().cuda()
+    print("Random search + graphnas ")
+    space = GraphNasNodeClassificationSpace().cuda()
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
     algo = RandomSearch(num_epochs=10)
@@ -110,14 +110,6 @@ if __name__ == "__main__":
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
     algo = GraphNasRL(num_epochs=10)
-    model = algo.search(space, dataset, esti)
-    test_model(model, data, True)
-
-    print("enas + graphnas ")
-    space = GraphNasNodeClassificationSpace().cuda()
-    space.instantiate(input_dim=di, output_dim=do)
-    esti = OneShotEstimator()
-    algo = Enas(num_epochs=10)
     model = algo.search(space, dataset, esti)
     test_model(model, data, True)
 
