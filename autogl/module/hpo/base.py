@@ -2,24 +2,25 @@
 HPO Module for tuning hyper parameters
 """
 
-from ...utils import get_logger
+#from ...utils import get_logger
 import hyperopt
 import time
 import math
 import dill
 import multiprocessing as mp
 import copy
+import random
 
 mp.set_start_method("spawn", True)
 
 
-LOGGER = get_logger("HPO")
+#LOGGER = get_logger("HPO")
 
 
 class BaseHPOptimizer:
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self.logger = LOGGER
+        #self.logger = LOGGER
 
     def _decompose_dld(self, config):
         self._dld = {}
@@ -33,6 +34,8 @@ class BaseHPOptimizer:
                 self._dld[key].append(para["parameterName"])
                 newpara = para.copy()
                 newpara["parameterName"] = key + ":" + para["parameterName"]
+                if "cutPara" in para.keys():
+                    newpara["cutPara"] = key + ":" + para["cutPara"]
                 list_config.append(newpara)
         return list_config
 
@@ -43,7 +46,7 @@ class BaseHPOptimizer:
         for key in self._dld:
             fin[key] = {}
             for pname in self._dld[key]:
-                fin[key][panme] = para[key + ":" + panme]
+                fin[key][pname] = para[key + ":" + pname]
         return fin
 
     def _decompose_depend_list_para(self, config):
@@ -429,3 +432,49 @@ class TimeTooLimitedError(Exception):
 
 class WrongDependedParameterError(Exception):
     pass
+
+def test():
+    config = {"encoder": [{
+        "parameterName": "num_layers",
+        "type": "DISCRETE",
+        "feasiblePoints": "1,2,3,4",
+    },{
+        "parameterName": "hidden",
+        "type": "NUMERICAL_LIST",
+        "numericalType": "INTEGER",
+        "length": 4,
+        "cutPara": "num_layers",
+        "cutFunc": lambda x: x[0],
+        "minValue": [4, 4, 4, 4],
+        "maxValue": [32, 32, 32, 32],
+        "scalingType": "LOG"
+    },{
+        "parameterName": "dropout",
+        "type": "DOUBLE",
+        "minValue": 0.1,
+        "maxValue": 0.9,
+        "scalingType": "LINEAR"
+    }],
+    "decoder":[{
+        "parameterName": "dropout",
+        "type": "DOUBLE",
+        "minValue": 0.1,
+        "maxValue": 0.9,
+        "scalingType": "LINEAR"
+    }]}
+    bhpo = BaseHPOptimizer()
+    newconf = bhpo._encode_para(config)
+    print(newconf)
+
+    para = {}
+    for i in newconf:
+        if i['type'] == "DISCRETE":
+            para[i['parameterName']] = int(random.choice(i["feasiblePoints"].split(',')))
+        else:
+            para[i['parameterName']] = i['minValue'] + random.random() * (i['maxValue'] - i["minValue"])
+    newpara = bhpo._decode_para(para)[0]
+    print(newpara)
+
+if __name__ == "__main__":
+    test()
+     
