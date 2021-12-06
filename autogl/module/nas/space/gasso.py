@@ -191,7 +191,7 @@ class GassoSpace(BaseSpace):
         self,
         hidden_dim: _typ.Optional[int] = 64,
         layer_number: _typ.Optional[int] = 2,
-        dropout: _typ.Optional[float] = 0.2,
+        dropout: _typ.Optional[float] = 0.8,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = gnn_list,
@@ -210,7 +210,7 @@ class GassoSpace(BaseSpace):
         self,
         hidden_dim: _typ.Optional[int] = 64,
         layer_number: _typ.Optional[int] = 2,
-        dropout: _typ.Optional[float] = 0.2,
+        dropout: _typ.Optional[float] = 0.8,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
         ops: _typ.Tuple = gnn_list,
@@ -233,6 +233,7 @@ class GassoSpace(BaseSpace):
 
         self.initialize_alphas()
 
+    #def forward(self, x, adjs):
     def forward(self, data):
         if self.use_forward:
             x, adjs = data.x, data.adj

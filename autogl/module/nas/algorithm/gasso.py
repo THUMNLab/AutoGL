@@ -59,7 +59,6 @@ class Gasso(BaseNAS):
             diff = (logits[e1] - logits[e2]).pow(2).sum(1)
             smooth = (diff * torch.sigmoid(ew)).sum()
             dist = (ew * ew).sum()
-            #print(smooth,dist)
             loss += self.lamb * smooth + dist
             
         optimizer.zero_grad()
@@ -100,8 +99,9 @@ class Gasso(BaseNAS):
 
         t_total = time.time()
         for epoch in range(self.num_epochs):
+            self.space.train()
             self.optimizer.zero_grad()
-            acc1, loss = self._infer(self.space, data, self.estimator, "train")
+            _, loss = self._infer(self.space, data, self.estimator, "train")
             loss.backward()
             self.optimizer.step()
 
@@ -110,15 +110,18 @@ class Gasso(BaseNAS):
             self.train_stru(self.space, self.stru_optimizer, data)
             
             self.arch_optimizer.zero_grad()
-            acc2, loss = self._infer(self.space, data, self.estimator, "train")
+            _, loss = self._infer(self.space, data, self.estimator, "train")
             loss.backward()
             self.arch_optimizer.step()
 
+            self.space.eval()
+            train_acc, _ = self._infer(self.space, data, self.estimator, "train")
             val_acc, val_loss = self._infer(self.space, data, self.estimator, "val")
             if val_loss < min_val_loss:
                 min_val_loss = val_loss
                 best_performance = val_acc
                 self.space.keep_prediction()
+            #print("acc:" + str(train_acc) + " val_acc" + str(val_acc))
 
         return best_performance, min_val_loss
 

@@ -1,4 +1,5 @@
 import torch.nn.functional as F
+import torch
 
 from . import register_nas_estimator
 from ..space import BaseSpace
@@ -6,7 +7,6 @@ from .base import BaseEstimator
 from ..backend import *
 from ...train.evaluation import Acc
 from ..utils import get_hardware_aware_metric
-
 
 @register_nas_estimator("oneshot")
 class OneShotEstimator(BaseEstimator):
@@ -30,7 +30,8 @@ class OneShotEstimator(BaseEstimator):
         y = label[mask]
 
         loss = getattr(F, self.loss_f)(pred, y)
-        probs = F.softmax(pred, dim=1).detach().cpu().numpy()
+        #probs = F.softmax(pred, dim=1).detach().cpu().numpy()
+        probs = pred.detach().cpu().numpy()
         y = y.cpu()
         metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
         return metrics, loss
