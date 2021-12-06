@@ -270,40 +270,6 @@ class GassoSpace(BaseSpace):
     def arch_parameters(self):
         return self.alphas_normal
 
-    def parse_gene_force(self, alphas):
-        gene = []
-        n = 2
-        max_num_edges = 1
-        start = 0
-        mat = F.softmax(torch.stack(alphas, dim=0), dim=-1).detach()
-        importance = torch.sum(mat[:, 1:], dim=-1).cpu()
-        for i in range(self.steps):
-            #end = start + 2
-            end = start + n
-            num_edges_to_select = max_num_edges
-            if num_edges_to_select > 0:
-                post_select_edges = torch.topk(importance[start: end], k=num_edges_to_select).indices + start
-            else:
-                post_select_edges = []
-            for j in range(start, end):
-                if num_edges_to_select <= 0:
-                    raise Exception("Unknown errors")
-                else:
-                    if j in post_select_edges:
-                        idx = torch.argmax(alphas[j][1:]) + 1
-                        gene.append((self.ops[idx], j - start))
-            start = end
-            n += 1
-
-        return gene
-
-    def get_genotype(self, force=True):
-        gene_normal = self.parse_gene_force(self.alphas_normal)
-        n = 2
-        concat = range(n, self.steps + n)
-        genotype = Genotype(normal=gene_normal, normal_concat=concat)
-        return genotype
-
     def parse_model(self, selection, device) -> BaseModel:
         self.use_forward = False
         return self.wrap(device)
