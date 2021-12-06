@@ -143,9 +143,35 @@ class HAN(nn.Module):
 
 @register_model("han")
 class AutoHAN(BaseModel):
+    r"""
+    AutoHAN.
+    The model used in this automodel is HAN, i.e., the graph convolutional network from the
+    `"Heterogenous Graph Attention Network"
+    <https://arxiv.org/pdf/1903.07293.pdf>`_ paper.
 
+    .. math::
+        
+    Parameters
+    ----------
+    G: ``autogl.data``
+        The Hetero Graph Data.
+    
+    meta_paths: ``List[List[str]]``
+        List of meth paths, each as a list of edge types.
+
+    num_features: ``int``
+        The dimension of features.
+
+    num_classes: ``int``
+        The number of classes.
+
+    device: ``torch.device`` or ``str``
+        The device where model will be running on.
+
+    init: `bool`.
+        If True(False), the model will (not) be initialized.
+    """
     def __init__(
-        #self,  dataset = None, meta_paths=None, num_features=None, num_classes=None, device=None, init=True, **args
         self,  G = None, meta_paths=None, num_features=None, num_classes=None, device=None, init=True, **args
     ):
         super(AutoHAN, self).__init__()

@@ -89,7 +89,34 @@ class HeteroRGCN(nn.Module):
 
 @register_model("HeteroRGCN")
 class AutoHeteroRGCN(BaseModel):
+    r"""
+    AutoHAN.
+    The model used in this automodel is HeteroRGCN, i.e., the relational graph convolutional network from the
+    `"Modeling Relational Data with Graph Convolutional Networks"
+    <https://arxiv.org/abs/1703.06103>`_ paper
 
+    .. math::
+        
+    Parameters
+    ----------
+    G: ``autogl.data``
+        The Hetero Graph Data.
+    
+    meta_paths: ``List[List[str]]``
+        List of meth paths, each as a list of edge types.
+
+    num_features: ``int``
+        The dimension of features.
+
+    num_classes: ``int``
+        The number of classes.
+
+    device: ``torch.device`` or ``str``
+        The device where model will be running on.
+
+    init: `bool`.
+        If True(False), the model will (not) be initialized.
+    """
     def __init__(
         self,  G = None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
     ):
