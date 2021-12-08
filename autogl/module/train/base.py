@@ -402,7 +402,7 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
         )
 
 # ============== Het =================
-class _BaseClassificationHetTrainer(BaseTrainer):
+class BaseNodeClassificationHetTrainer(BaseTrainer):
     """ Base class of trainer for classification tasks """
 
     def __init__(
@@ -443,7 +443,7 @@ class _BaseClassificationHetTrainer(BaseTrainer):
             raise TypeError(
                 f"Model argument only support str or BaseModel, got {model}."
             )
-        super(_BaseClassificationHetTrainer, self).__init__(
+        super(BaseNodeClassificationHetTrainer, self).__init__(
             _model, __device, init, feval, loss
         )
 
