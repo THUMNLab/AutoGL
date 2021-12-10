@@ -42,6 +42,7 @@ __all__ = [
     "BaseLinkPredictionTrainer",
     "GraphClassificationFullTrainer",
     "NodeClassificationFullTrainer",
+    "NodeClassificationHetTrainer",
     "NodeClassificationGraphSAINTTrainer",
     "NodeClassificationLayerDependentImportanceSamplingTrainer",
     "NodeClassificationNeighborSamplingTrainer",
