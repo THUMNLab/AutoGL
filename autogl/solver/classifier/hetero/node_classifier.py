@@ -16,7 +16,7 @@ from ..base import BaseClassifier
 from ...base import _parse_hp_space, _initialize_single_model
 from ....module.feature import FEATURE_DICT
 from ....module.model import MODEL_DICT, BaseModel
-from ....module.train import TRAINER_DICT, BaseNodeClassificationTrainer
+from ....module.train import TRAINER_DICT, NodeClassificationHetTrainer
 from ....module.train import get_feval
 from ....module.nas.space import NAS_SPACE_DICT
 from ....module.nas.algorithm import NAS_ALGO_DICT
@@ -109,18 +109,17 @@ class AutoHeteroNodeClassifier(BaseClassifier):
         self.dataset = None
 
     def _init_graph_module(
-        self, graph_models, num_classes, num_features, feval, device, loss
+        self, graph_models, num_classes, num_features, feval, device, loss, dataset
     ) -> "AutoHeteroNodeClassifier":
-        # TODO: fix model initialization because hetero model should receive additional arguments
         # load graph network module
         self.graph_model_list = []
         if isinstance(graph_models, Iterable):
             for model in graph_models:
                 if isinstance(model, str):
                     if model in MODEL_DICT:
-                        # TODO: fix model initialization because hetero model should receive additional arguments
                         self.graph_model_list.append(
                             MODEL_DICT[model](
+                                dataset=dataset,
                                 num_classes=num_classes,
                                 num_features=num_features,
                                 device=device,
@@ -130,9 +129,9 @@ class AutoHeteroNodeClassifier(BaseClassifier):
                     else:
                         raise KeyError("cannot find model %s" % (model))
                 elif isinstance(model, type) and issubclass(model, BaseModel):
-                    # TODO: fix model initialization because hetero model should receive additional arguments
                     self.graph_model_list.append(
                         model(
+                            dataset=dataset,
                             num_classes=num_classes,
                             num_features=num_features,
                             device=device,
@@ -141,11 +140,11 @@ class AutoHeteroNodeClassifier(BaseClassifier):
                     )
                 elif isinstance(model, BaseModel):
                     # setup the hp of num_classes and num_features
-                    # TODO: setup model
                     model.set_num_classes(num_classes)
                     model.set_num_features(num_features)
+                    model.from_dataset(dataset)
                     self.graph_model_list.append(model.to(device))
-                elif isinstance(model, BaseNodeClassificationTrainer):
+                elif isinstance(model, NodeClassificationHetTrainer):
                     # receive a trainer list, put trainer to list
                     assert (
                         model.get_model() is not None
@@ -159,6 +158,7 @@ class AutoHeteroNodeClassifier(BaseClassifier):
                         feval=feval,
                         device=device,
                     )
+                    model.model.from_dataset(dataset)
                     self.graph_model_list.append(model)
                 else:
                     raise KeyError("cannot find graph network %s." % (model))
@@ -174,12 +174,13 @@ class AutoHeteroNodeClassifier(BaseClassifier):
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, BaseNodeClassificationTrainer):
+                    if isinstance(model, NodeClassificationHetTrainer):
                         model.model.hyper_parameter_space = self._model_hp_spaces[i]
                     else:
                         model.hyper_parameter_space = self._model_hp_spaces[i]
             # initialize trainer if needed
             if isinstance(model, BaseModel):
+                # FIXME: seems that currently we only support passing str of trainer?
                 name = (
                     self._default_trainer
                     if isinstance(self._default_trainer, str)
@@ -187,6 +188,7 @@ class AutoHeteroNodeClassifier(BaseClassifier):
                 )
                 model = TRAINER_DICT[name](
                     model=model,
+                    dataset=dataset,
                     num_features=num_features,
                     num_classes=num_classes,
                     loss=loss,
@@ -298,6 +300,7 @@ class AutoHeteroNodeClassifier(BaseClassifier):
                     train_split if train_split > 1 else int(train_split * size)
                 )
                 val_split = val_split if val_split > 1 else int(val_split * size)
+                # FIXME: CAUTION! May have problems
                 utils.random_splits_mask_class(
                     dataset,
                     num_train_per_class=train_split // num_classes,
@@ -307,6 +310,7 @@ class AutoHeteroNodeClassifier(BaseClassifier):
             else:
                 train_split = train_split if train_split < 1 else train_split / size
                 val_split = val_split if val_split < 1 else val_split / size
+                # FIXME: CAUTION! May have problems
                 utils.random_splits_mask(
                     dataset, train_ratio=train_split, val_ratio=val_split
                 )
@@ -324,8 +328,9 @@ class AutoHeteroNodeClassifier(BaseClassifier):
         self.dataset = dataset
 
         # check whether the dataset has features.
-        # currently we only support graph classification with features.
+        # currently we only support hetero graph classification with features.
 
+        # FIXME: CAUTION! May have problems
         feat = get_graph_node_features(graph_data)
         assert feat is not None, (
             "Does not support fit on non node-feature dataset!"
@@ -335,6 +340,8 @@ class AutoHeteroNodeClassifier(BaseClassifier):
 
         num_features = feat.size(-1)
 
+        dataset_converted = convert_dataset(self.dataset)
+
         # initialize graph networks
         self._init_graph_module(
             self.gml,
@@ -343,61 +350,8 @@ class AutoHeteroNodeClassifier(BaseClassifier):
             feval=evaluator_list,
             device=self.runtime_device,
             loss="nll_loss" if not hasattr(dataset, "loss") else self.dataset.loss,
+            dataset=dataset_converted
         )
-
-        if self.nas_algorithms is not None:
-            # perform neural architecture search
-            self._init_nas_module(
-                num_features=num_features,
-                num_classes=num_classes,
-                feval=evaluator_list,
-                device=self.runtime_device,
-                loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
-            )
-
-            assert not isinstance(self._default_trainer, list) or len(
-                self.nas_algorithms
-            ) == len(self._default_trainer) - len(
-                self.graph_model_list
-            ), "length of default trainer should match total graph models and nas models passed"
-
-            # perform nas and add them to model list
-            idx_trainer = len(self.graph_model_list)
-            for algo, space, estimator in zip(
-                self.nas_algorithms, self.nas_spaces, self.nas_estimators
-            ):
-                model = algo.search(space, convert_dataset(self.dataset), estimator)
-                # insert model into default trainer
-                if isinstance(self._default_trainer, list):
-                    train_name = self._default_trainer[idx_trainer]
-                    idx_trainer += 1
-                else:
-                    train_name = self._default_trainer
-                if isinstance(train_name, str):
-                    trainer = TRAINER_DICT[train_name](
-                        model=model,
-                        num_features=num_features,
-                        num_classes=num_classes,
-                        loss="nll_loss"
-                        if not hasattr(dataset, "loss")
-                        else dataset.loss,
-                        feval=evaluator_list,
-                        device=self.runtime_device,
-                        init=False,
-                    )
-                else:
-                    trainer = train_name
-                    trainer.model = model
-                    trainer.update_parameters(
-                        num_features=num_features,
-                        num_classes=num_classes,
-                        loss="nll_loss"
-                        if not hasattr(dataset, "loss")
-                        else dataset.loss,
-                        feval=evaluator_list,
-                        device=self.runtime_device,
-                    )
-                self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
         result_valid = []
@@ -408,11 +362,11 @@ class AutoHeteroNodeClassifier(BaseClassifier):
             )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(convert_dataset(self.dataset), True)
+                model.train(dataset_converted, True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=convert_dataset(self.dataset), time_limit=time_for_each_model
+                    trainer=model, dataset=dataset_converted, time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
