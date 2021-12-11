@@ -37,14 +37,13 @@ class BaseHeteroDataset():
 class HeteroData(BaseHeteroDataset):
     
     def __init__(self, name, **kwargs):
-
-        super.__init__()
+        super(HeteroData, self).__init__()
         self.name = name 
 
         if name=='acm_raw':
-            self.g, self.num_classes = self.load_acm_raw()
+            self.g, self.num_classes, self.num_features = self.load_acm_raw()
         elif name=='acm':
-            self.g, self.num_classes = self.load_hgt_acm(random_init_fea=True)
+            self.g, self.num_classes, self.num_features = self.load_hgt_acm(random_init_fea=True)
 
     def load_acm_raw(self):
         self.metapaths = [['pa', 'ap'], ['pf', 'fp']]
@@ -152,7 +151,7 @@ class HeteroData(BaseHeteroDataset):
             hg.edge_dict[etype] = len(hg.edge_dict)
 
         for etype in hg.etypes:
-            hg.edges[etype].data['id'] = torch.ones(hg.number_of_edges(etype), dtype=torch.long) * len(edge_dict)
+            hg.edges[etype].data['id'] = torch.ones(hg.number_of_edges(etype), dtype=torch.long) * len(hg.edge_dict)
 
         # Random initialize input feature
         if random_init_fea:
@@ -169,3 +168,6 @@ class HeteroData(BaseHeteroDataset):
     
 
     
+if __name__=='__main__':
+    HeteroData('acm_raw')
+    HeteroData('acm')
