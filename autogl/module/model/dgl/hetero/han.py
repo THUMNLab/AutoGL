@@ -135,7 +135,7 @@ class HAN(nn.Module):
         self.predict = nn.Linear(self.args["hidden"][-1] * self.args["heads"][-1], self.args["num_class"])
 
     def forward(self, g):
-        h = g.nodes[self.out_key].data['feat']
+        h = g.nodes[self.args["out_key"]].data['feat']
         for gnn in self.layers:
             h = gnn(g, h)
 
@@ -175,15 +175,14 @@ class AutoHAN(BaseModel):
         self,  dataset=None, num_features=None, num_classes=None, device=None, init=True, **args
     ):
         super(AutoHAN, self).__init__()
-        self.from_dataset(dataset)
-        #self.meta_paths = dataset.get_metapaths()
+        
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
         self.init = init
 
         self.params = {
-            "meta_paths": self.meta_paths,
+            # "meta_paths": self.meta_paths,
             "num_features": self.num_features,
             "num_class": self.num_classes,
         }
@@ -234,6 +233,7 @@ class AutoHAN(BaseModel):
             "act": "gelu",
         }
 
+        self.from_dataset(dataset)
         self.initialized = False
         if init is True:
             self.initialize()
@@ -247,8 +247,6 @@ class AutoHAN(BaseModel):
         self.model = HAN({**self.params, **self.hyperparams}).to(self.device)
 
     def from_dataset(self, dataset):
-        # self.node_dict = dataset.node_dict
-        # self.edge_dict = dataset.edge_dict
         self.params["out_key"] = dataset.target_node_type 
         self.params["meta_paths"] = dataset.metapaths
 

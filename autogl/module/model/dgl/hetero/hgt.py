@@ -27,13 +27,15 @@ class HGTLayer(nn.Module):
                  edge_dict,
                  n_heads,
                  dropout = 0.2,
-                 use_norm = False):
+                 use_norm = False,
+                 out_key = None):
         super(HGTLayer, self).__init__()
 
         self.in_dim        = in_dim
         self.out_dim       = out_dim
         self.node_dict     = node_dict
         self.edge_dict     = edge_dict
+        self.out_key = out_key
         self.num_types     = len(node_dict)
         self.num_relations = len(edge_dict)
         self.total_rel     = self.num_types * self.num_relations * self.num_types
@@ -202,7 +204,7 @@ class AutoHGT(BaseModel):
         self,  dataset=None, num_features=None, num_classes=None, device=None, init=False, **args
     ):
         super(AutoHGT, self).__init__()
-        self.from_dataset(dataset)
+        
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
@@ -262,10 +264,7 @@ class AutoHGT(BaseModel):
             "use_norm": True
         }
 
-        if G is not None:
-            self.from_dataset(G)
-        #if dataset is not None:
-        #    self.from_dataset(dataset)
+        self.from_dataset(dataset)
         self.initialized = False
         if init is True:
             self.initialize()
