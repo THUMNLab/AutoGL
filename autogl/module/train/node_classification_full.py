@@ -183,8 +183,17 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 mask = data.ndata['train_mask']
         else:
             mask = train_mask
+        
+        if self.decoder is None:
+            virtual_model = self.encoder.model
+        else:
+            virtual_model = torch.nn.ModuleDict({
+                "encoder": self.encoder.model,
+                "decoder": self.decoder.model
+            })
+        
         optimizer = self.optimizer(
-            list(self.encoder.model.parameters()) + list(self.decoder.model.parameters()),
+            virtual_model.parameters(),
             lr=self.lr, weight_decay=self.weight_decay
         )
         # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
@@ -204,10 +213,12 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         for epoch in range(1, self.max_epoch):
             self.encoder.model.train()
-            self.decoder.model.train()
+            if self.decoder is not None:
+                self.decoder.model.train()
             optimizer.zero_grad()
-            features = self.encoder.model(data)
-            res = self.decoder.model(features, data)
+            res = self.encoder.model(data)
+            if self.decoder is not None:
+                res = self.decoder.model(res, data)
             if hasattr(F, self.loss):
                 if self.pyg_dgl == 'pyg':
                     loss = getattr(F, self.loss)(res[mask], data.y[mask])
@@ -240,19 +251,13 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 if feval.is_higher_better() is True:
                     val_loss = -val_loss
 
-                self.early_stopping(val_loss, torch.nn.ModuleDict({
-                    "encoder": self.encoder.model,
-                    "decoder": self.decoder.model
-                }))
+                self.early_stopping(val_loss, virtual_model)
                 if self.early_stopping.early_stop:
                     LOGGER.debug("Early stopping at %d", epoch)
                     break
 
         if hasattr(data, "val_mask") and data.val_mask is not None:
-            self.early_stopping.load_checkpoint(torch.nn.ModuleDict({
-                "encoder": self.encoder.model,
-                "decoder": self.decoder.model
-            }))
+            self.early_stopping.load_checkpoint(virtual_model)
 
     def __predict_only(self, data, mask=None):
         if isinstance(mask, str):
@@ -263,10 +268,12 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         data = data.to(self.device)
         self.encoder.model.eval()
-        self.decoder.model.eval()
+        if self.decoder is not None:
+            self.decoder.model.eval()
         with torch.no_grad():
-            features = self.encoder.model(data)
-            res = self.decoder.model(features, data)
+            res = self.encoder.model(data)
+            if self.decoder is not None:
+                res = self.decoder.model(res, data)
             
         if mask is None:
             return res
@@ -294,7 +301,8 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         """
         data = dataset[0]
         self.encoder.to(self.device)
-        self.decoder.to(self.device)
+        if self.decoder is not None:
+            self.decoder.to(self.device)
         self.__train_only(data, train_mask)
         if keep_valid_result:
             if self.pyg_dgl == 'pyg':
@@ -347,7 +355,8 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         data = dataset[0]
         data = data.to(self.device)
         self.encoder.to(self.device)
-        self.decoder.to(self.device)
+        if self.decoder is not None:
+            self.decoder.to(self.device)
         ret = self.__predict_only(data, mask)
         if in_log_format is True:
             return ret

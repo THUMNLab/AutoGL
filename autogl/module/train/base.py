@@ -12,6 +12,7 @@ from ..model import (
     AutoClassifierDecoder,
     AutoHomogeneousEncoder
 )
+import logging
 from .evaluation import Evaluation, get_feval, Acc
 from ...utils import get_logger
 
@@ -330,7 +331,7 @@ class BaseTrainer:
         return {
             "trainer": self.hyper_parameter_space,
             "encoder": self.encoder.hyper_parameter_space,
-            "decoder": self.decoder.hyper_parameter_space
+            "decoder": [] if self.decoder is None else self.decoder.hyper_parameter_space
         }
 
 
@@ -380,8 +381,13 @@ class _BaseClassificationTrainer(BaseTrainer):
             self.__encoder = EncoderRegistry.get_model(enc)(
                 self.num_features, last_dim=self.last_dim, device=self.device, init=self.init
             )
-        elif isinstance(enc, (BaseAutoModel, BaseAutoEncoder)):
+        elif isinstance(enc, BaseAutoEncoder):
             self.__encoder = enc
+        elif isinstance(enc, BaseAutoModel):
+            self.__encoder = enc
+            if self.decoder is not None:
+                logging.warn("will disable decoder since a whole model is passed")
+                self.decoder = None
         elif enc is None:
             self.__encoder = None
         else:
@@ -393,6 +399,10 @@ class _BaseClassificationTrainer(BaseTrainer):
     
     @decoder.setter
     def decoder(self, dec: _typing.Union[BaseAutoDecoder, str, None]):
+        if isinstance(self.encoder, BaseAutoModel):
+            logging.warn("Ignore passed dec since enc is a whole model")
+            self.__decoder = None
+            return
         if isinstance(dec, str):
             self.__decoder = DecoderRegistry.get_model(dec)(
                 self.num_classes, input_dim=self.last_dim, device=self.device, init=self.init
@@ -483,6 +493,9 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
             )
         elif isinstance(enc, (BaseAutoModel, BaseAutoEncoder)):
             self.__encoder = enc
+            if isinstance(enc, BaseAutoModel) and self.decoder is not None:
+                logging.warn("will disable decoder since a whole model is passed")
+                self.decoder = None
         elif enc is None:
             self.__encoder = None
         else:
@@ -496,6 +509,7 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     @decoder.setter
     def decoder(self, dec: _typing.Union[BaseAutoDecoder, str, None]):
         if isinstance(self.encoder, BaseAutoModel):
+            logging.warn("Ignore passed dec since enc is a whole model")
             self.__decoder = None
             return
         if isinstance(dec, str):
@@ -539,6 +553,7 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
     @decoder.setter
     def decoder(self, dec: _typing.Union[BaseAutoDecoder, str, None]):
         if isinstance(self.encoder, BaseAutoModel):
+            logging.warn("Ignore passed dec since enc is a whole model")
             self.__decoder = None
             return
         if isinstance(dec, str):

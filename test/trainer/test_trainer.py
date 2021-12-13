@@ -4,10 +4,58 @@ import torch_geometric.nn as gnn
 from autogl.module.model import BaseAutoModel, BaseAutoEncoder, BaseEncoder, BaseDecoder, AutoClassifierDecoder
 from autogl.module.model.encoders.base import AutoHomogeneousEncoder
 from autogl.module.train import NodeClassificationFullTrainer
+from autogl.utils.autobase import AutoModule
 
 def activate(act, x):
     if hasattr(torch, act): return getattr(torch, act)(x)
     return getattr(F, act)(x)
+
+class GCN(torch.nn.Module):
+    def __init__(self, num_features, num_classes):
+        super().__init__()
+        self.core = torch.nn.ModuleList([
+            gnn.GCNConv(num_features, 16),
+            gnn.GCNConv(16, num_classes)
+        ])
+    
+    def forward(self, data):
+        x, edge_index = data.x, data.edge_index
+        for layer in self.core:
+            x = layer(x, edge_index)
+        return x
+
+class AutoGCN(BaseAutoModel):
+    def __init__(self, num_features=None, num_classes=None, device="cpu"):
+        super().__init__(device=device)
+        self.device = device
+        self.num_features = num_features
+        self.num_classes = num_classes
+        self.hyper_parameter_space = []
+        self.hyper_parameter = {}
+    
+    def initialize(self):
+        self.model = GCN(self.num_features, self.num_classes).to(self.device)
+    
+    @property
+    def num_features(self):
+        return self.__num_features
+    
+    @num_features.setter
+    def num_features(self, num_features):
+        self.__num_features = num_features
+    
+    @property
+    def num_classes(self):
+        return self.__num_classes
+    
+    @num_classes.setter
+    def num_classes(self, num_classes):
+        self.__num_classes = num_classes
+
+    def from_hyper_parameter(self, hp):
+        model = AutoGCN(self.num_features, self.num_classes, self.device)
+        model.initialize()
+        return model
 
 class GCNEncoder(BaseEncoder):
     def __init__(self, num_features, last_dim, num_layers=2, hidden=(16,), dropout=0.6, act="relu"):
@@ -171,7 +219,7 @@ def test_auto_decoder():
     print(encoder.model)
     print(decoder.model)
 
-def test_trainer():
+def test_trainer_encoder_decoder():
     from autogl.datasets import build_dataset_from_name
     from autogl.datasets.utils.conversion import general_static_graphs_to_pyg_dataset
     cora = build_dataset_from_name("cora")
@@ -213,4 +261,48 @@ def test_trainer():
     out = trainer.predict(cora, "test")
     print("acc", (out == data.y[data.test_mask]).float().mean().item())
 
-test_trainer()
+def test_trainer_model():
+    from autogl.datasets import build_dataset_from_name
+    from autogl.datasets.utils.conversion import general_static_graphs_to_pyg_dataset
+    cora = build_dataset_from_name("cora")
+    cora = general_static_graphs_to_pyg_dataset(cora)
+    data = cora[0]
+
+    trainer = NodeClassificationFullTrainer(
+        encoder=AutoGCN(),
+        init=False,
+        device="auto",
+        loss="cross_entropy"
+    )
+
+    # support setting the property after instantiate
+    trainer.num_features = data.x.size(1)
+    trainer.num_classes = data.y.max().item() + 1
+
+    print(trainer.encoder.num_features)
+    print(trainer.encoder.num_classes)
+
+    # support duplicate from hyper parameter
+    spaces = trainer.combined_hyper_parameter_space()
+    print("space of trainer")
+    print(spaces)
+
+    trainer = trainer.duplicate_from_hyper_parameter({
+        "trainer": {
+            "max_epoch": 200,
+            "early_stopping_round": 200,
+            "lr": 0.01,
+            "weight_decay": 5e-4,
+        },
+        "encoder": {},
+        "decoder": {}
+    })
+
+    print(trainer.encoder.model)
+    print(trainer.decoder)
+
+    trainer.train(cora)
+    out = trainer.predict(cora, "test")
+    print("acc", (out == data.y[data.test_mask]).float().mean().item())
+
+test_trainer_model()
