@@ -103,6 +103,7 @@ class HAN(nn.Module):
                     "meta_paths",
                     "num_features",
                     "num_class",
+                    "out_key",
                     "num_layers",
                     "hidden",
                     "heads",
