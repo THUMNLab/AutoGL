@@ -28,10 +28,11 @@ class BaseHeteroDataset():
     metapaths : List[[List[str]]]
     """
     def __init__(self,):
-        self.num_classes = None 
-        self.metapaths = None
-        self.num_features = None
+        # self.num_classes = None 
+        # self.num_features = None
         self.g = None
+        self.target_node_type = None
+        self.metapaths = None
 
 
 class HeteroData(BaseHeteroDataset):
@@ -41,11 +42,13 @@ class HeteroData(BaseHeteroDataset):
         self.name = name 
 
         if name=='acm_raw':
-            self.g, self.num_classes, self.num_features = self.load_acm_raw()
+            self.g = self.load_acm_raw()
         elif name=='acm':
-            self.g, self.num_classes, self.num_features = self.load_hgt_acm(random_init_fea=True)
+            self.g= self.load_hgt_acm(random_init_fea=True)
 
     def load_acm_raw(self):
+        self.target_node_type = 'paper'
+
         self.metapaths = [['pa', 'ap'], ['pf', 'fp']]
         filename = 'ACM.mat'
         url = 'dataset/' + filename
@@ -91,7 +94,7 @@ class HeteroData(BaseHeteroDataset):
             labels[pc_p[pc_c == conf_id]] = label_id
         hg.nodes['paper'].data['label'] = torch.LongTensor(labels)
 
-        num_classes = 3
+        # num_classes = 3
 
         float_mask = np.zeros(len(pc_p))
         for conf_id in conf_ids:
@@ -106,11 +109,13 @@ class HeteroData(BaseHeteroDataset):
         hg.nodes['paper'].data['val_mask'] = get_binary_mask(num_nodes, val_idx)
         hg.nodes['paper'].data['test_mask'] = get_binary_mask(num_nodes, test_idx)
 
-        num_features = hg.nodes['paper'].data['feat'].size(1)
+        # num_features = hg.nodes['paper'].data['feat'].size(1)
 
-        return hg, num_classes, num_features
+        return hg
 
     def load_hgt_acm(self, random_init_fea=True):
+        self.target_node_type = 'paper'
+
         data_url = 'https://data.dgl.ai/dataset/ACM.mat'
         data_file_path = '/tmp/ACM.mat'
 
@@ -160,12 +165,10 @@ class HeteroData(BaseHeteroDataset):
                 nn.init.xavier_uniform_(emb)
                 hg.nodes[ntype].data['feat'] = emb
 
-        num_features = 256
-        num_classes = labels.max().item()+1
+        # num_features = 256
+        # num_classes = labels.max().item()+1
 
-        return hg, num_classes, num_features
-
-    
+        return hg
 
     
 if __name__=='__main__':

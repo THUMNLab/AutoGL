@@ -160,14 +160,14 @@ class HGT(nn.Module):
             
         self.out = nn.Linear(self.args["hidden"][-1], self.args["num_class"])
 
-    def forward(self, G, out_key):
+    def forward(self, G):
         h = {}
         for ntype in G.ntypes:
             n_id = self.node_dict[ntype]
             h[ntype] = activate_func(self.adapt_ws[n_id](G.nodes[ntype].data['feat']), self.args["act"])
         for i in range(self.num_layers):
             h = self.gcs[i](G, h)
-        return self.out(h[out_key])
+        return self.out(h[self.out_key])
 
 @register_model("hgt")
 class AutoHGT(BaseModel):
@@ -199,11 +199,10 @@ class AutoHGT(BaseModel):
         If True(False), the model will (not) be initialized.
     """
     def __init__(
-        self,  G = None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
+        self,  dataset=None, num_features=None, num_classes=None, device=None, init=False, **args
     ):
         super(AutoHGT, self).__init__()
-        self.G = G
-        self.meta_paths = meta_paths
+        self.from_dataset(dataset)
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
@@ -271,8 +270,6 @@ class AutoHGT(BaseModel):
         if init is True:
             self.initialize()
 
-
-
     def initialize(self):
         # """Initialize model."""
         if self.initialized:
@@ -281,19 +278,11 @@ class AutoHGT(BaseModel):
         print(self.params)
         self.model = HGT({**self.params, **self.hyperparams}).to(self.device)
 
-
     def from_dataset(self, dataset):
-        G = dataset
-        #G = dataset[0]
-        node_dict = {}
-        edge_dict = {}
-        for ntype in G.ntypes:
-            node_dict[ntype] = len(node_dict)
-        for etype in G.etypes:
-            edge_dict[etype] = len(edge_dict)
-        self.params["node_dict"] = node_dict
-        self.params["edge_dict"] = edge_dict
-
+        self.params["out_key"] = dataset.target_node_type 
+        # self.meta_paths = dataset.metapaths
+        self.params["node_dict"] = dataset.node_dict
+        self.params["edge_dict"] = dataset.edge_dict
 
 
     def from_hyper_parameter(self, hp):

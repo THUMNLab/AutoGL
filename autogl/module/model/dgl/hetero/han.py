@@ -134,8 +134,8 @@ class HAN(nn.Module):
                                         self.args["hidden"], self.args["heads"][l], self.args["dropout"], act))
         self.predict = nn.Linear(self.args["hidden"][-1] * self.args["heads"][-1], self.args["num_class"])
 
-    def forward(self, g, out_key):
-        h = g.nodes[out_key].data['feat']
+    def forward(self, g):
+        h = g.nodes[self.out_key].data['feat']
         for gnn in self.layers:
             h = gnn(g, h)
 
@@ -172,10 +172,10 @@ class AutoHAN(BaseModel):
         If True(False), the model will (not) be initialized.
     """
     def __init__(
-        self,  G = None, meta_paths=None, num_features=None, num_classes=None, device=None, init=True, **args
+        self,  dataset=None, num_features=None, num_classes=None, device=None, init=True, **args
     ):
         super(AutoHAN, self).__init__()
-        self.meta_paths = meta_paths
+        self.from_dataset(dataset)
         #self.meta_paths = dataset.get_metapaths()
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
@@ -234,9 +234,6 @@ class AutoHAN(BaseModel):
             "act": "gelu",
         }
 
-
-        if G is not None:
-            self.from_dataset(G)
         self.initialized = False
         if init is True:
             self.initialize()
@@ -249,17 +246,11 @@ class AutoHAN(BaseModel):
         print(self.params)
         self.model = HAN({**self.params, **self.hyperparams}).to(self.device)
 
-
     def from_dataset(self, dataset):
-        G = dataset
-        #G = dataset[0]
-        node_dict = {}
-        edge_dict = {}
-        for ntype in G.ntypes:
-            node_dict[ntype] = len(node_dict)
-        for etype in G.etypes:
-            edge_dict[etype] = len(edge_dict)
-
+        # self.node_dict = dataset.node_dict
+        # self.edge_dict = dataset.edge_dict
+        self.params["out_key"] = dataset.target_node_type 
+        self.params["meta_paths"] = dataset.metapaths
 
     def from_hyper_parameter(self, hp):
         ret_self = self.__class__(
