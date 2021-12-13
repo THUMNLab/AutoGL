@@ -12,6 +12,7 @@ from ..model import (
     AutoClassifierDecoder,
     AutoHomogeneousEncoder
 )
+from autogl.utils.autobase import AutoModule
 import logging
 from .evaluation import Evaluation, get_feval, Acc
 from ...utils import get_logger
@@ -90,7 +91,7 @@ class EarlyStopping:
             LOGGER_ES.warn("try to load checkpoint while no checkpoint is saved")
 
 
-class BaseTrainer:
+class BaseTrainer(AutoModule):
     def __init__(
         self,
         encoder: _typing.Union[BaseAutoModel, BaseAutoEncoder, None],
@@ -162,7 +163,7 @@ class BaseTrainer:
     ):
         self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(_feval)
 
-    def to(self, device: torch.device):
+    def to(self, device: _typing.Union[str, torch.device]):
         """
         Transfer the trainer to another device
 
@@ -171,7 +172,11 @@ class BaseTrainer:
         device: `str` or `torch.device`
             The device this trainer will use
         """
-        self.device = torch.device(device)
+        self.device = device
+        if self.encoder is not None:
+            self.encoder.to(self.device)
+        if self.decoder is not None:
+            self.decoder.to(self.device)
 
     def initialize(self):
         """Initialize the auto model in trainer."""
@@ -211,16 +216,6 @@ class BaseTrainer:
         with open(path, "rb") as inputs:
             instance = pickle.load(inputs)
             return instance
-
-    @property
-    def hyper_parameter_space(self):
-        """Get the space of hyperparameter."""
-        raise NotImplementedError()
-
-    @hyper_parameter_space.setter
-    def hyper_parameter_space(self, space):
-        """Set the space of hyperparameter."""
-        pass
 
     def duplicate_from_hyper_parameter(self, *args, **kwargs) -> "BaseTrainer":
         """Create a new trainer with the given hyper parameter."""

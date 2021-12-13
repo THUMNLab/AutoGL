@@ -1,10 +1,9 @@
 import torch
 import torch.nn.functional as F
 import torch_geometric.nn as gnn
-from autogl.module.model import BaseAutoModel, BaseAutoEncoder, BaseEncoder, BaseDecoder, AutoClassifierDecoder
+from autogl.module.model import BaseAutoModel, BaseEncoder, BaseDecoder, AutoClassifierDecoder
 from autogl.module.model.encoders.base import AutoHomogeneousEncoder
 from autogl.module.train import NodeClassificationFullTrainer
-from autogl.utils.autobase import AutoModule
 
 def activate(act, x):
     if hasattr(torch, act): return getattr(torch, act)(x)
@@ -230,7 +229,7 @@ def test_trainer_encoder_decoder():
 
     # support setting the property after instantiate
     trainer.num_features = data.x.size(1)
-    trainer.num_classes = data.y.max() + 1
+    trainer.num_classes = data.y.max().item() + 1
 
     # support duplicate from hyper parameter
     spaces = trainer.combined_hyper_parameter_space()
@@ -279,13 +278,8 @@ def test_trainer_model():
     trainer.num_features = data.x.size(1)
     trainer.num_classes = data.y.max().item() + 1
 
-    print(trainer.encoder.num_features)
-    print(trainer.encoder.num_classes)
-
     # support duplicate from hyper parameter
     spaces = trainer.combined_hyper_parameter_space()
-    print("space of trainer")
-    print(spaces)
 
     trainer = trainer.duplicate_from_hyper_parameter({
         "trainer": {
@@ -297,9 +291,6 @@ def test_trainer_model():
         "encoder": {},
         "decoder": {}
     })
-
-    print(trainer.encoder.model)
-    print(trainer.decoder)
 
     trainer.train(cora)
     out = trainer.predict(cora, "test")

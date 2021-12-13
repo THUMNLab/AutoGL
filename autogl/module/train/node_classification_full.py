@@ -59,7 +59,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
     def __init__(
         self,
         encoder: Union[BaseAutoModel, AutoHomogeneousEncoder, str, None] = None,
-        decoder: Union[AutoClassifierDecoder, str, None] = None,
+        decoder: Union[AutoClassifierDecoder, str, None] = "LogSoftmaxDecoder",
         num_features: Optional[int] = None,
         num_classes: Optional[int] = None,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = torch.optim.Adam,
@@ -115,7 +115,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         self.pyg_dgl = DependentBackend.get_backend_name()
 
-        self.space = [
+        self.hyper_parameter_space = [
             {
                 "parameterName": "max_epoch",
                 "type": "INTEGER",
@@ -146,7 +146,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameter = {
             "max_epoch": self.max_epoch,
             "early_stopping_round": self.early_stopping_round,
             "lr": self.lr,
@@ -464,14 +464,6 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             return res[0]
         return res
 
-    def to(self, new_device):
-        assert isinstance(new_device, torch.device)
-        self.device = new_device
-        if self.encoder is not None:
-            self.encoder.to(self.device)
-        if self.decoder is not None:
-            self.decoder.to(self.device)
-
     def duplicate_from_hyper_parameter(self, hp: dict, encoder="same", decoder="same", restricted=True):
         """
         The function of duplicating a new instance from the given hyperparameter.
@@ -526,17 +518,3 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         )
 
         return ret
-
-    @property
-    def hyper_parameter_space(self):
-        # """Get the space of hyperparameter."""
-        return self.space
-
-    @hyper_parameter_space.setter
-    def hyper_parameter_space(self, space):
-        # """Set the space of hyperparameter."""
-        self.space = space
-
-    def get_hyper_parameter(self):
-        # """Get the hyperparameter in this trainer."""
-        return self.hyperparams
