@@ -26,29 +26,26 @@ class AutoModule:
         return self.__device
 
     @device.setter
-    def device(self, device: _typing.Union[torch.device, str, int, None]):
-        if (
-                isinstance(device, str) or isinstance(device, int) or
-                isinstance(device, torch.device)
-        ):
-            self.__device = torch.device(device)
+    def device(self, __device: _typing.Union[torch.device, str, int, None]):
+        if type(__device) == torch.device or (
+            type(__device) == str and __device.lower() != "auto"
+        ) or type(__device) == int:
+            self.__device: torch.device = torch.device(__device)
         else:
-            self.__device = torch.device("cpu")
+            self.__device: torch.device = torch.device(
+                "cuda"
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0
+                else "cpu"
+            )
 
     def __init__(
             self, initialize: bool,
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        self.__hyper_parameter: _typing.Mapping[str, _typing.Any] = {}
+        self.__hyper_parameters: _typing.Mapping[str, _typing.Any] = {}
         self.__hyper_parameter_space: _typing.Iterable[_typing.Mapping[str, _typing.Any]] = []
-        if (
-                isinstance(device, str) or isinstance(device, int) or
-                isinstance(device, torch.device)
-        ):
-            self.__device: torch.device = torch.device(device)
-        else:
-            self.__device: torch.device = torch.device("cpu")
+        self.device = device
         self.__args: _typing.Tuple[_typing.Any, ...] = args
         self.__kwargs: _typing.Mapping[str, _typing.Any] = kwargs
         self.__initialized: bool = False
@@ -56,20 +53,12 @@ class AutoModule:
             self.initialize()
 
     @property
-    def hyper_parameter(self) -> _typing.Mapping[str, _typing.Any]:
-        return self.__hyper_parameter
-
-    @hyper_parameter.setter
-    def hyper_parameter(self, hp: _typing.Mapping[str, _typing.Any]):
-        self.__hyper_parameter = hp
-
-    @property
     def hyper_parameters(self) -> _typing.Mapping[str, _typing.Any]:
-        return self.__hyper_parameter
+        return self.__hyper_parameters
 
     @hyper_parameters.setter
     def hyper_parameters(self, hp: _typing.Mapping[str, _typing.Any]):
-        self.__hyper_parameter = hp
+        self.__hyper_parameters = hp
 
     @property
     def hyper_parameter_space(self) -> _typing.Iterable[

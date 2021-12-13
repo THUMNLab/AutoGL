@@ -13,7 +13,7 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
 )
 import torch.nn.functional as F
-from ..model import AutoClassifierDecoder, AutoHomogeneousEncoder, BaseAutoModel
+from ..model import BaseAutoEncoderMaintainer, BaseAutoDecoderMaintainer, BaseAutoModel
 from .evaluation import Evaluation, get_feval, Logloss
 from typing import Callable, Iterable, Optional, Type, Union
 from copy import deepcopy
@@ -58,8 +58,8 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     def __init__(
         self,
-        encoder: Union[BaseAutoModel, AutoHomogeneousEncoder, str, None] = None,
-        decoder: Union[AutoClassifierDecoder, str, None] = "LogSoftmaxDecoder",
+        encoder: Union[BaseAutoModel, BaseAutoEncoderMaintainer, str, None] = None,
+        decoder: Union[BaseAutoDecoderMaintainer, str, None] = "LogSoftmaxDecoder",
         num_features: Optional[int] = None,
         num_classes: Optional[int] = None,
         optimizer: Union[str, Type[torch.optim.Optimizer]] = torch.optim.Adam,
@@ -146,7 +146,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             },
         ]
 
-        self.hyper_parameter = {
+        self.hyper_parameters = {
             "max_epoch": self.max_epoch,
             "early_stopping_round": self.early_stopping_round,
             "lr": self.lr,
@@ -163,7 +163,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         self.initialized = True
         if isinstance(self.encoder, BaseAutoModel):
             self.encoder.initialize()
-        elif isinstance(self.encoder, AutoHomogeneousEncoder) and isinstance(self.decoder, AutoClassifierDecoder):
+        elif isinstance(self.encoder, BaseAutoEncoderMaintainer) and isinstance(self.decoder, BaseAutoDecoderMaintainer):
             self.encoder.initialize()
             # pass the necessary message to decoder
             self.decoder.initialize(self.encoder)
@@ -496,7 +496,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         encoder = encoder if encoder != "same" else self.encoder
         decoder = decoder if decoder != "same" else self.decoder
         encoder = encoder.from_hyper_parameter(hp_encoder)
-        if isinstance(encoder, AutoHomogeneousEncoder) and isinstance(decoder, AutoClassifierDecoder):
+        if isinstance(encoder, BaseAutoEncoderMaintainer) and isinstance(decoder, BaseAutoDecoderMaintainer):
             decoder = decoder.from_hyper_parameter_and_encoder(hp_decoder, encoder)
 
         ret = self.__class__(

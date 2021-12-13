@@ -1,10 +1,10 @@
 import torch
 import typing as _typing
-from .._utils import auto_module
+from ...hpo import AutoModule
 from ..encoders import base_encoder
 
 
-class BaseAutoDecoderMaintainer(auto_module.AutoModule):
+class BaseAutoDecoderMaintainer(AutoModule):
     def _initialize(self) -> _typing.Optional[bool]:
         """ Abstract initialization method to override """
         raise NotImplementedError
@@ -24,8 +24,16 @@ class BaseAutoDecoderMaintainer(auto_module.AutoModule):
         super(BaseAutoDecoderMaintainer, self).__init__(
             initialize, device, *args, **kwargs
         )
-        self._output_dimension: _typing.Optional[int] = output_dimension
+        self.output_dimension = output_dimension
         self._decoder: _typing.Optional[torch.nn.Module] = None
+
+    @property
+    def output_dimension(self):
+        return self.__output_dimension
+    
+    @output_dimension.setter
+    def output_dimension(self, output_dimension):
+        self.__output_dimension = output_dimension
 
     @property
     def decoder(self) -> _typing.Optional[torch.nn.Module]:
