@@ -2,8 +2,8 @@ import importlib
 import sys
 from ...backend import DependentBackend
 
-from .decoders import BaseAutoDecoder, BaseDecoder, AutoClassifierDecoder, DecoderRegistry
-from .encoders import BaseAutoEncoder, BaseEncoder, AutoHomogeneousEncoder, EncoderRegistry
+from .decoders import BaseAutoDecoderMaintainer, DecoderRegistry
+from .encoders import BaseAutoEncoderMaintainer, AutoHomogeneousEncoderMaintainer, EncoderRegistry
 
 # load corresponding backend model of subclass
 def _load_subclass_backend(backend):
