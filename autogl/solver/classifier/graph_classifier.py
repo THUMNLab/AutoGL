@@ -12,7 +12,7 @@ import yaml
 
 from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
-from ...module.model import BaseModel, MODEL_DICT
+from ...module.model import BaseAutoModel, MODEL_DICT
 from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space
 from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features, convert_dataset
@@ -133,7 +133,7 @@ class AutoGraphClassifier(BaseClassifier):
                         )
                     else:
                         raise KeyError("cannot find model %s" % (model))
-                elif isinstance(model, type) and issubclass(model, BaseModel):
+                elif isinstance(model, type) and issubclass(model, BaseAutoModel):
                     self.graph_model_list.append(
                         model(
                             num_classes=num_classes,
@@ -143,7 +143,7 @@ class AutoGraphClassifier(BaseClassifier):
                             init=False,
                         )
                     )
-                elif isinstance(model, BaseModel):
+                elif isinstance(model, BaseAutoModel):
                     # setup the hp of num_classes and num_features
                     model.set_num_classes(num_classes)
                     model.set_num_features(num_features)
@@ -185,7 +185,7 @@ class AutoGraphClassifier(BaseClassifier):
                     else:
                         model.hyper_parameter_space = self._model_hp_spaces[i]
             # initialize trainer if needed
-            if isinstance(model, BaseModel):
+            if isinstance(model, BaseAutoModel):
                 name = (
                     self._default_trainer
                     if isinstance(self._default_trainer, str)

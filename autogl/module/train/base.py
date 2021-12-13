@@ -3,7 +3,15 @@ import typing as _typing
 
 import torch
 import pickle
-from ..model import BaseModel, ModelUniversalRegistry
+from ..model import (
+    EncoderRegistry,
+    DecoderRegistry,
+    BaseAutoModel,
+    BaseAutoEncoder,
+    BaseAutoDecoder,
+    AutoClassifierDecoder,
+    AutoHomogeneousEncoder
+)
 from .evaluation import Evaluation, get_feval, Acc
 from ...utils import get_logger
 
@@ -84,7 +92,8 @@ class EarlyStopping:
 class BaseTrainer:
     def __init__(
         self,
-        model: BaseModel,
+        encoder: _typing.Union[BaseAutoModel, BaseAutoEncoder, None],
+        decoder: _typing.Union[BaseAutoDecoder, None],
         device: _typing.Union[torch.device, str],
         init: bool = True,
         feval: _typing.Union[
@@ -106,7 +115,9 @@ class BaseTrainer:
             If True(False), the model will (not) be initialized.
         """
         super().__init__()
-        self.model: BaseModel = model
+        self.init: bool = init
+        self.encoder = encoder
+        self.decoder = None if isinstance(encoder, BaseAutoModel) else decoder
         if type(device) == torch.device or (
             type(device) == str and device.lower() != "auto"
         ):
@@ -117,7 +128,6 @@ class BaseTrainer:
                 if torch.cuda.is_available() and torch.cuda.device_count() > 0
                 else "cpu"
             )
-        self.init: bool = init
         self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(feval)
         self.loss: str = loss
 
@@ -166,10 +176,6 @@ class BaseTrainer:
         """Initialize the auto model in trainer."""
         pass
 
-    def get_model(self):
-        """Get auto model used in trainer."""
-        raise NotImplementedError()
-
     def get_feval(
         self, return_major: bool = False
     ) -> _typing.Union[
@@ -215,9 +221,7 @@ class BaseTrainer:
         """Set the space of hyperparameter."""
         pass
 
-    def duplicate_from_hyper_parameter(
-        self, hp, model: _typing.Optional[BaseModel] = ...
-    ) -> "BaseTrainer":
+    def duplicate_from_hyper_parameter(self, *args, **kwargs) -> "BaseTrainer":
         """Create a new trainer with the given hyper parameter."""
         raise NotImplementedError()
 
@@ -322,15 +326,24 @@ class BaseTrainer:
             else:
                 raise KeyError("Cannot set parameter", k, "for trainer", self.__class__)
 
+    def combined_hyper_parameter_space(self):
+        return {
+            "trainer": self.hyper_parameter_space,
+            "encoder": self.encoder.hyper_parameter_space,
+            "decoder": self.decoder.hyper_parameter_space
+        }
+
 
 class _BaseClassificationTrainer(BaseTrainer):
     """ Base class of trainer for classification tasks """
 
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
+        encoder: _typing.Union[BaseAutoModel, BaseAutoEncoder, str, None],
+        decoder: _typing.Union[BaseAutoDecoder, str, None],
         num_features: int,
         num_classes: int,
+        last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = "auto",
         init: bool = True,
         feval: _typing.Union[
@@ -338,8 +351,11 @@ class _BaseClassificationTrainer(BaseTrainer):
         ] = (Acc,),
         loss: str = "nll_loss",
     ):
-        self.num_features: int = num_features
-        self.num_classes: int = num_classes
+        self.__encoder = None
+        self.__decoder = None
+        self.num_features = num_features
+        self.num_classes = num_classes
+        self.last_dim: _typing.Union[int, str] = last_dim
         if type(device) == torch.device or (
             type(device) == str and device.lower() != "auto"
         ):
@@ -350,27 +366,71 @@ class _BaseClassificationTrainer(BaseTrainer):
                 if torch.cuda.is_available() and torch.cuda.device_count() > 0
                 else "cpu"
             )
-        if type(model) == str:
-            _model: BaseModel = ModelUniversalRegistry.get_model(model)(
-                num_features, num_classes, __device, init=init
-            )
-        elif isinstance(model, BaseModel):
-            _model: BaseModel = model
-        elif model is None:
-            _model = None
-        else:
-            raise TypeError(
-                f"Model argument only support str or BaseModel, got {model}."
-            )
         super(_BaseClassificationTrainer, self).__init__(
-            _model, __device, init, feval, loss
+            encoder, decoder, __device, init, feval, loss
         )
+    
+    @property
+    def encoder(self):
+        return self.__encoder
+    
+    @encoder.setter
+    def encoder(self, enc: _typing.Union[BaseAutoModel, BaseAutoEncoder, str, None]):
+        if isinstance(enc, str):
+            self.__encoder = EncoderRegistry.get_model(enc)(
+                self.num_features, last_dim=self.last_dim, device=self.device, init=self.init
+            )
+        elif isinstance(enc, (BaseAutoModel, BaseAutoEncoder)):
+            self.__encoder = enc
+        elif enc is None:
+            self.__encoder = None
+        else:
+            raise ValueError("Enc {} is not supported!".format(enc))
 
+    @property
+    def decoder(self):
+        return self.__decoder
+    
+    @decoder.setter
+    def decoder(self, dec: _typing.Union[BaseAutoDecoder, str, None]):
+        if isinstance(dec, str):
+            self.__decoder = DecoderRegistry.get_model(dec)(
+                self.num_classes, input_dim=self.last_dim, device=self.device, init=self.init
+            )
+        elif isinstance(dec, BaseAutoDecoder):
+            self.__decoder = dec
+        elif dec is None:
+            self.__decoder = None
+        else:
+            raise ValueError("Dec {} is not supported!".format(dec))
+    
+    @property
+    def num_classes(self):
+        return self.__num_classes
+
+    @num_classes.setter
+    def num_classes(self, num_classes):
+        self.__num_classes = num_classes
+        if isinstance(self.encoder, BaseAutoModel):
+            self.encoder.num_classes = num_classes
+        elif isinstance(self.decoder, AutoClassifierDecoder):
+            self.decoder.num_classes = num_classes
+
+    @property
+    def num_features(self):
+        return self.__num_features
+    
+    @num_features.setter
+    def num_features(self, num_features):
+        self.__num_features = num_features
+        if self.encoder is not None:
+            self.encoder.num_features = num_features
 
 class BaseNodeClassificationTrainer(_BaseClassificationTrainer):
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
+        encoder: _typing.Union[BaseAutoModel, BaseAutoEncoder, str, None],
+        decoder: _typing.Union[BaseAutoDecoder, str, None],
         num_features: int,
         num_classes: int,
         device: _typing.Union[torch.device, str, None] = None,
@@ -381,17 +441,19 @@ class BaseNodeClassificationTrainer(_BaseClassificationTrainer):
         loss: str = "nll_loss",
     ):
         super(BaseNodeClassificationTrainer, self).__init__(
-            model, num_features, num_classes, device, init, feval, loss
+            encoder, decoder, num_features, num_classes, num_classes, device, init, feval, loss
         )
 
 
 class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
-        num_features: int,
-        num_classes: int,
+        encoder: _typing.Union[BaseAutoModel, BaseAutoEncoder, str, None] = None,
+        decoder: _typing.Union[BaseAutoDecoder, str, None] = None,
+        num_features: _typing.Optional[int] = None,
+        num_classes: _typing.Optional[int] = None,
         num_graph_features: int = 0,
+        last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = None,
         init: bool = True,
         feval: _typing.Union[
@@ -401,15 +463,62 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     ):
         self.num_graph_features: int = num_graph_features
         super(BaseGraphClassificationTrainer, self).__init__(
-            model, num_features, num_classes, device, init, feval, loss
+            encoder, decoder, num_features, num_classes, last_dim, device, init, feval, loss
         )
 
+    # override encoder and decoder to depend on graph level features
+    @property
+    def encoder(self):
+        return self.__encoder
+    
+    @encoder.setter
+    def encoder(self, enc: _typing.Union[BaseAutoModel, BaseAutoEncoder, str, None]):
+        if isinstance(enc, str):
+            self.__encoder = EncoderRegistry.get_model(enc)(
+                self.num_features,
+                last_dim=self.last_dim,
+                num_graph_features=self.num_graph_features,
+                device=self.device,
+                init=self.init
+            )
+        elif isinstance(enc, (BaseAutoModel, BaseAutoEncoder)):
+            self.__encoder = enc
+        elif enc is None:
+            self.__encoder = None
+        else:
+            raise ValueError("Enc {} is not supported!".format(enc))
 
+    @property
+    def decoder(self):
+        if isinstance(self.encoder, BaseAutoModel): return None
+        return self.__decoder
+    
+    @decoder.setter
+    def decoder(self, dec: _typing.Union[BaseAutoDecoder, str, None]):
+        if isinstance(self.encoder, BaseAutoModel):
+            self.__decoder = None
+            return
+        if isinstance(dec, str):
+            self.__decoder = DecoderRegistry.get_model(dec)(
+                self.num_classes,
+                input_dim=self.last_dim,
+                num_graph_features=self.num_graph_features,
+                device=self.device,
+                init=self.init
+            )
+        elif isinstance(dec, (BaseAutoDecoder, None)):
+            self.__decoder = dec
+        else:
+            raise ValueError("Invalid decoder setting")
+
+# TODO: according to discussion, link prediction may not belong to classification tasks
 class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
-        num_features: int,
+        encoder: _typing.Union[BaseAutoModel, BaseAutoEncoder, str, None] = None,
+        decoder: _typing.Union[BaseAutoDecoder, str, None] = None,
+        num_features: _typing.Optional[int] = None,
+        last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = None,
         init: bool = True,
         feval: _typing.Union[
@@ -418,5 +527,27 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
         loss: str = "nll_loss",
     ):
         super(BaseLinkPredictionTrainer, self).__init__(
-            model, num_features, 2, device, init, feval, loss
+            encoder, decoder, num_features, 2, last_dim, device, init, feval, loss
         )
+
+    # override decoder since no num_classes is needed
+    @property
+    def decoder(self):
+        if isinstance(self.encoder, BaseAutoModel): return None
+        return self.__decoder
+    
+    @decoder.setter
+    def decoder(self, dec: _typing.Union[BaseAutoDecoder, str, None]):
+        if isinstance(self.encoder, BaseAutoModel):
+            self.__decoder = None
+            return
+        if isinstance(dec, str):
+            self.__decoder = DecoderRegistry.get_model(dec)(
+                input_dim=self.last_dim,
+                device=self.device,
+                init=self.init
+            )
+        elif isinstance(dec, (BaseAutoDecoder, None)):
+            self.__decoder = dec
+        else:
+            raise ValueError("Invalid decoder setting")

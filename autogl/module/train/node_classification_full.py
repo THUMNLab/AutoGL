@@ -13,9 +13,9 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
 )
 import torch.nn.functional as F
-from ..model import MODEL_DICT, BaseModel
-from .evaluation import get_feval, Logloss
-from typing import Union
+from ..model import AutoClassifierDecoder, AutoHomogeneousEncoder, BaseAutoModel
+from .evaluation import Evaluation, get_feval, Logloss
+from typing import Callable, Iterable, Optional, Type, Union
 from copy import deepcopy
 
 from ...utils import get_logger
@@ -58,26 +58,27 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str] = None,
-        num_features=None,
-        num_classes=None,
-        optimizer=None,
-        lr=None,
-        max_epoch=None,
-        early_stopping_round=None,
-        weight_decay=1e-4,
-        device="auto",
-        init=True,
-        feval=[Logloss],
-        loss="nll_loss",
-        lr_scheduler_type=None,
-        *args,
+        encoder: Union[BaseAutoModel, AutoHomogeneousEncoder, str, None] = None,
+        decoder: Union[AutoClassifierDecoder, str, None] = None,
+        num_features: Optional[int] = None,
+        num_classes: Optional[int] = None,
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = torch.optim.Adam,
+        lr: float = 1e-4,
+        max_epoch: int = 100,
+        early_stopping_round: int = 100,
+        weight_decay: float = 1e-4,
+        device: Union[torch.device, str] = "auto",
+        init: bool = True,
+        feval: Iterable[Type[Evaluation]] =[Logloss],
+        loss: Union[Callable, str] = "nll_loss",
+        lr_scheduler_type: Optional[str] = None,
         **kwargs
     ):
         super().__init__(
-            model,
-            num_features,
-            num_classes,
+            encoder=encoder,
+            decoder=decoder,
+            num_features=num_features,
+            num_classes=num_classes,
             device=device,
             init=init,
             feval=feval,
@@ -85,24 +86,20 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         )
 
         self.opt_received = optimizer
-        if type(optimizer) == str and optimizer.lower() == "adam":
-            self.optimizer = torch.optim.Adam
-        elif type(optimizer) == str and optimizer.lower() == "sgd":
-            self.optimizer = torch.optim.SGD
+        if isinstance(optimizer, str):
+            if optimizer.lower() == "adam": self.optimizer = torch.optim.Adam
+            elif optimizer.lower() == "sgd": self.optimizer = torch.optim.SGD
+            else: raise ValueError("Currently not support optimizer {}".format(optimizer))
+        elif isinstance(optimizer, type) and issubclass(optimizer, torch.optim.Optimizer):
+            self.optimizer = optimizer
         else:
-            self.optimizer = torch.optim.Adam
+            raise ValueError("Currently not support optimizer {}".format(optimizer))
 
         self.lr_scheduler_type = lr_scheduler_type
-
-        self.lr = lr if lr is not None else 1e-4
-        self.max_epoch = max_epoch if max_epoch is not None else 100
-        self.early_stopping_round = (
-            early_stopping_round if early_stopping_round is not None else 100
-        )
-        self.args = args
+        self.lr = lr
+        self.max_epoch = max_epoch
+        self.early_stopping_round = early_stopping_round
         self.kwargs = kwargs
-
-        self.feval = get_feval(feval)
 
         self.weight_decay = weight_decay
 
@@ -164,32 +161,20 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         if self.initialized is True:
             return
         self.initialized = True
-        self.model.initialize()
-
-    def get_model(self):
-        # Get auto model used in trainer.
-        return self.model
+        if isinstance(self.encoder, BaseAutoModel):
+            self.encoder.initialize()
+        elif isinstance(self.encoder, AutoHomogeneousEncoder) and isinstance(self.decoder, AutoClassifierDecoder):
+            self.encoder.initialize()
+            # pass the necessary message to decoder
+            self.decoder.initialize(self.encoder)
+        else:
+            raise ValueError("Encoder or/and Decoder is not ready!")
 
     @classmethod
     def get_task_name(cls):
-        # Get task name, i.e., `NodeClassification`.
         return "NodeClassification"
 
-    def train_only(self, data, train_mask=None):
-        """
-        The function of training on the given dataset and mask.
-
-        Parameters
-        ----------
-        data: The node classification dataset used to be trained. It should consist of masks, including train_mask, and etc.
-        train_mask: The mask used in training stage.
-
-        Returns
-        -------
-        self: ``autogl.train.NodeClassificationTrainer``
-            A reference of current trainer.
-
-        """
+    def __train_only(self, data, train_mask=None):
         data = data.to(self.device)
         if train_mask is None:
             if self.pyg_dgl == 'pyg':
@@ -199,7 +184,8 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         else:
             mask = train_mask
         optimizer = self.optimizer(
-            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            list(self.encoder.model.parameters()) + list(self.decoder.model.parameters()),
+            lr=self.lr, weight_decay=self.weight_decay
         )
         # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
         lr_scheduler_type = self.lr_scheduler_type
@@ -217,12 +203,11 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             scheduler = None
 
         for epoch in range(1, self.max_epoch):
-            self.model.model.train()
+            self.encoder.model.train()
+            self.decoder.model.train()
             optimizer.zero_grad()
-            if hasattr(self.model.model, 'cls_forward'):
-                res = self.model.model.cls_forward(data)
-            else:
-                res = self.model.model.forward(data)
+            features = self.encoder.model(data)
+            res = self.decoder.model(features, data)
             if hasattr(F, self.loss):
                 if self.pyg_dgl == 'pyg':
                     loss = getattr(F, self.loss)(res[mask], data.y[mask])
@@ -238,6 +223,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             if self.lr_scheduler_type:
                 scheduler.step()
 
+            # TODO: move this to autogl.backend.utils
             if self.pyg_dgl == 'pyg' and hasattr(data, "val_mask") and data.val_mask is not None:
                 val_mask = data.val_mask
             elif self.pyg_dgl == 'dgl' and data.ndata.get('val_mask', None) is not None:
@@ -254,28 +240,21 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 if feval.is_higher_better() is True:
                     val_loss = -val_loss
 
-                self.early_stopping(val_loss, self.model.model)
+                self.early_stopping(val_loss, torch.nn.ModuleDict({
+                    "encoder": self.encoder.model,
+                    "decoder": self.decoder.model
+                }))
                 if self.early_stopping.early_stop:
                     LOGGER.debug("Early stopping at %d", epoch)
                     break
 
         if hasattr(data, "val_mask") and data.val_mask is not None:
-            self.early_stopping.load_checkpoint(self.model.model)
+            self.early_stopping.load_checkpoint(torch.nn.ModuleDict({
+                "encoder": self.encoder.model,
+                "decoder": self.decoder.model
+            }))
 
-    def predict_only(self, data, mask=None):
-        """
-        The function of predicting on the given dataset and mask.
-
-        Parameters
-        ----------
-        data: The node classification dataset used to be predicted.
-        train_mask: The mask used in training stage.
-
-        Returns
-        -------
-        res: The result of predicting on the given dataset.
-
-        """
+    def __predict_only(self, data, mask=None):
         if isinstance(mask, str):
             if self.pyg_dgl == 'pyg':
                 mask = getattr(data, f'{mask}_mask')
@@ -283,13 +262,12 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 mask = data.ndata[f'{mask}_mask']
 
         data = data.to(self.device)
-        self.model.model.eval()
+        self.encoder.model.eval()
+        self.decoder.model.eval()
         with torch.no_grad():
-            if hasattr(self.model.model, 'cls_forward'):
-                res = self.model.model.cls_forward(data)
-            else:
-                res = self.model.model.forward(data)
-
+            features = self.encoder.model(data)
+            res = self.decoder.model(features, data)
+            
         if mask is None:
             return res
         else:
@@ -297,7 +275,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     def train(self, dataset, keep_valid_result=True, train_mask=None):
         """
-        The function of training on the given dataset and keeping valid result.
+        Train on the given dataset.
 
         Parameters
         ----------
@@ -315,7 +293,9 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         """
         data = dataset[0]
-        self.train_only(data, train_mask)
+        self.encoder.to(self.device)
+        self.decoder.to(self.device)
+        self.__train_only(data, train_mask)
         if keep_valid_result:
             if self.pyg_dgl == 'pyg':
                 val_mask = data.val_mask
@@ -323,16 +303,15 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 val_mask = data.ndata['val_mask']
             else:
                 assert False
-            self.valid_result = self.predict_only(data)[val_mask].max(1)[1]
-            self.valid_result_prob = self.predict_only(data)[val_mask]
+            self.valid_result = self.__predict_only(data)[val_mask].max(1)[1]
+            self.valid_result_prob = self.__predict_only(data)[val_mask]
             self.valid_score = self.evaluate(
                 dataset, mask=val_mask, feval=self.feval
             )
-            # print(self.valid_score)
-
+        
     def predict(self, dataset, mask=None):
         """
-        The function of predicting on the given dataset.
+        Predict on the given dataset using specified mask.
 
         Parameters
         ----------
@@ -343,13 +322,13 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
         Returns
         -------
-        The prediction result of ``predict_proba``.
+        The prediction result.
         """
         return self.predict_proba(dataset, mask=mask, in_log_format=True).max(1)[1]
 
     def predict_proba(self, dataset, mask=None, in_log_format=False):
         """
-        The function of predicting the probability on the given dataset.
+        Predict the probability on the given dataset using specified mask.
 
         Parameters
         ----------
@@ -367,7 +346,9 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         """
         data = dataset[0]
         data = data.to(self.device)
-        ret = self.predict_only(data, mask)
+        self.encoder.to(self.device)
+        self.decoder.to(self.device)
+        ret = self.__predict_only(data, mask)
         if in_log_format is True:
             return ret
         else:
@@ -413,13 +394,14 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 "learning_rate": self.lr,
                 "max_epoch": self.max_epoch,
                 "early_stopping_round": self.early_stopping_round,
-                "model": repr(self.model),
+                "encoder": repr(self.encoder),
+                "decoder": repr(self.decoder)
             }
         )
 
     def evaluate(self, dataset, mask=None, feval=None):
         """
-        The function of training on the given dataset and keeping valid result.
+        Evaluate on the given dataset.
 
         Parameters
         ----------
@@ -438,7 +420,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         """
         data = dataset[0]
         data = data.to(self.device)
-
+        
         if isinstance(mask, str):
             if self.pyg_dgl == 'pyg':
                 mask = getattr(data, f'{mask}_mask')
@@ -476,10 +458,12 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
     def to(self, new_device):
         assert isinstance(new_device, torch.device)
         self.device = new_device
-        if self.model is not None:
-            self.model.to(self.device)
+        if self.encoder is not None:
+            self.encoder.to(self.device)
+        if self.decoder is not None:
+            self.decoder.to(self.device)
 
-    def duplicate_from_hyper_parameter(self, hp: dict, model=None, restricted=True):
+    def duplicate_from_hyper_parameter(self, hp: dict, encoder="same", decoder="same", restricted=True):
         """
         The function of duplicating a new instance from the given hyperparameter.
 
@@ -499,24 +483,24 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             A new instance of trainer.
 
         """
+        hp_trainer = hp.get("trainer", {})
+        hp_encoder = hp.get("encoder", {})
+        hp_decoder = hp.get("decoder", {})
         if not restricted:
             origin_hp = deepcopy(self.hyperparams)
-            origin_hp.update(hp)
+            origin_hp.update(hp_trainer)
             hp = origin_hp
-        if model is None:
-            model = self.model
-        model = model.from_hyper_parameter(
-            dict(
-                [
-                    x
-                    for x in hp.items()
-                    if x[0] in [y["parameterName"] for y in model.space]
-                ]
-            )
-        )
+        else:
+            hp = hp_trainer
+        encoder = encoder if encoder != "same" else self.encoder
+        decoder = decoder if decoder != "same" else self.decoder
+        encoder = encoder.from_hyper_parameter(hp_encoder)
+        if isinstance(encoder, AutoHomogeneousEncoder) and isinstance(decoder, AutoClassifierDecoder):
+            decoder = decoder.from_hyper_parameter_and_encoder(hp_decoder, encoder)
 
         ret = self.__class__(
-            model=model,
+            encoder=encoder,
+            decoder=decoder,
             num_features=self.num_features,
             num_classes=self.num_classes,
             optimizer=self.opt_received,
@@ -529,7 +513,6 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             loss=self.loss,
             lr_scheduler_type=self.lr_scheduler_type,
             init=True,
-            *self.args,
             **self.kwargs
         )
 

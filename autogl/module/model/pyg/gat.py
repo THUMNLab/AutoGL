@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GATConv
 from . import register_model
-from .base import BaseModel, activate_func
+from .base import BaseAutoModel, activate_func
 from ....utils import get_logger
 
 LOGGER = get_logger("GATModel")
@@ -115,7 +115,7 @@ class GAT(torch.nn.Module):
 
 
 @register_model("gat")
-class AutoGAT(BaseModel):
+class AutoGAT(BaseAutoModel):
     r"""
     AutoGAT. The model used in this automodel is GAT, i.e., the graph attentional network from the `"Graph Attention Networks"
     <https://arxiv.org/abs/1710.10903>`_ paper. The layer is

@@ -26,9 +26,9 @@ def activate_func(x, func):
     return x
 
 
-class BaseModel:
+class BaseAutoModel:
     def __init__(self, init=False, *args, **kwargs):
-        super(BaseModel, self).__init__()
+        super(BaseAutoModel, self).__init__()
 
     def get_hyper_parameter(self):
         return deepcopy(self.hyperparams)
@@ -188,7 +188,7 @@ class _BaseBaseModel:
             self.initialize()
 
 
-class _BaseModel(_BaseBaseModel, BaseModel):
+class _BaseModel(_BaseBaseModel, BaseAutoModel):
     """
     The upcoming root base class for Model, i.e. BaseModel
     --  Designed by ZiXin Sun

@@ -5,7 +5,7 @@ from torch_geometric.nn.conv import SAGEConv
 import torch.nn.functional
 import autogl.data
 from . import register_model
-from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from .base import BaseAutoModel, activate_func, ClassificationSupportedSequentialModel
 from ....utils import get_logger
 
 LOGGER = get_logger("SAGEModel")
@@ -203,7 +203,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
 
 
 @register_model("sage")
-class AutoSAGE(BaseModel):
+class AutoSAGE(BaseAutoModel):
     r"""
     AutoSAGE. The model used in this automodel is GraphSAGE, i.e., the GraphSAGE from the `"Inductive Representation Learning on
     Large Graphs" <https://arxiv.org/abs/1706.02216>`_ paper. The layer is

@@ -7,7 +7,7 @@ from dgl.nn.pytorch.conv import GraphConv
 from dgl import remove_self_loop, add_self_loop
 import autogl.data
 from . import register_model
-from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from .base import BaseAutoModel, activate_func, ClassificationSupportedSequentialModel
 from ....utils import get_logger
 
 
@@ -103,7 +103,7 @@ class GCN(torch.nn.Module):
 
 
 @register_model("gcn")
-class AutoGCN(BaseModel):
+class AutoGCN(BaseAutoModel):
     r"""
     AutoGCN.
     The model used in this automodel is GCN, i.e., the graph convolutional network from the

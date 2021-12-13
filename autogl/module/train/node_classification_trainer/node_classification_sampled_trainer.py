@@ -15,7 +15,7 @@ from ..sampling.sampler.graphsaint_sampler import *
 from ..sampling.sampler.layer_dependent_importance_sampler import (
     LayerDependentImportanceSampler,
 )
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from ...model.base import ClassificationSupportedSequentialModel
 
 LOGGER: logging.Logger = logging.getLogger("Node classification sampling trainer")
@@ -103,7 +103,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
 
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
+        model: _typing.Union[BaseAutoModel, str],
         num_features: int,
         num_classes: int,
         optimizer: _typing.Union[_typing.Type[torch.optim.Optimizer], str, None] = ...,
@@ -637,7 +637,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
     def duplicate_from_hyper_parameter(
         self,
         hp: _typing.Dict[str, _typing.Any],
-        model: _typing.Optional[BaseModel] = None,
+        model: _typing.Optional[BaseAutoModel] = None,
     ) -> "NodeClassificationGraphSAINTTrainer":
         """
         The function of duplicating a new instance from the given hyper-parameter.
@@ -654,8 +654,8 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         instance: ``NodeClassificationGraphSAINTTrainer``
             A new instance of trainer.
         """
-        if model is None or not isinstance(model, BaseModel):
-            model: BaseModel = self.model
+        if model is None or not isinstance(model, BaseAutoModel):
+            model: BaseAutoModel = self.model
         model = model.from_hyper_parameter(
             dict(
                 [
@@ -714,7 +714,7 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(
 
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
+        model: _typing.Union[BaseAutoModel, str],
         num_features: int,
         num_classes: int,
         optimizer: _typing.Union[_typing.Type[torch.optim.Optimizer], str, None] = ...,
@@ -1327,7 +1327,7 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(
     def duplicate_from_hyper_parameter(
         self,
         hp: _typing.Dict[str, _typing.Any],
-        model: _typing.Optional[BaseModel] = None,
+        model: _typing.Optional[BaseAutoModel] = None,
     ) -> "NodeClassificationLayerDependentImportanceSamplingTrainer":
         """
         The function of duplicating a new instance from the given hyper-parameter.
@@ -1344,8 +1344,8 @@ class NodeClassificationLayerDependentImportanceSamplingTrainer(
         instance: ``NodeClassificationLayerDependentImportanceSamplingTrainer``
             A new instance of trainer.
         """
-        if model is None or not isinstance(model, BaseModel):
-            model: BaseModel = self.model
+        if model is None or not isinstance(model, BaseAutoModel):
+            model: BaseAutoModel = self.model
         model = model.from_hyper_parameter(
             dict(
                 [
@@ -1402,7 +1402,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
 
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
+        model: _typing.Union[BaseAutoModel, str],
         num_features: int,
         num_classes: int,
         optimizer: _typing.Union[_typing.Type[torch.optim.Optimizer], str, None] = ...,
@@ -1993,7 +1993,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
     def duplicate_from_hyper_parameter(
         self,
         hp: _typing.Dict[str, _typing.Any],
-        model: _typing.Optional[BaseModel] = None,
+        model: _typing.Optional[BaseAutoModel] = None,
     ) -> "NodeClassificationNeighborSamplingTrainer":
         """
         The function of duplicating a new instance from the given hyper-parameter.
@@ -2010,8 +2010,8 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         instance: ``NodeClassificationLayerDependentImportanceSamplingTrainer``
             A new instance of trainer.
         """
-        if model is None or not isinstance(model, BaseModel):
-            model: BaseModel = self.model
+        if model is None or not isinstance(model, BaseAutoModel):
+            model: BaseAutoModel = self.model
         model = model.from_hyper_parameter(
             dict(
                 [

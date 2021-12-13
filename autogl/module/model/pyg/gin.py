@@ -4,7 +4,7 @@ from torch.nn import Linear, ReLU, Sequential, LeakyReLU, Tanh, ELU
 from torch_geometric.nn import GINConv, global_add_pool
 from torch.nn import BatchNorm1d
 from . import register_model
-from .base import BaseModel, activate_func
+from .base import BaseAutoModel, activate_func
 from copy import deepcopy
 from ....utils import get_logger
 
@@ -114,7 +114,7 @@ class GIN(torch.nn.Module):
 
 
 @register_model("gin")
-class AutoGIN(BaseModel):
+class AutoGIN(BaseAutoModel):
     r"""
     AutoGIN. The model used in this automodel is GIN, i.e., the graph isomorphism network from the `"How Powerful are
     Graph Neural Networks?" <https://arxiv.org/abs/1810.00826>`_ paper. The layer is

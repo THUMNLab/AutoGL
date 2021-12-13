@@ -2,7 +2,7 @@ from . import register_trainer, Evaluation
 import torch
 from torch.optim.lr_scheduler import StepLR
 import torch.nn.functional as F
-from ..model import MODEL_DICT, BaseModel
+from ..model import MODEL_DICT, BaseAutoModel
 from .evaluation import Auc, EVALUATE_DICT
 from .base import EarlyStopping, BaseLinkPredictionTrainer
 from typing import Union
@@ -33,7 +33,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
     Parameters
     ----------
-    model: ``BaseModel`` or ``str``
+    model: ``BaseAutoModel`` or ``str``
         The (name of) model used to train and predict.
 
     optimizer: ``Optimizer`` of ``str``
@@ -59,7 +59,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str] = None,
+        model: Union[BaseAutoModel, str] = None,
         num_features=None,
         optimizer=None,
         lr=1e-4,

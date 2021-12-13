@@ -8,7 +8,7 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
 )
 import torch.nn.functional as F
-from ..model import BaseModel
+from ..model import BaseAutoModel
 from .evaluation import get_feval, Logloss
 from typing import Union
 from ...datasets import utils
@@ -31,7 +31,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
     Parameters
     ----------
-    model: ``BaseModel`` or ``str``
+    model: ``BaseAutoModel`` or ``str``
         The (name of) model used to train and predict.
 
     optimizer: ``Optimizer`` of ``str``
@@ -57,7 +57,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str],
+        model: Union[BaseAutoModel, str],
         num_features,
         num_classes,
         num_graph_features=0,

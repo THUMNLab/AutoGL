@@ -5,7 +5,7 @@ import typing as _typing
 from torch_geometric.nn.conv import GCNConv
 import autogl.data
 from . import register_model
-from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from .base import BaseAutoModel, activate_func, ClassificationSupportedSequentialModel
 from ....utils import get_logger
 
 LOGGER = get_logger("GCNModel")
@@ -285,7 +285,7 @@ class GCN(ClassificationSupportedSequentialModel):
 
 
 @register_model("gcn")
-class AutoGCN(BaseModel):
+class AutoGCN(BaseAutoModel):
     r"""
     AutoGCN.
     The model used in this automodel is GCN, i.e., the graph convolutional network from the

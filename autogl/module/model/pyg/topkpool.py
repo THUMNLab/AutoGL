@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GraphConv, TopKPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from . import register_model
-from .base import BaseModel, activate_func
+from .base import BaseAutoModel, activate_func
 from ....utils import get_logger
 
 LOGGER = get_logger("TopkModel")
@@ -85,7 +85,7 @@ class Topkpool(torch.nn.Module):
 
 
 @register_model("topkpool")
-class AutoTopkpool(BaseModel):
+class AutoTopkpool(BaseAutoModel):
     r"""
     AutoTopkpool. The model used in this automodel is from https://arxiv.org/abs/1905.05178, https://arxiv.org/abs/1905.02850
 

@@ -13,7 +13,7 @@ import yaml
 from .base import BaseClassifier
 from ..base import _parse_hp_space, _initialize_single_model
 from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT, BaseModel
+from ...module.model import MODEL_DICT, BaseAutoModel
 from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
 from ...module.train import get_feval
 from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_node_features, set_seed
@@ -123,7 +123,7 @@ class AutoLinkPredictor(BaseClassifier):
                         )
                     else:
                         raise KeyError("cannot find model %s" % (model))
-                elif isinstance(model, type) and issubclass(model, BaseModel):
+                elif isinstance(model, type) and issubclass(model, BaseAutoModel):
                     self.graph_model_list.append(
                         model(
                             num_classes=1,
@@ -132,7 +132,7 @@ class AutoLinkPredictor(BaseClassifier):
                             init=False,
                         )
                     )
-                elif isinstance(model, BaseModel):
+                elif isinstance(model, BaseAutoModel):
                     # setup the hp of num_classes and num_features
                     model.set_num_classes(1)
                     model.set_num_features(num_features)
@@ -171,7 +171,7 @@ class AutoLinkPredictor(BaseClassifier):
                     else:
                         model.hyper_parameter_space = self._model_hp_spaces[i]
             # initialize trainer if needed
-            if isinstance(model, BaseModel):
+            if isinstance(model, BaseAutoModel):
                 name = (
                     self._default_trainer
                     if isinstance(self._default_trainer, str)

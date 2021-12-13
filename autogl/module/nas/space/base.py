@@ -5,7 +5,7 @@ from nni.nas.pytorch.fixed import FixedArchitecture
 import json
 from copy import deepcopy
 import torch
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from ....utils import get_logger
 from ..utils import get_hardware_aware_metric
 
@@ -84,7 +84,7 @@ def map_nn(names):
     return [StrModule(x) for x in names]
 
 
-class BoxModel(BaseModel):
+class BoxModel(BaseAutoModel):
     """
     The box wrapping a space, can be passed to later procedure or trainer
 
@@ -184,7 +184,7 @@ class BaseSpace(nn.Module):
         raise NotImplementedError()
 
     @abstractmethod
-    def parse_model(self, selection: dict, device) -> BaseModel:
+    def parse_model(self, selection: dict, device) -> BaseAutoModel:
         """
         Export the searched model from space.
 
