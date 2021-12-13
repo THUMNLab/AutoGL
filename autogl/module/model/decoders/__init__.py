@@ -1,6 +1,6 @@
-from .base import BaseAutoDecoder, BaseDecoder, AutoClassifierDecoder
+from .base_decoder import BaseAutoDecoderMaintainer
 
 # TODO: Implement this
 DecoderRegistry = None
 
-__all__ = ["BaseAutoDecoder", "BaseDecoder", "DecoderRegistry", "AutoClassifierDecoder"]
+__all__ = ["BaseAutoDecoderMaintainer", "DecoderRegistry"]
