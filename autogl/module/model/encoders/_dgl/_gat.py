@@ -2,7 +2,7 @@ import torch.nn.functional
 import typing as _typing
 import dgl
 from dgl.nn.pytorch.conv import GATConv
-from .. import base_encoder
+from .. import base_encoder, encoder_registry
 from ... import _utils
 
 
@@ -61,6 +61,8 @@ class GAT(torch.nn.Module):
         return results
 
 
+@encoder_registry.EncoderUniversalRegistry.register_encoder('gat')
+@encoder_registry.EncoderUniversalRegistry.register_encoder('gat_encoder')
 class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     r"""
     AutoGAT. The model used in this automodel is GAT, i.e., the graph attentional network from the `"Graph Attention Networks"
@@ -91,9 +93,6 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     final_dimension: `Optional[int]`
         The dimension of final features.
 
-    initialize: `bool`
-        If True(False), the model will (not) be initialized.
-
     device: `torch.device` or `str` or `int`
         The device where model will be running on.
 
@@ -105,13 +104,11 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
             self,
             input_dimension: _typing.Optional[int] = ...,
             final_dimension: _typing.Optional[int] = ...,
-            initialize: bool = False,
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
         super(GATMaintainer, self).__init__(
-            input_dimension, final_dimension,
-            initialize, device, *args, **kwargs
+            input_dimension, final_dimension, device, *args, **kwargs
         )
         self.hyper_parameters: _typing.Mapping[str, _typing.Any] = {
             "num_layers": 2,

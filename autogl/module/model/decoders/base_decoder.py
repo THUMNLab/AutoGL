@@ -13,7 +13,14 @@ class BaseAutoDecoderMaintainer(AutoModule):
             self, hp: _typing.Mapping[str, _typing.Any],
             encoder: base_encoder.BaseAutoEncoderMaintainer
     ) -> 'BaseAutoDecoderMaintainer':
-        raise NotImplementedError
+        duplicate = self.__class__(
+            self.output_dimension, self.device
+        )
+        new_hp = dict(self.hyper_parameters)
+        new_hp.update(hp)
+        duplicate.hyper_parameters = new_hp
+        duplicate.initialize(encoder)
+        return duplicate
 
     def __init__(
             self, output_dimension: _typing.Optional[int] = ...,

@@ -1,7 +1,7 @@
 import typing as _typing
 
 
-class _UniversalRegistryMetaclass(type, _typing.MutableMapping[str, _typing.Any]):
+class _UniversalRegistryMetaclass(type):
     def __getitem__(cls, k: str) -> _typing.Any:
         return cls.__universal_registry[k]
 

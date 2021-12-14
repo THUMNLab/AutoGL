@@ -46,8 +46,8 @@ class AutoHomogeneousEncoderMaintainer(BaseAutoEncoderMaintainer):
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        self.input_dimension: _typing.Optional[int] = input_dimension
-        self.final_dimension: _typing.Optional[int] = final_dimension
+        self._input_dimension: _typing.Optional[int] = input_dimension
+        self._final_dimension: _typing.Optional[int] = final_dimension
         super(AutoHomogeneousEncoderMaintainer, self).__init__(
             device, *args, **kwargs
         )
@@ -56,20 +56,20 @@ class AutoHomogeneousEncoderMaintainer(BaseAutoEncoderMaintainer):
 
     @property
     def input_dimension(self) -> _typing.Optional[int]:
-        return self.__input_dimension
+        return self._input_dimension
     
     @input_dimension.setter
     def input_dimension(self, input_dimension):
-        self.__input_dimension = input_dimension
+        self._input_dimension = input_dimension
 
     @property
     def final_dimension(self):
-        return self.__final_dimension
+        return self._final_dimension
     
     @final_dimension.setter
     def final_dimension(self, final_dimension):
         # TODO: may mutate search space according to the final dimension
-        self.__final_dimension = final_dimension
+        self._final_dimension = final_dimension
 
     def from_hyper_parameter(
             self, hyper_parameter: _typing.Mapping[str, _typing.Any], **kwargs
