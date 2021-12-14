@@ -169,7 +169,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         # Get task name, i.e., `LinkPrediction`.
         return "LinkPrediction"
 
-    def train_only(self, data, train_mask=None):
+    def train_only_pyg(self, data, train_mask=None):
         """
         The function of training on the given dataset and mask.
         Parameters
@@ -241,8 +241,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         The function of training on the given dataset and mask.
         Parameters
         ----------
-        pos_data: positive links
-        neg_data: negative links
+        dataset: there are train, train_pos, train_neg graph in this dataset
         Returns
         -------
         self: ``autogl.train.LinkPredictionTrainer``
@@ -308,7 +307,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         self.early_stopping.load_checkpoint(self.model.model)
 
-    def predict_only(self, data, test_mask=None):
+    def predict_only_pyg(self, data, test_mask=None):
         """
         The function of predicting on the given dataset and mask.
 
@@ -342,9 +341,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         Parameters
         ----------
-        data: The link prediction dataset used to be predicted.
-        train_mask: The mask used in training stage.
-
+        dataset: The link prediction dataset used to be predicted.
         Returns
         -------
         res: The result of predicting on the given dataset.
@@ -377,11 +374,11 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         if self.pyg_dgl == 'pyg':
             data = dataset[0]
             data.edge_index = data.train_pos_edge_index
-            self.train_only(data)
+            self.train_only_pyg(data)
             if keep_valid_result:
-                self.valid_result = self.predict_only(data)
-                self.valid_result_prob = self.predict_proba(dataset, "val")
-                self.valid_score = self.evaluate(dataset, mask="val", feval=self.feval)
+                self.valid_result = self.predict_only_pyg(data)
+                self.valid_result_prob = self.predict_proba_pyg(dataset, "val")
+                self.valid_score = self.evaluate_pyg(dataset, mask="val", feval=self.feval)
         elif self.pyg_dgl == 'dgl':
             self.train_only_dgl(dataset)
             if keep_valid_result:
@@ -405,11 +402,17 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         The prediction result of ``predict_proba``.
         """
         if self.pyg_dgl == 'pyg':
-            return self.predict_proba(dataset, mask=mask, in_log_format=False)
+            return self.predict_proba_pyg(dataset, mask=mask, in_log_format=False)
         elif self.pyg_dgl == 'dgl':
             return self.predict_proba_dgl(dataset, mask=mask, in_log_format=False)
 
     def predict_proba(self, dataset, mask=None, in_log_format=False):
+        if self.pyg_dgl == 'pyg':
+            return self.predict_proba_pyg(dataset, mask, in_log_format)
+        elif self.pyg_dgl == 'dgl':
+            return self.predict_proba_dgl(dataset, mask, in_log_format)
+
+    def predict_proba_pyg(self, dataset, mask=None, in_log_format=False):
         """
         The function of predicting the probability on the given dataset.
 
@@ -443,14 +446,30 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         self.model.model.eval()
         with torch.no_grad():
-            z = self.predict_only(data)
+            z = self.predict_only_pyg(data)
             link_logits = self.model.model.lp_decode(z, pos_edge_index, neg_edge_index)
             link_probs = link_logits.sigmoid()
 
         return link_probs
 
     def predict_proba_dgl(self, dataset, mask=None, in_log_format=False):
+        """
+        The function of predicting the probability on the given dataset.
 
+        Parameters
+        ----------
+        dataset: The link prediction dataset used to be predicted.
+
+        mask: ``train``, ``val``, or ``test``.
+            The dataset mask.
+
+        in_log_format: ``bool``.
+            If True(False), the probability will (not) be log format.
+
+        Returns
+        -------
+        The prediction result.
+        """
         train_graph = dataset['train']
         try:
             try:
@@ -547,43 +566,64 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         """
         if self.pyg_dgl == 'pyg':
-            data = dataset[0]
-            data = data.to(self.device)
-            test_mask = mask
-            if feval is None:
-                feval = self.feval
-            else:
-                feval = get_feval(feval)
-
-            if mask in ["train", "val", "test"]:
-                pos_edge_index = data[f"{mask}_pos_edge_index"]
-                neg_edge_index = data[f"{mask}_neg_edge_index"]
-            else:
-                pos_edge_index = data[f"test_pos_edge_index"]
-                neg_edge_index = data[f"test_neg_edge_index"]
-
-            self.model.model.eval()
-            with torch.no_grad():
-                link_probs = self.predict_proba(dataset, mask)
-                link_labels = self.get_link_labels(pos_edge_index, neg_edge_index)
-
-            if not isinstance(feval, list):
-                feval = [feval]
-                return_signle = True
-            else:
-                return_signle = False
-
-            res = []
-            for f in feval:
-                res.append(f.evaluate(link_probs.cpu().numpy(), link_labels.cpu().numpy()))
-            if return_signle:
-                return res[0]
-            return res
+            return self.evaluate_pyg(self, dataset, mask, feval)
         elif self.pyg_dgl == 'dgl':
             return self.evaluate_dgl(dataset,mask,feval)
 
-    def evaluate_dgl(self, dataset, mask=None, feval=None):
+    def evaluate_pyg(self, dataset, mask=None, feval=None):
+        data = dataset[0]
+        data = data.to(self.device)
+        test_mask = mask
+        if feval is None:
+            feval = self.feval
+        else:
+            feval = get_feval(feval)
 
+        if mask in ["train", "val", "test"]:
+            pos_edge_index = data[f"{mask}_pos_edge_index"]
+            neg_edge_index = data[f"{mask}_neg_edge_index"]
+        else:
+            pos_edge_index = data[f"test_pos_edge_index"]
+            neg_edge_index = data[f"test_neg_edge_index"]
+
+        self.model.model.eval()
+        with torch.no_grad():
+            link_probs = self.predict_proba_pyg(dataset, mask)
+            link_labels = self.get_link_labels(pos_edge_index, neg_edge_index)
+
+        if not isinstance(feval, list):
+            feval = [feval]
+            return_signle = True
+        else:
+            return_signle = False
+
+        res = []
+        for f in feval:
+            res.append(f.evaluate(link_probs.cpu().numpy(), link_labels.cpu().numpy()))
+        if return_signle:
+            return res[0]
+        return res
+
+
+    def evaluate_dgl(self, dataset, mask=None, feval=None):
+        """
+        The function of training on the given dataset and keeping valid result.
+
+        Parameters
+        ----------
+        dataset: The link prediction dataset used to be evaluated.
+
+        mask: ``train``, ``val``, or ``test``.
+            The dataset mask.
+
+        feval: ``str``.
+            The evaluation method used in this function.
+
+        Returns
+        -------
+        res: The evaluation result on the given dataset.
+
+        """
         if feval is None:
             feval = self.feval
         else:

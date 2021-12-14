@@ -8,7 +8,7 @@ from tqdm import tqdm
 # exit(0)
 #
 from autogl.datasets import build_dataset_from_name
-# from autogl.solver.classifier.link_predictor import AutoLinkPredictor
+from autogl.solver.classifier.link_predictor import AutoLinkPredictor
 from autogl.module.train.evaluation import Auc
 import yaml
 import random
@@ -48,7 +48,12 @@ def setup_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
 
-
+def fixed(**kwargs):
+    return [{
+        'parameterName': k,
+        "type": "FIXED",
+        "value": v
+    } for k, v in kwargs.items()]
 
 def split_train_test(g):
     u, v = g.edges()
@@ -198,69 +203,58 @@ if __name__ == "__main__":
                 "act": "relu",
                 "agg": "mean",
             }
+            model_hp = {
+                "num_layers": 3,
+                "hidden": [16, 16],
+                "dropout": 0.0,
+                "act": "relu",
+                "agg": "mean",
+            }
         else:
             assert False
 
         automodel.initialize()
 
-        trainer = LinkPredictionTrainer(
-            model = automodel,
-            num_features = num_features,
-            optimizer = None,
-            lr = 1e-2,
-            max_epoch = 100,
-            early_stopping_round = 101,
-            weight_decay = 0.0,
-            device = "auto",
-            init = True,
-            feval = [Auc],
-            loss = "binary_cross_entropy_with_logits",
+
+        autoClassifier = AutoLinkPredictor(
+            feature_module=None,
+            graph_models='sage',
+            ensemble_module=None,
+            max_evals=1,
+            hpo_module='random',
+            trainer_hp_space=fixed(**{
+                "max_epoch": 100,
+                "early_stopping_round": 100 + 1,
+                "lr":0.01,
+                "weight_decay": None,
+            }),
+            model_hp_spaces=[fixed(**model_hp)]
         )
+        autoClassifier.fit(
+            dataset,
+            time_limit=3600,
+            evaluation_method=[Auc],
+            seed=seed,
+            train_split=0.85,
+            val_split=0.05,
+        )
+        autoClassifier.get_leaderboard().show()
 
-        train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g = split_train_test(graph.cpu())
+        # test
+        predict_result = autoClassifier.predict_proba()
 
-        dataset_splitted = {
-            'train': train_g.to(args.device),
-            'train_pos': train_pos_g.to(args.device),
-            'train_neg': train_neg_g.to(args.device),
-            'test_pos': test_pos_g.to(args.device),
-            'test_neg': test_neg_g.to(args.device),
-        }
+        pos_edge_index, neg_edge_index = (
+            dataset[0].test_pos_edge_index,
+            dataset[0].test_neg_edge_index,
+        )
+        E = pos_edge_index.size(1) + neg_edge_index.size(1)
+        link_labels = torch.zeros(E)
+        link_labels[: pos_edge_index.size(1)] = 1.0
 
-        trainer.train(dataset_splitted, False)
-        pre = trainer.evaluate(dataset_splitted, mask="test", feval=Auc)
-        result = pre.item()
-        res.append(result)
-
-    print(np.mean(res), np.std(res))
-    exit(1)
-
-    # train
-    autoClassifier.fit(
-        dataset,
-        time_limit=3600,
-        evaluation_method=[Auc],
-        seed=seed,
-        train_split=0.85,
-        val_split=0.05,
-    )
-    autoClassifier.get_leaderboard().show()
-
-    # test
-    predict_result = autoClassifier.predict_proba()
-
-    pos_edge_index, neg_edge_index = (
-        dataset[0].test_pos_edge_index,
-        dataset[0].test_neg_edge_index,
-    )
-    E = pos_edge_index.size(1) + neg_edge_index.size(1)
-    link_labels = torch.zeros(E)
-    link_labels[: pos_edge_index.size(1)] = 1.0
-
-    print(
-        "test auc: %.4f"
-        % (Auc.evaluate(predict_result, link_labels.detach().cpu().numpy()))
-    )
+        print(
+            "test auc: %.4f"
+            % (Auc.evaluate(predict_result, link_labels.detach().cpu().numpy()))
+        )
 
 """
 AUC 0.8151564430268863

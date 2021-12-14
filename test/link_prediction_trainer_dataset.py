@@ -22,6 +22,7 @@ import itertools
 import numpy as np
 import scipy.sparse as sp
 from autogl.module.model.dgl import AutoSAGE, AutoGAT, AutoGCN
+from autogl.datasets.utils.conversion import general_static_graphs_to_dgl_dataset
 
 
 def construct_negative_graph(graph, k):
@@ -166,6 +167,9 @@ if __name__ == "__main__":
         dataset = PubmedGraphDataset()
     else:
         assert False
+
+    dataset = build_dataset_from_name(args.dataset.lower())
+    dataset = general_static_graphs_to_dgl_dataset(dataset)
 
     res = []
     for seed in tqdm(range(1234, 1234+args.repeat)):
