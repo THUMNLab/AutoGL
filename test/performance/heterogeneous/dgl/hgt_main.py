@@ -38,7 +38,7 @@ def test(model, graph, idx, labels):
     pred = model(graph)[idx].max(1)[1]
     print(pred, labels)
     acc = (pred == labels[idx]).float().mean()
-    return acc
+    return acc.item()
 
 def train(model, G, args):
     best_val_acc = torch.tensor(0)
