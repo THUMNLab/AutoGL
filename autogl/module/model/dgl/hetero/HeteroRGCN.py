@@ -121,8 +121,7 @@ class AutoHeteroRGCN(BaseModel):
         self,  G = None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
     ):
         super(AutoHeteroRGCN, self).__init__()
-        self.G = G
-        self.meta_paths = meta_paths
+        self.dataset = dataset
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
@@ -189,10 +188,8 @@ class AutoHeteroRGCN(BaseModel):
 
 
     def from_dataset(self, dataset):
-        G = dataset
-        # G = dataset[0]
-        self.params["edge_type"] = G.etypes
-
+        self.params["out_key"] = dataset.schema['target_node_type'] 
+        self.params["edge_type"] = dataset[0].etypes
 
 
     def from_hyper_parameter(self, hp):

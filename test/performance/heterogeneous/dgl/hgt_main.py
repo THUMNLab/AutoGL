@@ -35,7 +35,8 @@ def get_n_params(model):
 
 def test(model, graph, idx, labels):
     model.eval()
-    pred = model(graph,'paper')[idx].max(1)[1].cpu()
+    pred = model(graph)[idx].max(1)[1]
+    print(pred, labels)
     acc = (pred == labels[idx]).float().mean()
     return acc
 
@@ -142,6 +143,7 @@ if __name__=='__main__':
     G = G.to(args.device)
 
     num_features = 256
+    labels = G.nodes['paper'].data['label']
     num_classes = labels.max().item()+1
     accs = []
 
