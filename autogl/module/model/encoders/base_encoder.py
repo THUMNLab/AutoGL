@@ -78,7 +78,7 @@ class AutoHomogeneousEncoderMaintainer(BaseAutoEncoderMaintainer):
         new_kwargs = dict(self.__kwargs)
         new_kwargs.update(kwargs)
         duplicate: AutoHomogeneousEncoderMaintainer = self.__class__(
-            self._input_dimension, self._final_dimension,
+            self.input_dimension, self.final_dimension,
             False, self.device, **new_kwargs
         )
         hp = dict(self.hyper_parameters)
@@ -92,8 +92,8 @@ class AutoHomogeneousEncoderMaintainer(BaseAutoEncoderMaintainer):
         ''' Note that this is a default implicit assumption '''
         _output_dimensions = list(self.hyper_parameters["hidden"])
         if (
-                isinstance(self._final_dimension, int) and
-                self._final_dimension > 0
+                isinstance(self.final_dimension, int) and
+                self.final_dimension > 0
         ):
-            _output_dimensions.append(self._final_dimension)
+            _output_dimensions.append(self.final_dimension)
         return _output_dimensions

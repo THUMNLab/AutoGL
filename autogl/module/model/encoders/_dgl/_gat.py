@@ -159,11 +159,11 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     def get_output_dimensions(self) -> _typing.Iterable[int]:
         temp = list(self.hyper_parameters["hidden"])
         if (
-                self._final_dimension not in (Ellipsis, None) and
-                isinstance(self._final_dimension, int) and
-                self._final_dimension > 0
+                self.final_dimension not in (Ellipsis, None) and
+                isinstance(self.final_dimension, int) and
+                self.final_dimension > 0
         ):
-            temp.append(self._final_dimension)
+            temp.append(self.final_dimension)
         return GATUtils.to_total_hidden_dimensions(
             temp,
             self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
@@ -173,13 +173,13 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     def _initialize(self) -> _typing.Optional[bool]:
         dimensions = list(self.hyper_parameters["hidden"])
         if (
-                self._final_dimension not in (Ellipsis, None) and
-                isinstance(self._final_dimension, int) and
-                self._final_dimension > 0
+                self.final_dimension not in (Ellipsis, None) and
+                isinstance(self.final_dimension, int) and
+                self.final_dimension > 0
         ):
-            dimensions.append(self._final_dimension)
+            dimensions.append(self.final_dimension)
         self._encoder: torch.nn.Module = GAT(
-            self._input_dimension, dimensions,
+            self.input_dimension, dimensions,
             self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
             self.hyper_parameters.get("num_output_heads", 1),
             self.hyper_parameters.get("act"),

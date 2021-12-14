@@ -488,7 +488,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         hp_encoder = hp.get("encoder", {})
         hp_decoder = hp.get("decoder", {})
         if not restricted:
-            origin_hp = deepcopy(self.hyperparams)
+            origin_hp = deepcopy(self.hyper_parameters)
             origin_hp.update(hp_trainer)
             hp = origin_hp
         else:
