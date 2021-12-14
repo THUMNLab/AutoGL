@@ -105,9 +105,9 @@ class _GTNDataSource(OnlineDataSource):
         self.__data = data
 
     def __transform_gtn_data(self):
-        self.__data.train_mask: torch.Tensor = torch.zeros(self.__data.x.size(0), dtype=torch.bool)
-        self.__data.val_mask: torch.Tensor = torch.zeros(self.__data.x.size(0), dtype=torch.bool)
-        self.__data.test_mask: torch.Tensor = torch.zeros(self.__data.x.size(0), dtype=torch.bool)
+        self.__data.train_mask = torch.zeros(self.__data.x.size(0), dtype=torch.bool)
+        self.__data.val_mask = torch.zeros(self.__data.x.size(0), dtype=torch.bool)
+        self.__data.test_mask = torch.zeros(self.__data.x.size(0), dtype=torch.bool)
         self.__data.train_mask[getattr(self.__data, "train_node")] = True
         self.__data.val_mask[getattr(self.__data, "valid_node")] = True
         self.__data.test_mask[getattr(self.__data, "test_node")] = True

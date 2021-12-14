@@ -3,6 +3,43 @@ import typing as _typing
 _D = _typing.TypeVar('_D')
 
 
+class _Schema(_typing.MutableMapping[str, _typing.Any]):
+    def __setitem__(self, key: str, value: _typing.Any) -> None:
+        self.__data[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.__data[key]
+
+    def __getitem__(self, key: str) -> _typing.Any:
+        return self.__data[key]
+
+    def __len__(self) -> int:
+        return len(self.__data)
+
+    def __iter__(self) -> _typing.Iterator[str]:
+        return iter(self.__data)
+
+    def __init__(self):
+        self.__data: _typing.MutableMapping[str, _typing.Any] = {}
+        self.__meta_paths: _typing.Optional[
+            _typing.Iterable[_typing.Iterable[str]]
+        ] = None
+
+    @property
+    def meta_paths(self) -> _typing.Optional[
+        _typing.Iterable[_typing.Iterable[str]]
+    ]:
+        return self.__meta_paths
+
+    @meta_paths.setter
+    def meta_paths(
+            self, meta_paths: _typing.Optional[
+                _typing.Iterable[_typing.Iterable[str]]
+            ]
+    ):
+        self.__meta_paths = meta_paths
+
+
 class Dataset(_typing.Iterable[_D], _typing.Sized):
     def __len__(self) -> int:
         raise NotImplementedError
@@ -50,6 +87,10 @@ class Dataset(_typing.Iterable[_D], _typing.Sized):
 
     @test_index.setter
     def test_index(self, test_index: _typing.Optional[_typing.Iterable[int]]):
+        raise NotImplementedError
+
+    @property
+    def schema(self) -> _Schema:
         raise NotImplementedError
 
 
@@ -109,6 +150,10 @@ class _FoldsView(_typing.Sequence[_FoldView]):
 
 
 class InMemoryDataset(Dataset[_D]):
+    @property
+    def schema(self) -> _Schema:
+        return self.__schema
+
     def __init__(
             self, data: _typing.Iterable[_D],
             train_index: _typing.Optional[_typing.Iterable[int]] = ...,
@@ -125,6 +170,7 @@ class InMemoryDataset(Dataset[_D]):
         self.__test_index: _typing.Optional[_typing.Iterable[int]] = (
             test_index if isinstance(test_index, _typing.Iterable) else None
         )
+        self.__schema: _Schema = _Schema()
         self.__folds_container: _FoldsContainer = _FoldsContainer()
 
     @property
