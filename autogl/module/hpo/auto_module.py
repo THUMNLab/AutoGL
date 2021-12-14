@@ -3,7 +3,7 @@ import typing as _typing
 
 
 class AutoModule:
-    def _initialize(self) -> _typing.Optional[bool]:
+    def _initialize(self, *args, **kwargs) -> _typing.Optional[bool]:
         """ Abstract initialization method to override """
         raise NotImplementedError
 
@@ -11,11 +11,11 @@ class AutoModule:
     def initialized(self) -> bool:
         return self.__initialized
 
-    def initialize(self) -> bool:
+    def initialize(self, *args, **kwargs) -> bool:
         if self.__initialized:
             return self.__initialized
         else:
-            init_flag = self._initialize()
+            init_flag = self._initialize(*args, **kwargs)
             self.__initialized = (
                 init_flag if isinstance(init_flag, bool) else True
             )
@@ -39,7 +39,7 @@ class AutoModule:
             )
 
     def __init__(
-            self, initialize: bool,
+            self,
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
@@ -49,8 +49,6 @@ class AutoModule:
         self.__args: _typing.Tuple[_typing.Any, ...] = args
         self.__kwargs: _typing.Mapping[str, _typing.Any] = kwargs
         self.__initialized: bool = False
-        if initialize:
-            self.initialize()
 
     @property
     def hyper_parameters(self) -> _typing.Mapping[str, _typing.Any]:

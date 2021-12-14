@@ -5,12 +5,12 @@ from ...hpo import AutoModule
 
 class BaseAutoEncoderMaintainer(AutoModule):
     def __init__(
-            self, initialize: bool,
+            self,
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
         super(BaseAutoEncoderMaintainer, self).__init__(
-            initialize, device, *args, **kwargs
+            device, *args, **kwargs
         )
         self._encoder: _typing.Optional[torch.nn.Module] = None
 
@@ -43,14 +43,13 @@ class AutoHomogeneousEncoderMaintainer(BaseAutoEncoderMaintainer):
             self,
             input_dimension: _typing.Optional[int] = ...,
             final_dimension: _typing.Optional[int] = ...,
-            initialize: bool = False,
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
         self.input_dimension: _typing.Optional[int] = input_dimension
         self.final_dimension: _typing.Optional[int] = final_dimension
         super(AutoHomogeneousEncoderMaintainer, self).__init__(
-            initialize, device, *args, **kwargs
+            device, *args, **kwargs
         )
         self.__args: _typing.Tuple[_typing.Any, ...] = args
         self.__kwargs: _typing.Mapping[str, _typing.Any] = kwargs

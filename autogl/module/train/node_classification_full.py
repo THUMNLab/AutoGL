@@ -80,7 +80,6 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             num_features=num_features,
             num_classes=num_classes,
             device=device,
-            init=init,
             feval=feval,
             loss=loss,
         )
@@ -185,11 +184,11 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             mask = train_mask
         
         if self.decoder is None:
-            virtual_model = self.encoder.model
+            virtual_model = self.encoder.encoder
         else:
             virtual_model = torch.nn.ModuleDict({
-                "encoder": self.encoder.model,
-                "decoder": self.decoder.model
+                "encoder": self.encoder.encoder,
+                "decoder": self.decoder.decoder
             })
         
         optimizer = self.optimizer(
@@ -212,13 +211,13 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             scheduler = None
 
         for epoch in range(1, self.max_epoch):
-            self.encoder.model.train()
+            self.encoder.encoder.train()
             if self.decoder is not None:
-                self.decoder.model.train()
+                self.decoder.decoder.train()
             optimizer.zero_grad()
-            res = self.encoder.model(data)
+            res = self.encoder.encoder(data)
             if self.decoder is not None:
-                res = self.decoder.model(res, data)
+                res = self.decoder.decoder(res, data)
             if hasattr(F, self.loss):
                 if self.pyg_dgl == 'pyg':
                     loss = getattr(F, self.loss)(res[mask], data.y[mask])
@@ -267,13 +266,13 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                 mask = data.ndata[f'{mask}_mask']
 
         data = data.to(self.device)
-        self.encoder.model.eval()
+        self.encoder.encoder.eval()
         if self.decoder is not None:
-            self.decoder.model.eval()
+            self.decoder.decoder.eval()
         with torch.no_grad():
-            res = self.encoder.model(data)
+            res = self.encoder.encoder(data)
             if self.decoder is not None:
-                res = self.decoder.model(res, data)
+                res = self.decoder.decoder(res, data)
             
         if mask is None:
             return res

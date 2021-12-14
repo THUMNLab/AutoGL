@@ -5,7 +5,7 @@ from ..encoders import base_encoder
 
 
 class BaseAutoDecoderMaintainer(AutoModule):
-    def _initialize(self) -> _typing.Optional[bool]:
+    def _initialize(self, encoder, *args, **kwargs) -> _typing.Optional[bool]:
         """ Abstract initialization method to override """
         raise NotImplementedError
 
@@ -17,12 +17,11 @@ class BaseAutoDecoderMaintainer(AutoModule):
 
     def __init__(
             self, output_dimension: _typing.Optional[int] = ...,
-            initialize: bool = False,
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
         super(BaseAutoDecoderMaintainer, self).__init__(
-            initialize, device, *args, **kwargs
+            device, *args, **kwargs
         )
         self.output_dimension = output_dimension
         self._decoder: _typing.Optional[torch.nn.Module] = None

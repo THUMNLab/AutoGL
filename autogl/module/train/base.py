@@ -98,7 +98,6 @@ class BaseTrainer(AutoModule):
         encoder: _typing.Union[BaseAutoModel, BaseAutoEncoderMaintainer, None],
         decoder: _typing.Union[BaseAutoDecoderMaintainer, None],
         device: _typing.Union[torch.device, str],
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
@@ -121,7 +120,7 @@ class BaseTrainer(AutoModule):
         self.decoder = None if isinstance(encoder, BaseAutoModel) else decoder
         self.feval = feval
         self.loss = loss
-        super().__init__(init, device)
+        super().__init__(device)
 
     @property
     def feval(self) -> _typing.Sequence[_typing.Type[Evaluation]]:
@@ -310,7 +309,6 @@ class _BaseClassificationTrainer(BaseTrainer):
         num_classes: int,
         last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = "auto",
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
@@ -332,7 +330,7 @@ class _BaseClassificationTrainer(BaseTrainer):
                 else "cpu"
             )
         super(_BaseClassificationTrainer, self).__init__(
-            encoder, decoder, __device, init, feval, loss
+            encoder, decoder, __device, feval, loss
         )
     
     @property
@@ -418,14 +416,13 @@ class BaseNodeClassificationTrainer(_BaseClassificationTrainer):
         num_features: int,
         num_classes: int,
         device: _typing.Union[torch.device, str, None] = None,
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
         loss: str = "nll_loss",
     ):
         super(BaseNodeClassificationTrainer, self).__init__(
-            encoder, decoder, num_features, num_classes, num_classes, device, init, feval, loss
+            encoder, decoder, num_features, num_classes, num_classes, device, feval, loss
         )
     
     # override num_classes property to support last_dim setting
@@ -453,7 +450,6 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
         num_graph_features: int = 0,
         last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = None,
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
@@ -461,7 +457,7 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     ):
         self.num_graph_features: int = num_graph_features
         super(BaseGraphClassificationTrainer, self).__init__(
-            encoder, decoder, num_features, num_classes, last_dim, device, init, feval, loss
+            encoder, decoder, num_features, num_classes, last_dim, device, feval, loss
         )
 
     # override encoder and decoder to depend on graph level features
@@ -537,14 +533,13 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
         num_features: _typing.Optional[int] = None,
         last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = None,
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
         loss: str = "nll_loss",
     ):
         super(BaseLinkPredictionTrainer, self).__init__(
-            encoder, decoder, num_features, 2, last_dim, device, init, feval, loss
+            encoder, decoder, num_features, 2, last_dim, device, feval, loss
         )
 
     # override decoder since no num_classes is needed
