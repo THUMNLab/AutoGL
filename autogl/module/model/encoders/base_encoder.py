@@ -77,8 +77,8 @@ class AutoHomogeneousEncoderMaintainer(BaseAutoEncoderMaintainer):
         new_kwargs = dict(self.__kwargs)
         new_kwargs.update(kwargs)
         duplicate: AutoHomogeneousEncoderMaintainer = self.__class__(
-            self.input_dimension, self.final_dimension,
-            False, self.device, **new_kwargs
+            self.input_dimension, self.final_dimension, self.device,
+            **new_kwargs
         )
         hp = dict(self.hyper_parameters)
         hp.update(hyper_parameter)

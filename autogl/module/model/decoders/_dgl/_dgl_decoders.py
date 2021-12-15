@@ -17,8 +17,10 @@ class _LogSoftmaxDecoder(torch.nn.Module):
         return torch.nn.functional.log_softmax(features[-1], dim=-1)
 
 
-@decoder_registry.DecoderUniversalRegistry.register_decoder('gin')
-@decoder_registry.DecoderUniversalRegistry.register_decoder('gin_decoder')
+@decoder_registry.DecoderUniversalRegistry.register_decoder('log_softmax')
+@decoder_registry.DecoderUniversalRegistry.register_decoder('log_softmax_decoder')
+@decoder_registry.DecoderUniversalRegistry.register_decoder('LogSoftmax'.lower())
+@decoder_registry.DecoderUniversalRegistry.register_decoder('LogSoftmax_decoder'.lower())
 class LogSoftmaxDecoderMaintainer(base_decoder.BaseAutoDecoderMaintainer):
     def _initialize(self, encoder, *args, **kwargs) -> _typing.Optional[bool]:
         self._decoder = _LogSoftmaxDecoder().to(self.device)

@@ -5,7 +5,9 @@ from ..encoders import base_encoder
 
 
 class BaseAutoDecoderMaintainer(AutoModule):
-    def _initialize(self, encoder, *args, **kwargs) -> _typing.Optional[bool]:
+    def _initialize(
+            self, encoder: base_encoder.AutoHomogeneousEncoderMaintainer, *args, **kwargs
+    ) -> _typing.Optional[bool]:
         """ Abstract initialization method to override """
         raise NotImplementedError
 
