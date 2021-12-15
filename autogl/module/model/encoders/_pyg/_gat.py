@@ -80,8 +80,11 @@ class GATEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
             dimensions.append(self.final_dimension)
         self._encoder = _GAT(
             self.input_dimension, self.hyper_parameters['hidden'],
-            self.hyper_parameters['num_hidden_heads'],
-            self.hyper_parameters['num_output_heads'],
+            self.hyper_parameters.get('num_hidden_heads', self.hyper_parameters['heads']),
+            self.hyper_parameters.get(
+                'num_output_heads',
+                self.hyper_parameters.get('num_hidden_heads', self.hyper_parameters['heads'])
+            ),
             self.hyper_parameters['dropout'],
             self.hyper_parameters['act']
         )
@@ -136,7 +139,12 @@ class GATEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
                 "scalingType": "LINEAR",
             },
             {
-                "parameterName": "heads",
+                "parameterName": "num_hidden_heads",
+                "type": "DISCRETE",
+                "feasiblePoints": "2,4,8,16",
+            },
+            {
+                "parameterName": "num_output_heads",
                 "type": "DISCRETE",
                 "feasiblePoints": "2,4,8,16",
             },
@@ -149,7 +157,8 @@ class GATEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
         self.hyper_parameters = {
             "num_layers": 2,
             "hidden": [32],
-            "heads": 4,
+            "num_hidden_heads": 4,
+            "num_output_heads": 4,
             "dropout": 0.2,
             "act": "leaky_relu",
         }
