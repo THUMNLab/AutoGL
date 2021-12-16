@@ -77,6 +77,8 @@ class _GIN(torch.nn.Module):
         return results
 
 
+@encoder_registry.EncoderUniversalRegistry.register_encoder('gin')
+@encoder_registry.EncoderUniversalRegistry.register_encoder('gin-encoder')
 class GINEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     def _initialize(self) -> _typing.Optional[bool]:
         dimensions = list(self.hyper_parameters['hidden'])

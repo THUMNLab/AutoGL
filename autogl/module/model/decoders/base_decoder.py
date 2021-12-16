@@ -4,7 +4,7 @@ from ...hpo import AutoModule
 from ..encoders import base_encoder
 
 
-class BaseAutoDecoderMaintainer(AutoModule):
+class BaseDecoderMaintainer(AutoModule):
     def _initialize(
             self, encoder: base_encoder.AutoHomogeneousEncoderMaintainer, *args, **kwargs
     ) -> _typing.Optional[bool]:
@@ -13,8 +13,8 @@ class BaseAutoDecoderMaintainer(AutoModule):
 
     def from_hyper_parameter_and_encoder(
             self, hp: _typing.Mapping[str, _typing.Any],
-            encoder: base_encoder.BaseAutoEncoderMaintainer
-    ) -> 'BaseAutoDecoderMaintainer':
+            encoder: base_encoder.BaseEncoderMaintainer
+    ) -> 'BaseDecoderMaintainer':
         duplicate = self.__class__(
             self.output_dimension, self.device
         )
@@ -29,7 +29,7 @@ class BaseAutoDecoderMaintainer(AutoModule):
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        super(BaseAutoDecoderMaintainer, self).__init__(
+        super(BaseDecoderMaintainer, self).__init__(
             device, *args, **kwargs
         )
         self.output_dimension = output_dimension

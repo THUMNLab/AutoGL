@@ -1,4 +1,4 @@
-from .base_encoder import BaseAutoEncoderMaintainer, AutoHomogeneousEncoderMaintainer
+from .base_encoder import BaseEncoderMaintainer, AutoHomogeneousEncoderMaintainer
 from .encoder_registry import EncoderUniversalRegistry
 from autogl.backend import DependentBackend
 
@@ -19,7 +19,7 @@ else:
     )
 
 __all__ = [
-    "BaseAutoEncoderMaintainer",
+    "BaseEncoderMaintainer",
     "EncoderUniversalRegistry",
     "AutoHomogeneousEncoderMaintainer",
     "GCNEncoderMaintainer",

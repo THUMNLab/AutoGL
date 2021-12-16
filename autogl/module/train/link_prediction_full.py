@@ -2,7 +2,7 @@ from . import register_trainer, Evaluation
 import torch
 from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau
 import torch.nn.functional as F
-from ..model import BaseAutoEncoderMaintainer, BaseAutoDecoderMaintainer, BaseAutoModel
+from ..model import BaseEncoderMaintainer, BaseDecoderMaintainer, BaseAutoModel
 from .evaluation import Auc, EVALUATE_DICT
 from .base import EarlyStopping, BaseLinkPredictionTrainer
 from typing import Union, Tuple
@@ -80,7 +80,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
     def __init__(
         self,
-        model: Union[Tuple[BaseAutoEncoderMaintainer, BaseAutoDecoderMaintainer], BaseAutoEncoderMaintainer, BaseAutoModel, str] = None,
+        model: Union[Tuple[BaseEncoderMaintainer, BaseDecoderMaintainer], BaseEncoderMaintainer, BaseAutoModel, str] = None,
         num_features=None,
         optimizer=torch.optim.Adam,
         lr=1e-4,
@@ -172,12 +172,6 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         if init is True:
             self.initialize()
-
-    def _initialize(self):
-        #  Initialize the auto model in trainer.
-        self.encoder.initialize()
-        if self.decoder is not None:
-            self.decoder.initialize()
 
     def _compose_model(self):
         return _DummyLinkModel(self.encoder, self.decoder)
@@ -576,12 +570,6 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             return res[0]
         return res
 
-    def to(self, new_device):
-        self.device = new_device
-        if self.encoder is not None: self.encoder.to_device(self.device)
-        if self.decoder is not None: self.decoder.to_device(self.device)
-
-
     def duplicate_from_hyper_parameter(self, hp: dict, model=None, restricted=True):
         """
         The function of duplicating a new instance from the given hyperparameter.
@@ -606,7 +594,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             encoder, decoder = model
         elif isinstance(model, BaseAutoModel):
             encoder, decoder = model, None
-        elif isinstance(model, BaseAutoEncoderMaintainer):
+        elif isinstance(model, BaseEncoderMaintainer):
             encoder, decoder = model, self.decoder
         elif model is None:
             encoder, decoder = self.encoder, self.decoder

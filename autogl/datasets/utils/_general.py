@@ -327,9 +327,9 @@ def graph_random_splits(
         perm[int(len(dataset) * train_ratio): int(len(dataset) * (train_ratio + val_ratio))]
     )
     test_index = perm[int(len(dataset) * (train_ratio + val_ratio)):]
-    dataset.train_index = train_index
-    dataset.val_index = val_index
-    dataset.test_index = test_index
+    dataset.train_index = train_index.tolist()
+    dataset.val_index = val_index.tolist()
+    dataset.test_index = test_index.tolist()
     torch.set_rng_state(_rng_state)
     return dataset
 

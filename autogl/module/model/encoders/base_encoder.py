@@ -3,13 +3,13 @@ import typing as _typing
 from ...hpo import AutoModule
 
 
-class BaseAutoEncoderMaintainer(AutoModule):
+class BaseEncoderMaintainer(AutoModule):
     def __init__(
             self,
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        super(BaseAutoEncoderMaintainer, self).__init__(
+        super(BaseEncoderMaintainer, self).__init__(
             device, *args, **kwargs
         )
         self._encoder: _typing.Optional[torch.nn.Module] = None
@@ -35,7 +35,7 @@ class BaseAutoEncoderMaintainer(AutoModule):
         raise NotImplementedError
 
 
-class AutoHomogeneousEncoderMaintainer(BaseAutoEncoderMaintainer):
+class AutoHomogeneousEncoderMaintainer(BaseEncoderMaintainer):
     def _initialize(self) -> _typing.Optional[bool]:
         raise NotImplementedError
 

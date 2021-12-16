@@ -21,20 +21,20 @@ class _LogSoftmaxDecoder(torch.nn.Module):
 @decoder_registry.DecoderUniversalRegistry.register_decoder('log_softmax_decoder')
 @decoder_registry.DecoderUniversalRegistry.register_decoder('LogSoftmax'.lower())
 @decoder_registry.DecoderUniversalRegistry.register_decoder('LogSoftmax_decoder'.lower())
-class LogSoftmaxDecoderMaintainer(base_decoder.BaseAutoDecoderMaintainer):
+class LogSoftmaxDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
     def _initialize(self, encoder, *args, **kwargs) -> _typing.Optional[bool]:
         self._decoder = _LogSoftmaxDecoder().to(self.device)
         return True
 
 
-class _GINDecoder(torch.nn.Module):
+class _AddPoolMLPDecoder(torch.nn.Module):
     def __init__(
             self, input_dimensions: _typing.Sequence[int],
             hidden_dimension: int, output_dimension: int,
             act: _typing.Optional[str], dropout: _typing.Optional[float],
             graph_pooling_type: str, gf_dimension: _typing.Optional[int],
     ):
-        super(_GINDecoder, self).__init__()
+        super(_AddPoolMLPDecoder, self).__init__()
         _input_dimension: int = input_dimensions[-1]
         if isinstance(gf_dimension, int) and gf_dimension > 0:
             _input_dimension += gf_dimension
@@ -88,12 +88,12 @@ class _GINDecoder(torch.nn.Module):
         return torch.nn.functional.log_softmax(feature, dim=-1)
 
 
-@decoder_registry.DecoderUniversalRegistry.register_decoder('GIN'.lower())
-@decoder_registry.DecoderUniversalRegistry.register_decoder('GINPool'.lower())
-@decoder_registry.DecoderUniversalRegistry.register_decoder('GINPool_decoder'.lower())
-class GINDecoderMaintainer(base_decoder.BaseAutoDecoderMaintainer):
+@decoder_registry.DecoderUniversalRegistry.register_decoder('AddPoolMLP'.lower())
+@decoder_registry.DecoderUniversalRegistry.register_decoder('AddPoolMLPDecoder'.lower())
+@decoder_registry.DecoderUniversalRegistry.register_decoder('AddPoolMLP_Decoder'.lower())
+class AddPoolMLPDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
     def _initialize(self, encoder: base_encoder.AutoHomogeneousEncoderMaintainer, *args, **kwargs) -> _typing.Optional[bool]:
-        self._decoder = _GINDecoder(
+        self._decoder = _AddPoolMLPDecoder(
             list(encoder.get_output_dimensions()),
             self.hyper_parameters["hidden"], self.output_dimension,
             self.hyper_parameters["act"], self.hyper_parameters["dropout"],
@@ -115,7 +115,7 @@ class GINDecoderMaintainer(base_decoder.BaseAutoDecoderMaintainer):
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        super(GINDecoderMaintainer, self).__init__(
+        super(AddPoolMLPDecoderMaintainer, self).__init__(
             output_dimension, device, *args, **kwargs
         )
         self.hyper_parameter_space = (
@@ -181,7 +181,7 @@ class _TopKPoolDecoder(torch.nn.Module):
 
 @decoder_registry.DecoderUniversalRegistry.register_decoder('TopK'.lower())
 @decoder_registry.DecoderUniversalRegistry.register_decoder('TopK_decoder'.lower())
-class TopKDecoderMaintainer(base_decoder.BaseAutoDecoderMaintainer):
+class TopKDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
     def _initialize(
             self, encoder: base_encoder.AutoHomogeneousEncoderMaintainer, *args, **kwargs
     ) -> _typing.Optional[bool]:
@@ -230,6 +230,6 @@ class _DotProductLinkPredictonDecoder(torch.nn.Module):
 @decoder_registry.DecoderUniversalRegistry.register_decoder('dotproduct'.lower())
 @decoder_registry.DecoderUniversalRegistry.register_decoder('lp-decoder'.lower())
 @decoder_registry.DecoderUniversalRegistry.register_decoder('dot-product'.lower())
-class DotProductLinkPredictonDecoderMaintainer(base_decoder.BaseAutoDecoderMaintainer):
-    def _initialize(self):
+class DotProductLinkPredictonDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
+    def _initialize(self, *args, **kwargs):
         self._decoder = _DotProductLinkPredictonDecoder()

@@ -19,7 +19,7 @@ def test_lp_trainer():
     print(lp_trainer.decoder.decoder)
 
     lp_trainer.train(dataset, True)
-    result = lp_trainer.evaluate(dataset, "val", "auc")
+    result = lp_trainer.evaluate(dataset, "test", "auc")
     print(result)
 
 test_lp_trainer()

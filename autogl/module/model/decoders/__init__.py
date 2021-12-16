@@ -1,27 +1,27 @@
-from .base_decoder import BaseAutoDecoderMaintainer
+from .base_decoder import BaseDecoderMaintainer
 from .decoder_registry import DecoderUniversalRegistry
 from autogl.backend import DependentBackend
 
 if DependentBackend.is_pyg():
     from ._pyg import (
         LogSoftmaxDecoderMaintainer,
-        GINDecoderMaintainer,
+        AddPoolMLPDecoderMaintainer,
         DiffPoolDecoderMaintainer,
         DotProductLinkPredictonDecoderMaintainer
     )
 else:
     from ._dgl import (
         LogSoftmaxDecoderMaintainer,
-        GINDecoderMaintainer,
+        AddPoolMLPDecoderMaintainer,
         TopKDecoderMaintainer,
         DotProductLinkPredictonDecoderMaintainer
     )
 
 __all__ = [
-    "BaseAutoDecoderMaintainer",
+    "BaseDecoderMaintainer",
     "DecoderUniversalRegistry",
     "LogSoftmaxDecoderMaintainer",
-    "GINDecoderMaintainer",
+    "AddPoolMLPDecoderMaintainer",
     "TopKDecoderMaintainer",
     "DiffPoolDecoderMaintainer",
     "DotProductLinkPredictonDecoderMaintainer"
