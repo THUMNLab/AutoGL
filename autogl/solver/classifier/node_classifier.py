@@ -5,6 +5,7 @@ import time
 import json
 
 from copy import deepcopy
+from typing import Union, Sequence, Tuple
 
 import torch
 import numpy as np
@@ -13,7 +14,7 @@ import yaml
 from .base import BaseClassifier
 from ..base import _parse_hp_space, _initialize_single_model
 from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT, BaseAutoModel
+from ...module.model import BaseEncoderMaintainer, BaseDecoderMaintainer, BaseAutoModel
 from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
 from ...module.train import get_feval
 from ...module.nas.space import NAS_SPACE_DICT

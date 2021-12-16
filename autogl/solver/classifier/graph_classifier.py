@@ -74,14 +74,11 @@ class AutoGraphClassifier(BaseClassifier):
     def __init__(
         self,
         feature_module=None,
-        graph_models=["gin", "topkpool"],
-        # nas_algorithms=None,
-        # nas_spaces=None,
-        # nas_estimators=None,
+        graph_models=("gin", "topkpool"),
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
-        default_trainer=None,
+        default_trainer="GraphClassificationFull",
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -91,13 +88,13 @@ class AutoGraphClassifier(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
-            nas_algorithms=None,  # nas_algorithms,
-            nas_spaces=None,  # nas_spaces,
-            nas_estimators=None,  # nas_estimators,
+            nas_algorithms=None,
+            nas_spaces=None,
+            nas_estimators=None,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "GraphClassificationFull",
+            default_trainer=default_trainer,
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -118,111 +115,56 @@ class AutoGraphClassifier(BaseClassifier):
     ) -> "AutoGraphClassifier":
         # load graph network module
         self.graph_model_list = []
-        if isinstance(graph_models, (list, tuple)):
-            for model in graph_models:
-                if isinstance(model, str):
-                    if model in MODEL_DICT:
-                        self.graph_model_list.append(
-                            MODEL_DICT[model](
-                                num_classes=num_classes,
-                                num_features=num_features,
-                                num_graph_features=num_graph_features,
-                                device=device,
-                                init=False,
-                            )
-                        )
-                    else:
-                        raise KeyError("cannot find model %s" % (model))
-                elif isinstance(model, type) and issubclass(model, BaseAutoModel):
-                    self.graph_model_list.append(
-                        model(
-                            num_classes=num_classes,
-                            num_features=num_features,
-                            num_graph_features=num_graph_features,
-                            device=device,
-                            init=False,
-                        )
-                    )
-                elif isinstance(model, BaseAutoModel):
-                    # setup the hp of num_classes and num_features
-                    model.set_num_classes(num_classes)
-                    model.set_num_features(num_features)
-                    model.set_num_graph_features(num_graph_features)
-                    self.graph_model_list.append(model.to(device))
-                elif isinstance(model, BaseGraphClassificationTrainer):
-                    # receive a trainer list, put trainer to list
-                    assert (
-                        model.get_model() is not None
-                    ), "Passed trainer should contain a model"
-                    model.model.set_num_classes(num_classes)
-                    model.model.set_num_features(num_features)
-                    model.model.set_num_graph_features(num_graph_features)
-                    model.update_parameters(
-                        num_classes=num_classes,
-                        num_features=num_features,
-                        num_graph_features=num_graph_features,
-                        loss=loss,
-                        feval=feval,
-                        device=device,
-                    )
-                    self.graph_model_list.append(model)
-                else:
-                    raise KeyError("cannot find graph network %s." % (model))
-        else:
-            raise ValueError(
-                "need graph network to be (list of) str or a BaseModel class/instance, get",
-                graph_models,
-                "instead.",
-            )
 
-        # wrap all model_cls with specified trainer
-        for i, model in enumerate(self.graph_model_list):
+        for i, model in enumerate(graph_models):
+            # init the trainer
+            if not isinstance(model, BaseGraphClassificationTrainer):
+                trainer = (
+                    self._default_trainer if not isinstance(self._default_trainer, (tuple, list))
+                    else self._default_trainer[i]
+                )
+                if isinstance(trainer, str):
+                    trainer = TRAINER_DICT[trainer]()
+                if isinstance(model, (tuple, list)):
+                    trainer.encoder = model[0]
+                    trainer.decoder = model[1]
+                else:
+                    trainer.encoder = model
+            else:
+                trainer = model
+
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, BaseGraphClassificationTrainer):
-                        model.model.hyper_parameter_space = self._model_hp_spaces[i]
+                    if isinstance(self._model_hp_spaces[i], dict):
+                        encoder_hp_space = self._model_hp_spaces[i].get('encoder', None)
+                        decoder_hp_space = self._model_hp_spaces[i].get('decoder', None)
                     else:
-                        model.hyper_parameter_space = self._model_hp_spaces[i]
-            # initialize trainer if needed
-            if isinstance(model, BaseAutoModel):
-                name = (
-                    self._default_trainer
-                    if isinstance(self._default_trainer, str)
-                    else self._default_trainer[i]
-                )
-                model = TRAINER_DICT[name](
-                    model=model,
-                    num_features=num_features,
-                    num_classes=num_classes,
-                    loss=loss,
-                    feval=feval,
-                    device=device,
-                    num_graph_features=num_graph_features,
-                    init=False,
-                )
+                        encoder_hp_space = self._model_hp_spaces[i]
+                        decoder_hp_space = None
+                    if encoder_hp_space is not None:
+                        trainer.encoder.hyper_parameter_space = encoder_hp_space
+                    if decoder_hp_space is not None:
+                        trainer.decoder.hyper_parameter_space = decoder_hp_space
+            
             # set trainer hp space
             if self._trainer_hp_space is not None:
                 if isinstance(self._trainer_hp_space[0], list):
                     current_hp_for_trainer = self._trainer_hp_space[i]
                 else:
                     current_hp_for_trainer = self._trainer_hp_space
-                model.hyper_parameter_space = current_hp_for_trainer
-            self.graph_model_list[i] = model
+                trainer.hyper_parameter_space = current_hp_for_trainer
+
+            trainer.num_features = num_features
+            trainer.num_classes = num_classes
+            trainer.num_graph_features = num_graph_features
+            trainer.loss = loss
+            trainer.feval = feval
+            trainer.to(device)
+            self.graph_model_list.append(trainer)
 
         return self
 
-    """
-    # currently disabled
-    def _init_nas_module(
-        self, num_features, num_classes, num_graph_features, feval, device, loss
-    ):
-        for algo, space, estimator in zip(
-            self.nas_algorithms, self.nas_spaces, self.nas_estimators
-        ):
-            # TODO: initialize important parameters
-            pass
-    """
 
     # pylint: disable=arguments-differ
     def fit(
@@ -344,7 +286,6 @@ class AutoGraphClassifier(BaseClassifier):
         # initialize graph networks
         self._init_graph_module(
             self.gml,
-            # TODO: what should we use to get feature dimension?
             num_features=num_features,
             num_classes=num_classes,
             feval=evaluator_list,
@@ -355,29 +296,6 @@ class AutoGraphClassifier(BaseClassifier):
             else dataset[0].gf.size(1)) if BACKEND == 'pyg' else 
             (0 if 'gf' not in dataset[0].data else dataset[0].data['gf'].size(1)),
         )
-
-        # currently disabled
-        """
-        self._init_nas_module(
-            num_features=dataset.num_node_features,
-            num_classes=dataset.num_classes,
-            feval=evaluator_list,
-            device=self.runtime_device,
-            loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
-            num_graph_features=0
-            if not hasattr(dataset.data, "gf")
-            else dataset.data.gf.size(1),
-        )
-
-        # neural architecture search
-        if self.nas_algorithms is not None:
-            # perform nas and add them to trainer list
-            for algo, space, estimator in zip(
-                self.nas_algorithms, self.nas_spaces, self.nas_estimators
-            ):
-                trainer = algo.search(space, self.dataset, estimator)
-                self.graph_model_list.append(trainer)
-        """
 
         # train the models and tune hpo
         result_valid = []
@@ -423,7 +341,7 @@ class AutoGraphClassifier(BaseClassifier):
                 get_dataset_labels(dataset)[dataset.val_index].cpu().numpy(),
                 names,
                 evaluator_list,
-                n_classes=dataset.num_classes,
+                n_classes=num_classes,
             )
             self.leaderboard.insert_model_performance(
                 "ensemble",
