@@ -26,10 +26,7 @@ def register_trainer(name):
 
 from .graph_classification_full import GraphClassificationFullTrainer
 from .node_classification_full import NodeClassificationFullTrainer
-if DependentBackend.is_pyg():
-    from .link_prediction import LinkPredictionTrainer
-elif DependentBackend.is_dgl():
-    LinkPredictionTrainer = None
+from .link_prediction_full import LinkPredictionTrainer
 from .node_classification_trainer import *
 from .evaluation import get_feval, Acc, Auc, Logloss, Mrr, MicroF1
 

@@ -314,65 +314,55 @@ class _BaseClassificationTrainer(BaseTrainer):
         ] = (Acc,),
         loss: str = "nll_loss",
     ):
-        self.__encoder = None
-        self.__decoder = None
+        self._encoder = None
+        self._decoder = None
         self.num_features = num_features
         self.num_classes = num_classes
         self.last_dim: _typing.Union[int, str] = last_dim
-        if type(device) == torch.device or (
-            type(device) == str and device.lower() != "auto"
-        ):
-            __device: torch.device = torch.device(device)
-        else:
-            __device: torch.device = torch.device(
-                "cuda"
-                if torch.cuda.is_available() and torch.cuda.device_count() > 0
-                else "cpu"
-            )
         super(_BaseClassificationTrainer, self).__init__(
-            encoder, decoder, __device, feval, loss
+            encoder, decoder, device, feval, loss
         )
     
     @property
     def encoder(self):
-        return self.__encoder
+        return self._encoder
     
     @encoder.setter
     def encoder(self, enc: _typing.Union[BaseAutoModel, BaseAutoEncoderMaintainer, str, None]):
         if isinstance(enc, str):
-            self.__encoder = EncoderRegistry.get_model(enc)(
+            self._encoder = EncoderRegistry.get_model(enc)(
                 self.num_features, last_dim=self.last_dim, device=self.device, init=self.initialized
             )
         elif isinstance(enc, BaseAutoEncoderMaintainer):
-            self.__encoder = enc
+            self._encoder = enc
         elif isinstance(enc, BaseAutoModel):
-            self.__encoder = enc
+            self._encoder = enc
             if self.decoder is not None:
                 logging.warn("will disable decoder since a whole model is passed")
                 self.decoder = None
         elif enc is None:
-            self.__encoder = None
+            self._encoder = None
         else:
             raise ValueError("Enc {} is not supported!".format(enc))
 
     @property
     def decoder(self):
-        return self.__decoder
+        return self._decoder
     
     @decoder.setter
     def decoder(self, dec: _typing.Union[BaseAutoDecoderMaintainer, str, None]):
         if isinstance(self.encoder, BaseAutoModel):
             logging.warn("Ignore passed dec since enc is a whole model")
-            self.__decoder = None
+            self._decoder = None
             return
         if isinstance(dec, str):
-            self.__decoder = DecoderRegistry.get_model(dec)(
+            self._decoder = DecoderRegistry.get_model(dec)(
                 self.num_classes, input_dim=self.last_dim, device=self.device, init=self.initialized
             )
         elif isinstance(dec, BaseAutoDecoderMaintainer):
-            self.__decoder = dec
+            self._decoder = dec
         elif dec is None:
-            self.__decoder = None
+            self._decoder = None
         else:
             raise ValueError("Dec {} is not supported!".format(dec))
     
@@ -390,21 +380,21 @@ class _BaseClassificationTrainer(BaseTrainer):
 
     @property
     def last_dim(self):
-        return self.__last_dim
+        return self._last_dim
     
     @last_dim.setter
     def last_dim(self, dim):
-        self.__last_dim = dim
+        self._last_dim = dim
         if isinstance(self.encoder, AutoHomogeneousEncoderMaintainer):
-            self.encoder.final_dimension = self.__last_dim
+            self.encoder.final_dimension = self._last_dim
 
     @property
     def num_features(self):
-        return self.__num_features
+        return self._num_features
     
     @num_features.setter
     def num_features(self, num_features):
-        self.__num_features = num_features
+        self._num_features = num_features
         if self.encoder is not None:
             self.encoder.input_dimension = num_features
 
@@ -463,12 +453,12 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     # override encoder and decoder to depend on graph level features
     @property
     def encoder(self):
-        return self.__encoder
+        return self._encoder
     
     @encoder.setter
     def encoder(self, enc: _typing.Union[BaseAutoModel, BaseAutoEncoderMaintainer, str, None]):
         if isinstance(enc, str):
-            self.__encoder = EncoderRegistry.get_model(enc)(
+            self._encoder = EncoderRegistry.get_model(enc)(
                 self.num_features,
                 last_dim=self.last_dim,
                 num_graph_features=self.num_graph_features,
@@ -476,28 +466,28 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
                 init=self.initialized
             )
         elif isinstance(enc, (BaseAutoModel, BaseAutoEncoderMaintainer)):
-            self.__encoder = enc
+            self._encoder = enc
             if isinstance(enc, BaseAutoModel) and self.decoder is not None:
                 logging.warn("will disable decoder since a whole model is passed")
                 self.decoder = None
         elif enc is None:
-            self.__encoder = None
+            self._encoder = None
         else:
             raise ValueError("Enc {} is not supported!".format(enc))
 
     @property
     def decoder(self):
         if isinstance(self.encoder, BaseAutoModel): return None
-        return self.__decoder
+        return self._decoder
     
     @decoder.setter
     def decoder(self, dec: _typing.Union[BaseAutoDecoderMaintainer, str, None]):
         if isinstance(self.encoder, BaseAutoModel):
             logging.warn("Ignore passed dec since enc is a whole model")
-            self.__decoder = None
+            self._decoder = None
             return
         if isinstance(dec, str):
-            self.__decoder = DecoderRegistry.get_model(dec)(
+            self._decoder = DecoderRegistry.get_model(dec)(
                 self.num_classes,
                 input_dim=self.last_dim,
                 num_graph_features=self.num_graph_features,
@@ -505,7 +495,7 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
                 init=self.initialized
             )
         elif isinstance(dec, (BaseAutoDecoderMaintainer, None)):
-            self.__decoder = dec
+            self._decoder = dec
         else:
             raise ValueError("Invalid decoder setting")
 
@@ -546,21 +536,21 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
     @property
     def decoder(self):
         if isinstance(self.encoder, BaseAutoModel): return None
-        return self.__decoder
+        return self._decoder
     
     @decoder.setter
     def decoder(self, dec: _typing.Union[BaseAutoDecoderMaintainer, str, None]):
         if isinstance(self.encoder, BaseAutoModel):
             logging.warn("Ignore passed dec since enc is a whole model")
-            self.__decoder = None
+            self._decoder = None
             return
         if isinstance(dec, str):
-            self.__decoder = DecoderRegistry.get_model(dec)(
+            self._decoder = DecoderRegistry.get_model(dec)(
                 input_dim=self.last_dim,
                 device=self.device,
                 init=self.initialized
             )
         elif isinstance(dec, (BaseAutoDecoderMaintainer, None)):
-            self.__decoder = dec
+            self._decoder = dec
         else:
             raise ValueError("Invalid decoder setting")

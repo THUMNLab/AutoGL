@@ -1,6 +1,7 @@
 import importlib
 import sys
 from ...backend import DependentBackend
+from . import _utils
 
 from .decoders import BaseAutoDecoderMaintainer, DecoderRegistry
 from .encoders import BaseAutoEncoderMaintainer, AutoHomogeneousEncoderMaintainer, EncoderRegistry

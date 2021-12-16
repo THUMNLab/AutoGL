@@ -49,6 +49,7 @@ class _GAT(torch.nn.Module):
         x: torch.Tensor = data.x
         edge_index: torch.LongTensor = data.edge_index
         if (
+                hasattr(data, "edge_weight") and
                 isinstance(getattr(data, "edge_weight"), torch.Tensor)
                 and torch.is_tensor(data.edge_weight)
         ):

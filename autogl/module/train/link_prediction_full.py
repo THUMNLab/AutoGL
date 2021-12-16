@@ -1,14 +1,14 @@
 from . import register_trainer, Evaluation
 import torch
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau
 import torch.nn.functional as F
-from ..model import MODEL_DICT, BaseModel
+from ..model import BaseAutoEncoderMaintainer, BaseAutoDecoderMaintainer, BaseAutoModel
 from .evaluation import Auc, EVALUATE_DICT
 from .base import EarlyStopping, BaseLinkPredictionTrainer
-from typing import Union
+from typing import Union, Tuple
 from copy import deepcopy
-# from torch_geometric.utils import negative_sampling
-from ...datasets.utils import negative_sampling
+from torch_geometric.utils import negative_sampling
+# from ...datasets.utils import negative_sampling
 from ...utils import get_logger
 
 from ...backend import DependentBackend
@@ -25,6 +25,25 @@ def get_feval(feval):
         return [get_feval(f) for f in feval]
     raise ValueError("feval argument of type", type(feval), "is not supported!")
 
+class _DummyLinkModel(torch.nn.Module):
+    def __init__(self, encoder, decoder):
+        super().__init__()
+        if isinstance(encoder, BaseAutoModel):
+            self.encoder = encoder.model
+            self.decoder = None
+        else:
+            self.encoder = encoder.encoder
+            self.decoder = None if decoder is None else decoder.decoder
+    
+    def encode(self, data):
+        if isinstance(self.encoder, BaseAutoModel):
+            return self.encoder.lp_encode(data)
+        return self.encoder(data)
+    
+    def decode(self, features, data, pos_edges, neg_edges):
+        if isinstance(self.encoder, BaseAutoModel) or self.decoder is None:
+            return features
+        return self.decoder(features, data, pos_edges, neg_edges)
 
 @register_trainer("LinkPredictionFull")
 class LinkPredictionTrainer(BaseLinkPredictionTrainer):
@@ -61,9 +80,9 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str] = None,
+        model: Union[Tuple[BaseAutoEncoderMaintainer, BaseAutoDecoderMaintainer], BaseAutoEncoderMaintainer, BaseAutoModel, str] = None,
         num_features=None,
-        optimizer=None,
+        optimizer=torch.optim.Adam,
         lr=1e-4,
         max_epoch=100,
         early_stopping_round=101,
@@ -76,21 +95,29 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         *args,
         **kwargs,
     ):
-        super().__init__(model, num_features, device, init, feval, loss)
-
-        if type(optimizer) == str and optimizer.lower() == "adam":
-            self.optimizer = torch.optim.Adam
-        elif type(optimizer) == str and optimizer.lower() == "sgd":
-            self.optimizer = torch.optim.SGD
+        if isinstance(model, Tuple):
+            encoder, decoder = model
+        elif isinstance(model, BaseAutoModel):
+            encoder, decoder = model, None
         else:
-            self.optimizer = torch.optim.Adam
+            encoder, decoder = model, "LPDecoder"
+        super().__init__(encoder, decoder, num_features, "auto", device, feval, loss)
+
+        self.opt_received = optimizer
+        if isinstance(optimizer, str):
+            if optimizer.lower() == "adam": self.optimizer = torch.optim.Adam
+            elif optimizer.lower() == "sgd": self.optimizer = torch.optim.SGD
+            else: raise ValueError("Currently not support optimizer {}".format(optimizer))
+        elif isinstance(optimizer, type) and issubclass(optimizer, torch.optim.Optimizer):
+            self.optimizer = optimizer
+        else:
+            raise ValueError("Currently not support optimizer {}".format(optimizer))
 
         self.lr_scheduler_type = lr_scheduler_type
 
         self.lr = lr
         self.max_epoch = max_epoch
         self.early_stopping_round = early_stopping_round
-        self.device = device
         self.args = args
         self.kwargs = kwargs
         self.weight_decay = weight_decay
@@ -103,12 +130,9 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         self.valid_result_prob = None
         self.valid_score = None
 
-        self.initialized = False
-        self.device = device
-
         self.pyg_dgl = DependentBackend.get_backend_name()
 
-        self.space = [
+        self.hyper_parameter_space = [
             {
                 "parameterName": "max_epoch",
                 "type": "INTEGER",
@@ -139,9 +163,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             },
         ]
 
-        LinkPredictionTrainer.space = self.space
-
-        self.hyperparams = {
+        self.hyper_parameters = {
             "max_epoch": self.max_epoch,
             "early_stopping_round": self.early_stopping_round,
             "lr": self.lr,
@@ -151,47 +173,29 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         if init is True:
             self.initialize()
 
-    def initialize(self):
+    def _initialize(self):
         #  Initialize the auto model in trainer.
-        if self.initialized is True:
-            return
-        self.initialized = True
-        self.model.set_num_classes(self.num_classes)
-        self.model.set_num_features(self.num_features)
-        self.model.initialize()
+        self.encoder.initialize()
+        if self.decoder is not None:
+            self.decoder.initialize()
 
-    def get_model(self):
-        # Get auto model used in trainer.
-        return self.model
+    def _compose_model(self):
+        return _DummyLinkModel(self.encoder, self.decoder)
 
     @classmethod
     def get_task_name(cls):
-        # Get task name, i.e., `LinkPrediction`.
         return "LinkPrediction"
 
-    def train_only_pyg(self, data, train_mask=None):
-        """
-        The function of training on the given dataset and mask.
-        Parameters
-        ----------
-        data: The link prediction dataset used to be trained. It should consist of masks, including train_mask, and etc.
-        train_mask: The mask used in training stage.
-        Returns
-        -------
-        self: ``autogl.train.LinkPredictionTrainer``
-            A reference of current trainer.
-        """
+    def _train_only_pyg(self, data, train_mask=None):
 
-        # data.train_mask = data.val_mask = data.test_mask = data.y = None
-        # data = train_test_split_edges(data)
+        model = self._compose_model()
         data = data.to(self.device)
-        # mask = data.train_mask if train_mask is None else train_mask
         optimizer = self.optimizer(
-            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
         scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
         for epoch in range(1, self.max_epoch):
-            self.model.model.train()
+            model.train()
 
             try:
                 neg_edge_index = data.train_neg_edge_index
@@ -203,15 +207,12 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 )
 
             optimizer.zero_grad()
-            # res = self.model.model.forward(data)
-            z = self.model.model.lp_encode(data)
-            link_logits = self.model.model.lp_decode(
-                z, data.train_pos_edge_index, neg_edge_index
-            )
+            link_logits = model.encode(data)
+            link_logits = model.decode(link_logits, data, data.train_pos_edge_index, neg_edge_index)
             link_labels = self.get_link_labels(
                 data.train_pos_edge_index, neg_edge_index
             )
-            # loss = F.binary_cross_entropy_with_logits(link_logits, link_labels)
+            
             if hasattr(F, self.loss):
                 loss = getattr(F, self.loss)(link_logits, link_labels)
             else:
@@ -230,32 +231,22 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             val_loss = self.evaluate([data], mask="val", feval=feval)
             if feval.is_higher_better() is True:
                 val_loss = -val_loss
-            self.early_stopping(val_loss, self.model.model)
+            self.early_stopping(val_loss, model)
             if self.early_stopping.early_stop:
                 LOGGER.debug("Early stopping at %d", epoch)
                 break
-        self.early_stopping.load_checkpoint(self.model.model)
+        self.early_stopping.load_checkpoint(model)
 
-    def train_only_dgl(self, dataset):
-        """
-        The function of training on the given dataset and mask.
-        Parameters
-        ----------
-        dataset: there are train, train_pos, train_neg graph in this dataset
-        Returns
-        -------
-        self: ``autogl.train.LinkPredictionTrainer``
-            A reference of current trainer.
-        """
-
+    def _train_only_dgl(self, dataset):
+        model = self._compose_model()
         train_graph = dataset['train'].to(self.device)
         train_pos_graph = dataset['train_pos'].to(self.device)
         train_neg_data = dataset['train_neg'].to(self.device)
 
         optimizer = self.optimizer(
-            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-        # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        
         lr_scheduler_type = self.lr_scheduler_type
         if type(lr_scheduler_type) == str and lr_scheduler_type == "steplr":
             scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
@@ -271,16 +262,15 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             scheduler = None
 
         for epoch in range(1, self.max_epoch):
-            self.model.model.train()
+            model.train()
 
             optimizer.zero_grad()
-            z = self.model.model.lp_encode(train_graph)
-            link_logits = self.model.model.lp_decode(
-                z, torch.stack(train_pos_graph.edges()), torch.stack(train_neg_data.edges())
-            )
-            link_labels = self.get_link_labels(
-                torch.stack(train_pos_graph.edges()), torch.stack(train_neg_data.edges())
-            )
+
+            pos_edges, neg_edges = torch.stack(train_pos_graph.edges()), torch.stack(train_neg_data.edges())
+
+            link_logits = model.encode(train_graph)
+            link_logits = model.decode(link_logits, train_graph, pos_edges, neg_edges)
+            link_labels = self.get_link_labels(pos_edges, neg_edges)
             if hasattr(F, self.loss):
                 loss = getattr(F, self.loss)(link_logits, link_labels)
             else:
@@ -297,66 +287,35 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 feval = self.feval[0]
             else:
                 feval = self.feval
-            val_loss = self.evaluate_dgl(dataset, mask="val", feval=feval)
+            val_loss = self._evaluate_dgl(dataset, mask="val", feval=feval)
             if feval.is_higher_better() is True:
                 val_loss = -val_loss
-            self.early_stopping(val_loss, self.model.model)
+            self.early_stopping(val_loss, model)
             if self.early_stopping.early_stop:
                 LOGGER.debug("Early stopping at %d", epoch)
                 break
 
-        self.early_stopping.load_checkpoint(self.model.model)
+        self.early_stopping.load_checkpoint(model)
 
-    def predict_only_pyg(self, data, test_mask=None):
-        """
-        The function of predicting on the given dataset and mask.
-
-        Parameters
-        ----------
-        data: The link prediction dataset used to be predicted.
-        train_mask: The mask used in training stage.
-
-        Returns
-        -------
-        res: The result of predicting on the given dataset.
-
-        """
-        try:
-            mask = data.test_mask if test_mask is None else test_mask
-        except:
-            mask = None
+    def _predict_only_pyg(self, data):
         data = data.to(self.device)
-        self.model.model.eval()
+        model = self._compose_model()
+        model.eval()
         with torch.no_grad():
-            res = self.model.model.lp_encode(data)
+            res = model.encode(data)
+        return res
 
-        if mask is None:
-            return res
-        else:
-            return res[mask]
-
-    def predict_only_dgl(self, dataset, test_mask=None):
-        """
-        The function of predicting on the given dataset and mask.
-
-        Parameters
-        ----------
-        dataset: The link prediction dataset used to be predicted.
-        Returns
-        -------
-        res: The result of predicting on the given dataset.
-
-        """
-
+    def _predict_only_dgl(self, dataset):
         pos_data = dataset['train']
-        self.model.model.eval()
+        model = self._compose_model()
+        model.eval()
         with torch.no_grad():
-            z = self.model.model.lp_encode(pos_data)
+            z = model.encode(pos_data)
         return z
 
     def train(self, dataset, keep_valid_result=True):
         """
-        The function of training on the given dataset and keeping valid result.
+        train on the given dataset
 
         Parameters
         ----------
@@ -374,17 +333,17 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         if self.pyg_dgl == 'pyg':
             data = dataset[0]
             data.edge_index = data.train_pos_edge_index
-            self.train_only_pyg(data)
+            self._train_only_pyg(data)
             if keep_valid_result:
-                self.valid_result = self.predict_only_pyg(data)
-                self.valid_result_prob = self.predict_proba_pyg(dataset, "val")
-                self.valid_score = self.evaluate_pyg(dataset, mask="val", feval=self.feval)
+                self.valid_result = self._predict_only_pyg(data)
+                self.valid_result_prob = self._predict_proba_pyg(dataset, "val")
+                self.valid_score = self._evaluate_pyg(dataset, mask="val", feval=self.feval)
         elif self.pyg_dgl == 'dgl':
-            self.train_only_dgl(dataset)
+            self._train_only_dgl(dataset)
             if keep_valid_result:
-                self.valid_result = self.predict_only_dgl(dataset)
-                self.valid_result_prob = self.predict_proba_dgl(dataset, "val")
-                self.valid_score = self.evaluate_dgl(dataset, mask="val", feval=self.feval)
+                self.valid_result = self._predict_only_dgl(dataset)
+                self.valid_result_prob = self._predict_proba_dgl(dataset, "val")
+                self.valid_score = self._evaluate_dgl(dataset, mask="val", feval=self.feval)
 
     def predict(self, dataset, mask=None):
         """
@@ -396,40 +355,25 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         mask: ``train``, ``val``, or ``test``.
             The dataset mask.
+        
+        .. Note:: Deprecated, this function will be removed in the future.
 
         Returns
         -------
         The prediction result of ``predict_proba``.
         """
         if self.pyg_dgl == 'pyg':
-            return self.predict_proba_pyg(dataset, mask=mask, in_log_format=False)
+            return self._predict_proba_pyg(dataset, mask=mask, in_log_format=False)
         elif self.pyg_dgl == 'dgl':
-            return self.predict_proba_dgl(dataset, mask=mask, in_log_format=False)
+            return self._predict_proba_dgl(dataset, mask=mask, in_log_format=False)
 
     def predict_proba(self, dataset, mask=None, in_log_format=False):
         if self.pyg_dgl == 'pyg':
-            return self.predict_proba_pyg(dataset, mask, in_log_format)
+            return self._predict_proba_pyg(dataset, mask, in_log_format)
         elif self.pyg_dgl == 'dgl':
-            return self.predict_proba_dgl(dataset, mask, in_log_format)
+            return self._predict_proba_dgl(dataset, mask, in_log_format)
 
-    def predict_proba_pyg(self, dataset, mask=None, in_log_format=False):
-        """
-        The function of predicting the probability on the given dataset.
-
-        Parameters
-        ----------
-        dataset: The link prediction dataset used to be predicted.
-
-        mask: ``train``, ``val``, or ``test``.
-            The dataset mask.
-
-        in_log_format: ``bool``.
-            If True(False), the probability will (not) be log format.
-
-        Returns
-        -------
-        The prediction result.
-        """
+    def _predict_proba_pyg(self, dataset, mask=None, in_log_format=False):
         data = dataset[0]
         data.edge_index = data.train_pos_edge_index
         data = data.to(self.device)
@@ -444,32 +388,16 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             pos_edge_index = data[f"test_edge_index"]
             neg_edge_index = torch.zeros(2, 0).to(self.device)
 
-        self.model.model.eval()
+        model = self._compose_model()
+        model.eval()
         with torch.no_grad():
-            z = self.predict_only_pyg(data)
-            link_logits = self.model.model.lp_decode(z, pos_edge_index, neg_edge_index)
+            z = self._predict_only_pyg(data)
+            link_logits = model.decode(z, data, pos_edge_index, neg_edge_index)
             link_probs = link_logits.sigmoid()
 
         return link_probs
 
-    def predict_proba_dgl(self, dataset, mask=None, in_log_format=False):
-        """
-        The function of predicting the probability on the given dataset.
-
-        Parameters
-        ----------
-        dataset: The link prediction dataset used to be predicted.
-
-        mask: ``train``, ``val``, or ``test``.
-            The dataset mask.
-
-        in_log_format: ``bool``.
-            If True(False), the probability will (not) be log format.
-
-        Returns
-        -------
-        The prediction result.
-        """
+    def _predict_proba_dgl(self, dataset, mask=None, in_log_format=False):
         train_graph = dataset['train']
         try:
             try:
@@ -479,25 +407,28 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 pos_graph = dataset[f'test_pos']
                 neg_graph = dataset[f'test_neg']
         except:
+            import dgl
             pos_graph = dataset[mask]
             neg_graph = dgl.graph([], num_nodes=0).to(self.device)
 
-        self.model.model.eval()
+        model = self._compose_model()
+        model.eval()
         with torch.no_grad():
-            z = self.model.model.lp_encode(train_graph)
-            link_logits = self.model.model.lp_decode(
-                    z, torch.stack(pos_graph.edges()), torch.stack(neg_graph.edges())
-                )
+            z = model.encode(train_graph)
+            link_logits = model.decode(
+                z, 
+                train_graph,
+                torch.stack(pos_graph.edges()), 
+                torch.stack(neg_graph.edges())
+            )
             link_probs = link_logits.sigmoid()
 
         return link_probs
 
     def get_valid_predict(self):
-        # """Get the valid result."""
         return self.valid_result
 
     def get_valid_predict_proba(self):
-        # """Get the valid result (prediction probability)."""
         return self.valid_result_prob
 
     def get_valid_score(self, return_major=True):
@@ -523,7 +454,6 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             return self.valid_score, self.feval.is_higher_better()
 
     def get_name_with_hp(self):
-        # """Get the name of hyperparameter."""
         name = "-".join(
             [
                 str(self.optimizer),
@@ -566,14 +496,13 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
         """
         if self.pyg_dgl == 'pyg':
-            return self.evaluate_pyg(self, dataset, mask, feval)
+            return self._evaluate_pyg(dataset, mask, feval)
         elif self.pyg_dgl == 'dgl':
-            return self.evaluate_dgl(dataset,mask,feval)
+            return self._evaluate_dgl(dataset,mask,feval)
 
-    def evaluate_pyg(self, dataset, mask=None, feval=None):
+    def _evaluate_pyg(self, dataset, mask=None, feval=None):
         data = dataset[0]
         data = data.to(self.device)
-        test_mask = mask
         if feval is None:
             feval = self.feval
         else:
@@ -586,9 +515,10 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             pos_edge_index = data[f"test_pos_edge_index"]
             neg_edge_index = data[f"test_neg_edge_index"]
 
-        self.model.model.eval()
+        model = self._compose_model()
+        model.eval()
         with torch.no_grad():
-            link_probs = self.predict_proba_pyg(dataset, mask)
+            link_probs = self._predict_proba_pyg(dataset, mask)
             link_labels = self.get_link_labels(pos_edge_index, neg_edge_index)
 
         if not isinstance(feval, list):
@@ -605,25 +535,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         return res
 
 
-    def evaluate_dgl(self, dataset, mask=None, feval=None):
-        """
-        The function of training on the given dataset and keeping valid result.
-
-        Parameters
-        ----------
-        dataset: The link prediction dataset used to be evaluated.
-
-        mask: ``train``, ``val``, or ``test``.
-            The dataset mask.
-
-        feval: ``str``.
-            The evaluation method used in this function.
-
-        Returns
-        -------
-        res: The evaluation result on the given dataset.
-
-        """
+    def _evaluate_dgl(self, dataset, mask=None, feval=None):
         if feval is None:
             feval = self.feval
         else:
@@ -637,11 +549,15 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             pos_graph = dataset[f'test_pos']
             neg_graph = dataset[f'test_neg']
 
-        self.model.model.eval()
+        model = self._compose_model()
+        model.eval()
         with torch.no_grad():
-            z = self.model.model.lp_encode(train_graph)
-            link_logits = self.model.model.lp_decode(
-                    z, torch.stack(pos_graph.edges()), torch.stack(neg_graph.edges())
+            z = model.encode(train_graph)
+            link_logits = model.decode(
+                    z,
+                    train_graph,
+                    torch.stack(pos_graph.edges()),
+                    torch.stack(neg_graph.edges())
                 )
             link_probs = link_logits.sigmoid()
             link_labels = self.get_link_labels(
@@ -661,10 +577,10 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         return res
 
     def to(self, new_device):
-        assert isinstance(new_device, torch.device)
         self.device = new_device
-        if self.model is not None:
-            self.model.to(self.device)
+        if self.encoder is not None: self.encoder.to_device(self.device)
+        if self.decoder is not None: self.decoder.to_device(self.device)
+
 
     def duplicate_from_hyper_parameter(self, hp: dict, model=None, restricted=True):
         """
@@ -686,33 +602,38 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             A new instance of trainer.
 
         """
-        if not restricted:
-            origin_hp = deepcopy(self.hyperparams)
-            origin_hp.update(hp)
-            hp = origin_hp
-        if model is None:
-            model = self.model
-        model.set_num_classes(self.num_classes)
-        model.set_num_features(self.num_features)
-        model = model.from_hyper_parameter(
-            dict(
-                [
-                    x
-                    for x in hp.items()
-                    if x[0] in [y["parameterName"] for y in model.space]
-                ]
-            )
-        )
+        if isinstance(model, Tuple):
+            encoder, decoder = model
+        elif isinstance(model, BaseAutoModel):
+            encoder, decoder = model, None
+        elif isinstance(model, BaseAutoEncoderMaintainer):
+            encoder, decoder = model, self.decoder
+        elif model is None:
+            encoder, decoder = self.encoder, self.decoder
+        else:
+            raise TypeError("Cannot parse model with type", type(model))
+        
+        trainer_hp = hp.get("trainer", {})
+        encoder_hp = hp.get("encoder", {})
+        decoder_hp = hp.get("decoder", {})
 
+        if not restricted:
+            origin_hp = deepcopy(self.hyper_parameters)
+            origin_hp.update(trainer_hp)
+            trainer_hp = origin_hp
+        
+        encoder = encoder.from_hyper_parameter(encoder_hp)
+        decoder = decoder.from_hyper_parameter_and_encoder(decoder_hp, encoder)
+        
         ret = self.__class__(
-            model=model,
+            model=(encoder, decoder),
             num_features=self.num_features,
             optimizer=self.optimizer,
-            lr=hp["lr"],
-            max_epoch=hp["max_epoch"],
-            early_stopping_round=hp["early_stopping_round"],
+            lr=trainer_hp["lr"],
+            max_epoch=trainer_hp["max_epoch"],
+            early_stopping_round=trainer_hp["early_stopping_round"],
             device=self.device,
-            weight_decay=hp["weight_decay"],
+            weight_decay=trainer_hp["weight_decay"],
             feval=self.feval,
             init=True,
             *self.args,
@@ -720,25 +641,6 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         )
 
         return ret
-
-    def set_feval(self, feval):
-        # """Set the evaluation metrics."""
-        self.feval = get_feval(feval)
-
-    @property
-    def hyper_parameter_space(self):
-        # """Get the space of hyperparameter."""
-        return self.space
-
-    @hyper_parameter_space.setter
-    def hyper_parameter_space(self, space):
-        # """Set the space of hyperparameter."""
-        self.space = space
-        LinkPredictionTrainer.space = space
-
-    def get_hyper_parameter(self):
-        # """Get the hyperparameter in this trainer."""
-        return self.hyperparams
 
     def get_link_labels(self, pos_edge_index, neg_edge_index):
         E = pos_edge_index.size(1) + neg_edge_index.size(1)
