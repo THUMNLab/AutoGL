@@ -116,11 +116,11 @@ class BaseTrainer(AutoModule):
         init: `bool`
             If True(False), the model will (not) be initialized.
         """
+        super().__init__(device)
         self.encoder = encoder
         self.decoder = None if isinstance(encoder, BaseAutoModel) else decoder
         self.feval = feval
         self.loss = loss
-        super().__init__(device)
 
     @property
     def feval(self) -> _typing.Sequence[_typing.Type[Evaluation]]:

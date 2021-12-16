@@ -1,10 +1,7 @@
-import torch
-from autogl.module.model import BaseAutoDecoderMaintainer
 from autogl.module.train import LinkPredictionTrainer
 from autogl.datasets import build_dataset_from_name
 from autogl.datasets.utils.conversion._to_pyg_dataset import general_static_graphs_to_pyg_dataset
 from torch_geometric.utils import train_test_split_edges
-
 
 def test_lp_trainer():
 
@@ -18,8 +15,8 @@ def test_lp_trainer():
 
     lp_trainer.num_features = data.x.size(1)
     lp_trainer.initialize()
-    print(lp_trainer.encoder)
-    print(lp_trainer.decoder)
+    print(lp_trainer.encoder.encoder)
+    print(lp_trainer.decoder.decoder)
 
     lp_trainer.train(dataset, True)
     result = lp_trainer.evaluate(dataset, "val", "auc")

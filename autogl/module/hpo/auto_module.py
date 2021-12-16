@@ -9,30 +9,30 @@ class AutoModule:
 
     @property
     def initialized(self) -> bool:
-        return self.__initialized
+        return self._initialized
 
     def initialize(self, *args, **kwargs) -> bool:
-        if self.__initialized:
-            return self.__initialized
+        if self._initialized:
+            return self._initialized
         else:
             init_flag = self._initialize(*args, **kwargs)
-            self.__initialized = (
+            self._initialized = (
                 init_flag if isinstance(init_flag, bool) else True
             )
-            return self.__initialized
+            return self._initialized
 
     @property
     def device(self) -> torch.device:
-        return self.__device
+        return self._device
 
     @device.setter
     def device(self, __device: _typing.Union[torch.device, str, int, None]):
         if type(__device) == torch.device or (
             type(__device) == str and __device.lower() != "auto"
         ) or type(__device) == int:
-            self.__device: torch.device = torch.device(__device)
+            self._device: torch.device = torch.device(__device)
         else:
-            self.__device: torch.device = torch.device(
+            self._device: torch.device = torch.device(
                 "cuda"
                 if torch.cuda.is_available() and torch.cuda.device_count() > 0
                 else "cpu"
@@ -48,7 +48,7 @@ class AutoModule:
         self.device = device
         self.__args: _typing.Tuple[_typing.Any, ...] = args
         self.__kwargs: _typing.Mapping[str, _typing.Any] = kwargs
-        self.__initialized: bool = False
+        self._initialized: bool = False
 
     @property
     def hyper_parameters(self) -> _typing.Mapping[str, _typing.Any]:

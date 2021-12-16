@@ -212,3 +212,24 @@ class TopKDecoderMaintainer(base_decoder.BaseAutoDecoderMaintainer):
         self.hyper_parameters = {
             "dropout": 0.5
         }
+
+class _DotProductLinkPredictonDecoder(torch.nn.Module):
+    def forward(self,
+        features: _typing.Sequence[torch.Tensor],
+        graph: dgl.DGLGraph,
+        pos_edge: torch.Tensor,
+        neg_edge: torch.Tensor,
+        **__kwargs
+    ):
+        z = features[-1]
+        edge_index = torch.cat([pos_edge, neg_edge], dim=-1)
+        logits = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=-1)
+        return logits
+
+@decoder_registry.DecoderUniversalRegistry.register_decoder('lpdecoder'.lower())
+@decoder_registry.DecoderUniversalRegistry.register_decoder('dotproduct'.lower())
+@decoder_registry.DecoderUniversalRegistry.register_decoder('lp-decoder'.lower())
+@decoder_registry.DecoderUniversalRegistry.register_decoder('dot-product'.lower())
+class DotProductLinkPredictonDecoderMaintainer(base_decoder.BaseAutoDecoderMaintainer):
+    def _initialize(self):
+        self._decoder = _DotProductLinkPredictonDecoder()
