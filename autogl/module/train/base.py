@@ -7,8 +7,8 @@ import pickle
 from autogl.module.model.encoders.base_encoder import AutoHomogeneousEncoderMaintainer
 
 from ..model import (
-    EncoderRegistry,
-    DecoderRegistry,
+    EncoderUniversalRegistry,
+    DecoderUniversalRegistry,
     BaseAutoEncoderMaintainer,
     BaseAutoDecoderMaintainer,
     BaseAutoModel
@@ -330,7 +330,7 @@ class _BaseClassificationTrainer(BaseTrainer):
     @encoder.setter
     def encoder(self, enc: _typing.Union[BaseAutoModel, BaseAutoEncoderMaintainer, str, None]):
         if isinstance(enc, str):
-            self._encoder = EncoderRegistry.get_model(enc)(
+            self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
                 self.num_features, last_dim=self.last_dim, device=self.device, init=self.initialized
             )
         elif isinstance(enc, BaseAutoEncoderMaintainer):
@@ -356,7 +356,7 @@ class _BaseClassificationTrainer(BaseTrainer):
             self._decoder = None
             return
         if isinstance(dec, str):
-            self._decoder = DecoderRegistry.get_model(dec)(
+            self._decoder = DecoderUniversalRegistry.get_decoder(dec)(
                 self.num_classes, input_dim=self.last_dim, device=self.device, init=self.initialized
             )
         elif isinstance(dec, BaseAutoDecoderMaintainer):
@@ -458,7 +458,7 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     @encoder.setter
     def encoder(self, enc: _typing.Union[BaseAutoModel, BaseAutoEncoderMaintainer, str, None]):
         if isinstance(enc, str):
-            self._encoder = EncoderRegistry.get_model(enc)(
+            self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
                 self.num_features,
                 last_dim=self.last_dim,
                 num_graph_features=self.num_graph_features,
@@ -487,7 +487,7 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
             self._decoder = None
             return
         if isinstance(dec, str):
-            self._decoder = DecoderRegistry.get_model(dec)(
+            self._decoder = DecoderUniversalRegistry.get_decoder(dec)(
                 self.num_classes,
                 input_dim=self.last_dim,
                 num_graph_features=self.num_graph_features,
@@ -545,7 +545,7 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
             self._decoder = None
             return
         if isinstance(dec, str):
-            self._decoder = DecoderRegistry.get_model(dec)(
+            self._decoder = DecoderUniversalRegistry.get_decoder(dec)(
                 input_dim=self.last_dim,
                 device=self.device,
                 init=self.initialized

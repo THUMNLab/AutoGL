@@ -1,10 +1,8 @@
 from .base_encoder import BaseAutoEncoderMaintainer, AutoHomogeneousEncoderMaintainer
-
-# TODO: implement this
-EncoderRegistry = None
+from .encoder_registry import EncoderUniversalRegistry
 
 __all__ = [
     "BaseAutoEncoderMaintainer",
-    "EncoderRegistry",
+    "EncoderUniversalRegistry",
     "AutoHomogeneousEncoderMaintainer",
 ]

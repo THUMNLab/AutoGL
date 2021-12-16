@@ -100,7 +100,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         elif isinstance(model, BaseAutoModel):
             encoder, decoder = model, None
         else:
-            encoder, decoder = model, "LPDecoder"
+            encoder, decoder = model, "lp-decoder"
         super().__init__(encoder, decoder, num_features, "auto", device, feval, loss)
 
         self.opt_received = optimizer

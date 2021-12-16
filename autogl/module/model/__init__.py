@@ -3,8 +3,8 @@ import sys
 from ...backend import DependentBackend
 from . import _utils
 
-from .decoders import BaseAutoDecoderMaintainer, DecoderRegistry
-from .encoders import BaseAutoEncoderMaintainer, AutoHomogeneousEncoderMaintainer, EncoderRegistry
+from .decoders import BaseAutoDecoderMaintainer, DecoderUniversalRegistry
+from .encoders import BaseAutoEncoderMaintainer, AutoHomogeneousEncoderMaintainer, EncoderUniversalRegistry
 
 # load corresponding backend model of subclass
 def _load_subclass_backend(backend):

@@ -1,6 +1,4 @@
 from .base_decoder import BaseAutoDecoderMaintainer
+from .decoder_registry import DecoderUniversalRegistry
 
-# TODO: Implement this
-DecoderRegistry = None
-
-__all__ = ["BaseAutoDecoderMaintainer", "DecoderRegistry"]
+__all__ = ["BaseAutoDecoderMaintainer", "DecoderUniversalRegistry"]
