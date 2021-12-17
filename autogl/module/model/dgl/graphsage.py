@@ -6,7 +6,7 @@ from dgl.nn.pytorch.conv import SAGEConv
 import torch.nn.functional
 
 from . import register_model
-from .base import BaseAutoModel, activate_func, ClassificationSupportedSequentialModel
+from .base import BaseAutoModel, activate_func
 from ....utils import get_logger
 
 LOGGER = get_logger("SAGEModel")
@@ -129,20 +129,12 @@ class AutoSAGE(BaseAutoModel):
     """
 
     def __init__(
-        self, num_features=None, num_classes=None, device=None, init=False, **args
+        self, num_features=None, num_classes=None, device=None, **args
     ):
 
-        super(AutoSAGE, self).__init__()
+        super(AutoSAGE, self).__init__(num_features, num_classes, device, **args)
 
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.device = device if device is not None else "cpu"
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
-        self.space = [
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -178,7 +170,7 @@ class AutoSAGE(BaseAutoModel):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 3,
             "hidden": [64, 32],
             "dropout": 0.5,
@@ -186,20 +178,9 @@ class AutoSAGE(BaseAutoModel):
             "agg": "mean",
         }
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
-
-    def initialize(self):
-        if self.initialized:
-            return
-        self.initialized = True
-        # self.model = GraphSAGE(
-        #     self.num_features,
-        #     self.num_classes,
-        #     self.hyperparams.get("hidden"),
-        #     self.hyperparams.get("act", "relu"),
-        #     self.hyperparams.get("dropout", None),
-        #     self.hyperparams.get("agg", "mean"),
-        # ).to(self.device)
-        self.model = GraphSAGE({**self.params, **self.hyperparams}).to(self.device)
+    def _initialize(self):
+        self._model = GraphSAGE({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            **self.hyper_parameters
+        }).to(self.device)

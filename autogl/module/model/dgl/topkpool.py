@@ -214,29 +214,13 @@ class AutoTopkpool(BaseAutoModel):
         num_features=None,
         num_classes=None,
         device=None,
-        init=False,
-        num_graph_features=None,
+        num_graph_features=0,
         **args
     ):
-        super(AutoTopkpool, self).__init__()
-        LOGGER.debug(
-            "topkpool __init__ get params num_graph_features {}".format(
-                num_graph_features
-            )
-        )
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.num_graph_features = (
-            int(num_graph_features) if num_graph_features is not None else 0
-        )
-        self.device = device if device is not None else "cpu"
+        super().__init__(num_features, num_classes, device, num_graph_features=num_graph_features)
+        self.num_graph_features = num_graph_features
 
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-            "num_graph_features": self.num_graph_features,
-        }
-        self.space = [
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -274,7 +258,7 @@ class AutoTopkpool(BaseAutoModel):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 5,
             "hidden": [64,64,64,64],
             "dropout": 0.5,
@@ -282,14 +266,14 @@ class AutoTopkpool(BaseAutoModel):
             "mlp_layers": 2
         }
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
+    def from_hyper_parameter(self, hp, **kwargs):
+        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features, **kwargs)
 
-    def initialize(self):
-        if self.initialized:
-            return
-        self.initialized = True
-        LOGGER.debug("topkpool initialize with parameters {}".format(self.params))
-        self.model = Topkpool({**self.params, **self.hyperparams}).to(self.device)
+    def _initialize(self):
+        self.model = Topkpool({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            "num_graph_features": self.num_graph_features,
+            **self.hyper_parameters
+        }).to(self.device)
 

@@ -11,7 +11,8 @@ from ..model import (
     DecoderUniversalRegistry,
     BaseEncoderMaintainer,
     BaseDecoderMaintainer,
-    BaseAutoModel
+    BaseAutoModel,
+    ModelUniversalRegistry
 )
 from ..hpo import AutoModule
 import logging
@@ -358,9 +359,15 @@ class _BaseClassificationTrainer(BaseTrainer):
     @encoder.setter
     def encoder(self, enc: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, str, None]):
         if isinstance(enc, str):
-            self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
-                self.num_features, last_dim=self.last_dim, device=self.device, init=self.initialized
-            )
+            if enc in EncoderUniversalRegistry:
+                self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
+                    self.num_features, last_dim=self.last_dim, device=self.device, init=self.initialized
+                )
+            else:
+                self._encoder = ModelUniversalRegistry.get_model(enc)(
+                    self.num_features, last_dim=self.last_dim, device=self.device
+                )
+                
         elif isinstance(enc, BaseEncoderMaintainer):
             self._encoder = enc
         elif isinstance(enc, BaseAutoModel):
@@ -488,13 +495,22 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     @encoder.setter
     def encoder(self, enc: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, str, None]):
         if isinstance(enc, str):
-            self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
-                self.num_features,
-                last_dim=self.last_dim,
-                num_graph_features=self.num_graph_features,
-                device=self.device,
-                init=self.initialized
-            )
+            if enc in EncoderUniversalRegistry:
+                self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
+                    self.num_features,
+                    last_dim=self.last_dim,
+                    num_graph_features=self.num_graph_features,
+                    device=self.device,
+                    init=self.initialized
+                )
+            else:
+                self._encoder = ModelUniversalRegistry.get_model(enc)(
+                    self.num_features,
+                    self.last_dim,
+                    device=self.device,
+                    num_graph_features=self.num_graph_features,
+                )
+
         elif isinstance(enc, (BaseAutoModel, BaseEncoderMaintainer)):
             self._encoder = enc
             if isinstance(enc, BaseAutoModel) and self.decoder is not None:

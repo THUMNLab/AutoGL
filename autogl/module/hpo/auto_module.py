@@ -43,7 +43,7 @@ class AutoModule:
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        self.__hyper_parameters: _typing.Mapping[str, _typing.Any] = {}
+        self.__hyper_parameters: _typing.Mapping[str, _typing.Any] = dict()
         self.__hyper_parameter_space: _typing.Iterable[_typing.Mapping[str, _typing.Any]] = []
         self.device = device
         self.__args: _typing.Tuple[_typing.Any, ...] = args

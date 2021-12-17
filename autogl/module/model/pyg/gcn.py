@@ -321,19 +321,10 @@ class AutoGCN(BaseAutoModel):
         num_features: int = ...,
         num_classes: int = ...,
         device: _typing.Union[str, torch.device] = ...,
-        init: bool = False,
         **kwargs
     ) -> None:
-        super().__init__()
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.device = device
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
-        self.space = [
+        super().__init__(num_features, num_classes, device, **kwargs)
+        self.hyper_parameter_space = [
             {
                 "parameterName": "add_self_loops",
                 "type": "CATEGORICAL",
@@ -374,35 +365,20 @@ class AutoGCN(BaseAutoModel):
             },
         ]
 
-        # initial point of hp search
-        # self.hyperparams = {
-        #     "num_layers": 2,
-        #     "hidden": [16],
-        #     "dropout": 0.2,
-        #     "act": "leaky_relu",
-        # }
-
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 3,
             "hidden": [128, 64],
             "dropout": 0,
             "act": "relu",
         }
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
-
-    def initialize(self):
-        if self.initialized:
-            return
-        self.initialized = True
-        self.model = GCN(
-            self.num_features,
-            self.num_classes,
-            self.hyperparams.get("hidden"),
-            self.hyperparams.get("act"),
-            self.hyperparams.get("dropout", None),
-            bool(self.hyperparams.get("add_self_loops", True)),
-            bool(self.hyperparams.get("normalize", True)),
+    def _initialize(self):
+        self._model = GCN(
+            self.input_dimension,
+            self.output_dimension,
+            self.hyper_parameters.get("hidden"),
+            self.hyper_parameters.get("act"),
+            self.hyper_parameters.get("dropout", None),
+            bool(self.hyper_parameters.get("add_self_loops", True)),
+            bool(self.hyper_parameters.get("normalize", True)),
         ).to(self.device)

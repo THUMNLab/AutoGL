@@ -1,13 +1,8 @@
 """
 Performance check of AutoGL model + DGL (trainer + dataset)
 """
-import os
 import numpy as np
 from tqdm import tqdm
-import dgl
-os.environ["AUTOGL_BACKEND"] = "dgl"
-import sys
-sys.path.append("../../../../")
 
 import torch
 import torch.nn.functional as F

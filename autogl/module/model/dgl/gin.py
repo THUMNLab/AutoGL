@@ -281,25 +281,14 @@ class AutoGIN(BaseAutoModel):
         num_features=None,
         num_classes=None,
         device=None,
-        init=False,
-        num_graph_features=None,
+        num_graph_features=0,
         **args
     ):
 
-        super(AutoGIN, self).__init__()
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.num_graph_features = (
-            int(num_graph_features) if num_graph_features is not None else 0
-        )
-        self.device = device if device is not None else "cpu"
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-            "num_graph_features": self.num_graph_features,
-        }
-        self.space = [
+        super().__init__(num_features, num_classes, device, num_graph_features=num_graph_features, **args)
+        self.num_graph_features = num_graph_features
+        
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -350,7 +339,7 @@ class AutoGIN(BaseAutoModel):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 5,
             "hidden": [64,64,64,64],
             "dropout": 0.5,
@@ -360,14 +349,15 @@ class AutoGIN(BaseAutoModel):
             "neighbor_pooling_type": "sum",
             "graph_pooling_type": "sum"
         }
+    
+    def from_hyper_parameter(self, hp, **kwargs):
+        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features **kwargs)
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
-
-    def initialize(self):
+    def _initialize(self):
         # """Initialize model."""
-        if self.initialized:
-            return
-        self.initialized = True
-        self.model = GIN({**self.params, **self.hyperparams}).to(self.device)
+        self._model = GIN({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            "num_graph_features": self.num_graph_features,
+            **self.hyper_parameters
+        }).to(self.device)

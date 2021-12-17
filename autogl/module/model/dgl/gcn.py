@@ -148,22 +148,14 @@ class AutoGCN(BaseAutoModel):
 
     def __init__(
         self,
-        num_features: Optional[int] = None,
-        num_classes: Optional[int] = None,
+        input_dimension: Optional[int] = None,
+        output_dimension: Optional[int] = None,
         device: Union[str, torch.device] = 'cpu',
-        init: bool = False,
         **kwargs
     ) -> None:
-        super().__init__()
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.device = device
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
-        self.space = [
+        super().__init__(input_dimension, output_dimension, device, **kwargs)
+        
+        self.hyper_parameter_space = [
             {
                 "parameterName": "add_self_loops",
                 "type": "CATEGORICAL",
@@ -205,19 +197,16 @@ class AutoGCN(BaseAutoModel):
         ]
 
         # initial point of hp search
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 3,
             "hidden": [128, 64],
             "dropout": 0.,
             "act": "relu",
         }
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
-
-    def initialize(self):
-        if self.initialized:
-            return
-        self.initialized = True
-        self.model = GCN({**self.params, **self.hyperparams}).to(self.device)
+    def _initialize(self):
+        self._model = GCN({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            **self.hyper_parameters
+        }).to(self.device)
