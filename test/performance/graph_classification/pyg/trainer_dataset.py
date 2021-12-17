@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     labels = np.array([data.data['y'].item() for data in dataset.test_split])
 
-    dataset = utils.conversion.general_static_graphs_to_pyg_dataset(dataset)
+    dataset = utils.conversion.to_pyg_dataset(dataset)
 
     accs = []
 

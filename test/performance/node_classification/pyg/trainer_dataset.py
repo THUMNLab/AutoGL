@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # seed = 100
     dataset = build_dataset_from_name('cora')
     dataset = NormalizeFeatures().fit_transform(dataset)
-    dataset = utils.conversion.general_static_graphs_to_pyg_dataset(dataset)
+    dataset = utils.conversion.to_pyg_dataset(dataset)
     data = dataset[0].to(args.device)
     num_features = data.x.size(1)
     num_classes = max([label.item() for label in data.y]) + 1

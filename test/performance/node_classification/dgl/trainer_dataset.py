@@ -8,7 +8,7 @@ from tqdm import tqdm
 os.environ["AUTOGL_BACKEND"] = "dgl"
 
 from autogl.datasets import build_dataset_from_name
-from autogl.datasets.utils.conversion import general_static_graphs_to_dgl_dataset
+from autogl.datasets.utils.conversion import to_dgl_dataset
 from autogl.module.train import NodeClassificationFullTrainer
 from autogl.solver.utils import set_seed
 import logging
@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     # seed = 100
     dataset = build_dataset_from_name(args.dataset.lower())
-    dataset = general_static_graphs_to_dgl_dataset(dataset)
+    dataset = to_dgl_dataset(dataset)
     data = dataset[0].to(args.device)
     num_features = data.ndata['feat'].size(1)
     num_classes = data.ndata['label'].max().item() + 1

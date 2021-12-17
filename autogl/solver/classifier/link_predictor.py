@@ -256,7 +256,7 @@ class AutoLinkPredictor(BaseClassifier):
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
 
-        graph_data = get_graph_from_dataset(dataset)
+        graph_data = dataset[0] # get_graph_from_dataset(dataset)
 
         # set up the dataset
         if train_split is not None and val_split is not None:

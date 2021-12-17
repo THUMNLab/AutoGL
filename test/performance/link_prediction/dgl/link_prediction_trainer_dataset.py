@@ -8,7 +8,7 @@ import dgl
 import torch
 import numpy as np
 import scipy.sparse as sp
-from autogl.datasets.utils.conversion import general_static_graphs_to_dgl_dataset
+from autogl.datasets.utils.conversion import to_dgl_dataset
 
 
 def construct_negative_graph(graph, k):
@@ -143,7 +143,7 @@ if __name__ == "__main__":
         torch.cuda.set_device(torch.device(args.device))
 
     dataset = build_dataset_from_name(args.dataset.lower())
-    dataset = general_static_graphs_to_dgl_dataset(dataset)
+    dataset = to_dgl_dataset(dataset)
 
     res = []
     for seed in tqdm(range(1234, 1234+args.repeat)):

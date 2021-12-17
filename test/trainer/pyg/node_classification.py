@@ -1,11 +1,11 @@
 from autogl.module.train import NodeClassificationFullTrainer
 from autogl.datasets import build_dataset_from_name
-from autogl.datasets.utils.conversion._to_pyg_dataset import general_static_graphs_to_pyg_dataset
+from autogl.datasets.utils.conversion._to_pyg_dataset import to_pyg_dataset
 
 def test_node_trainer():
 
     dataset = build_dataset_from_name("cora")
-    dataset = general_static_graphs_to_pyg_dataset(dataset)
+    dataset = to_pyg_dataset(dataset)
     
     node_trainer = NodeClassificationFullTrainer(
         model='gcn',

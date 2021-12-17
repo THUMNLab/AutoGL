@@ -6,14 +6,14 @@ import scipy.sparse as sp
 
 if DependentBackend.is_pyg():
     from torch_geometric.utils import train_test_split_edges
-    from autogl.datasets.utils.conversion._to_pyg_dataset import general_static_graphs_to_pyg_dataset as convert_dataset
+    from autogl.datasets.utils.conversion._to_pyg_dataset import to_pyg_dataset as convert_dataset
     def split_edges(dataset, train, val):
         for i in range(len(dataset)):
             dataset[i] = train_test_split_edges(dataset[i], val, 1 - train - val)
         return dataset
 else:
     import dgl
-    from autogl.datasets.utils.conversion._to_dgl_dataset import general_static_graphs_to_dgl_dataset as convert_dataset
+    from autogl.datasets.utils.conversion._to_dgl_dataset import to_dgl_dataset as convert_dataset
     def split_train_test(g, train, val):
         u, v = g.edges()
 
@@ -56,6 +56,7 @@ else:
             dataset[i] = split_train_test(dataset[i], train, val)
         return dataset
 
+from autogl.datasets.utils import split_edges
 
 cora = build_dataset_from_name("cora")
 cora = convert_dataset(cora)

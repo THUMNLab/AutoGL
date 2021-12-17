@@ -10,7 +10,7 @@ import torch
 import numpy as np
 import scipy.sparse as sp
 from autogl.module.model.dgl import AutoSAGE, AutoGAT, AutoGCN
-from autogl.datasets.utils.conversion import general_static_graphs_to_dgl_dataset
+from autogl.datasets.utils.conversion import to_dgl_dataset
 
 
 def construct_negative_graph(graph, k):
@@ -147,7 +147,7 @@ if __name__ == "__main__":
         torch.cuda.set_device(torch.device(args.device))
 
     dataset = build_dataset_from_name(args.dataset.lower())
-    dataset = general_static_graphs_to_dgl_dataset(dataset)
+    dataset = to_dgl_dataset(dataset)
     train_g, train_pos_g, train_neg_g, val_pos_g, val_neg_g, test_pos_g, test_neg_g = split_train_valid_test(dataset[0].cpu())
 
     dataset = [[train_g, train_pos_g, train_neg_g, val_pos_g, val_neg_g, test_pos_g, test_neg_g]]
@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
         autoClassifier = AutoLinkPredictor(
             feature_module=None,
-            graph_models='sage',
+            graph_models=(args.model,),
             ensemble_module=None,
             max_evals=1,
             hpo_module='random',
@@ -184,7 +184,7 @@ if __name__ == "__main__":
                 "max_epoch": 100,
                 "early_stopping_round": 100 + 1,
                 "lr":0.01,
-                "weight_decay": None,
+                "weight_decay": 0.0,
             }),
             model_hp_spaces=[fixed(**model_hp)]
         )
@@ -193,8 +193,8 @@ if __name__ == "__main__":
             time_limit=3600,
             evaluation_method=[Auc],
             seed=seed,
-            train_split=0.85,
-            val_split=0.05,
+            # train_split=0.85,
+            # val_split=0.05,
         )
         autoClassifier.get_leaderboard().show()
 
