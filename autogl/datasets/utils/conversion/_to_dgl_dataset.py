@@ -6,8 +6,8 @@ from autogl.data.graph import GeneralStaticGraph
 from autogl.data.graph.utils import conversion
 
 
-def general_static_graphs_to_dgl_dataset(
-        general_static_graphs: _typing.Iterable[GeneralStaticGraph]
+def to_dgl_dataset(
+        dataset: _typing.Union[Dataset, _typing.Iterable[GeneralStaticGraph]]
 ) -> Dataset[_typing.Union[dgl.DGLGraph, _typing.Tuple[dgl.DGLGraph, torch.Tensor]]]:
     def _transform(
             general_static_graph: GeneralStaticGraph
@@ -25,12 +25,24 @@ def general_static_graphs_to_dgl_dataset(
         else:
             return conversion.general_static_graph_to_dgl_graph(general_static_graph)
 
-    if isinstance(general_static_graphs, Dataset):
-        return InMemoryDataset(
-            [_transform(g) for g in general_static_graphs],
-            general_static_graphs.train_index,
-            general_static_graphs.val_index,
-            general_static_graphs.test_index
-        )
-    else:
-        return InMemoryDataset([_transform(g) for g in general_static_graphs])
+    transformed_datalist: _typing.MutableSequence[
+        _typing.Union[dgl.DGLGraph, _typing.Tuple[dgl.DGLGraph, torch.Tensor]]
+    ] = []
+    for item in dataset:
+        if isinstance(item, GeneralStaticGraph):
+            transformed_datalist.append(_transform(item))
+        elif isinstance(item, dgl.DGLGraph):
+            transformed_datalist.append(item)
+        elif (
+                isinstance(item, _typing.Sequence) and len(item) == 2 and
+                isinstance(item[0], dgl.DGLGraph) and isinstance(item[1], torch.Tensor)
+        ):
+            transformed_datalist.append(tuple(item))
+        else:
+            raise ValueError(f"Illegal data item as {item}")
+
+    return (
+        InMemoryDataset(transformed_datalist, dataset.train_index, dataset.val_index, dataset.test_index, dataset.schema)
+        if isinstance(dataset, InMemoryDataset)
+        else InMemoryDataset(transformed_datalist)
+    )
