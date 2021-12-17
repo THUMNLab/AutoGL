@@ -10,7 +10,6 @@ from ....utils import get_logger
 from ..utils import get_hardware_aware_metric
 
 
-
 class OrderedMutable:
     """
     An abstract class with order, enabling to sort mutables with a certain rank.
@@ -30,7 +29,8 @@ class OrderedLayerChoice(OrderedMutable, mutables.LayerChoice):
         self, order, op_candidates, reduction="sum", return_mask=False, key=None
     ):
         OrderedMutable.__init__(self, order)
-        mutables.LayerChoice.__init__(self, op_candidates, reduction, return_mask, key)
+        mutables.LayerChoice.__init__(
+            self, op_candidates, reduction, return_mask, key)
 
 
 class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
@@ -106,7 +106,8 @@ class BoxModel(BaseModel):
         self._model = space_model.to(device)
         self.num_features = self._model.input_dim
         self.num_classes = self._model.output_dim
-        self.params = {"num_class": self.num_classes, "features_num": self.num_features}
+        self.params = {"num_class": self.num_classes,
+                       "features_num": self.num_features}
         self.device = device
         self.selection = None
 
@@ -140,12 +141,17 @@ class BoxModel(BaseModel):
         ret_self = deepcopy(self)
         ret_self._model.instantiate()
         if ret_self.selection:
-            apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
+            apply_fixed_architecture(
+                ret_self._model, ret_self.selection, verbose=False)
         ret_self.to(self.device)
         return ret_self
 
     def __repr__(self) -> str:
-        return str({'parameter': get_hardware_aware_metric(self.model, 'parameter')})
+        return str(
+            {'parameter': get_hardware_aware_metric(self.model, 'parameter'),
+             'model': self.model,
+             'selection': self.selection
+             })
 
     @property
     def model(self):
@@ -221,7 +227,8 @@ class BaseSpace(nn.Module):
             key = f"default_key_{self._default_key}"
             self._default_key += 1
             orikey = key
-        layer = OrderedLayerChoice(order, op_candidates, reduction, return_mask, orikey)
+        layer = OrderedLayerChoice(
+            order, op_candidates, reduction, return_mask, orikey)
         return layer
 
     def setInputChoice(

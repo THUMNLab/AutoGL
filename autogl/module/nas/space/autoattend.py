@@ -22,9 +22,11 @@ from .autoattend_space.operations import agg_map
 OPS = [OPS1, OPS2]
 
 from nni.nas.pytorch.mutables import Mutable
-class MultiLayerChoice(Mutable):
+# class MultiLayerChoice(Mutable,nn.Module):
+class MultiLayerChoice(nn.Module):
     def __init__(self, choices, layer, key):
-        super(MultiLayerChoice, self).__init__(key)
+        # Mutable.__init__(self,key)
+        nn.Module.__init__(self)
         self.order = layer
         self.choices = choices
 
@@ -101,14 +103,12 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         self.preproc0 = nn.Linear(self.input_dim, self.hidden_dim)
         # self.preproc1 = nn.Linear(self.input_dim, self.hidden_dim)
         node_labels = []
-
-        # stem path
         for layer in range(1, self.layer_number+1):
+            # stem path
             key = f"stem_{layer}"
             self._set_layer_choice(layer, key)
 
-        # side path
-        for layer in range(1, self.layer_number+1):
+            # side path
             choices = []
             key = f"side_{layer}"
             for i in range(2):
@@ -120,19 +120,18 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
 
             # input
             key = f"in_{layer}"
-            self._set_input_choice(key,
-                layer, choose_from=node_labels, n_chosen=1, return_mask=False)            
-        
-        # agg
-        for layer in range(1, self.layer_number + 1):
-            key = f"agg_{layer}"
-            self._set_agg_choice(layer, key=key)
+            # self._set_input_choice(key,layer, choose_from=node_labels, n_chosen=1, return_mask=False)     
+            self._set_input_choice(key,layer, n_candidates=len(node_labels), n_chosen=1, return_mask=False)     
 
+            # agg
+            key = f"agg_{layer}"
+            self._set_agg_choice(layer, key=key)       
+        
         self._initialized = True
 
         self.classifier2 = nn.Linear(self.hidden_dim, self.output_dim)
 
-        print(self)
+        # print(self)
     def _set_agg_choice(self,layer,key):
         ops=[self.agg_map(op, self.hidden_dim,self.head,self.dropout)for op in self.agg_ops]
         choice = self.setLayerChoice(
@@ -171,17 +170,20 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
 
         side_outs = []
         stem_outs = []
-        input = prev_
+        input = prev_ # torch.Size([2708, 64])
         for layer in range(1, self.layer_number + 1):
+            print(f'start {layer}')
             # do layer choice for stem
             op = getattr(self, f"stem_{layer}")
-            print(op)
+            print(f"stem op {op}")
             stem_out = bk_gconv(op, data, input)
-            stem_out = self.act(stem_out)
+            stem_out = self.act(stem_out) #torch.Size([2708, 64])
             # do double layer choice for sides
-            op = getattr(self, f'side_{layer}')
+            op = getattr(self, f'side_{layer}') 
+            print(f"side op {op}")
+            print("input",input.shape)
             side_out = bk_gconv(op, data, input)
-            side_out = self.act(side_out)
+            side_out = self.act(side_out) # torch.Size([2, 2708, 64])
 
             stem_outs.append(stem_out)
             side_outs.append(side_out)
@@ -191,14 +193,17 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
             input = [stem_outs[-1], side_selected]
             # do agg in [add , attn]
             agg = getattr(self, f"agg_{layer}")
-            print(layer,input)
+
+            print(stem_out.shape,side_out.shape,agg)
+
             input = bk_gconv(agg,data,input)
+            print(f'done {layer}')
 
         x = self.classifier2(input)
         return F.log_softmax(x, dim=1)
 
     def parse_model(self, selection, device) -> BaseModel:
-        for i in range(1, self.layer_number + 1):
-            selection[f'side_{i}'] = None
+        # for i in range(1, self.layer_number + 1):
+        #     selection[f'side_{i}'] = None
         # return AutoGCN(self.input_dim, self.output_dim, device)
         return self.wrap(device).fix(selection)

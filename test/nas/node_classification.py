@@ -95,7 +95,7 @@ if __name__ == "__main__":
     space = AutoAttendNodeClassificationSpace().cuda()
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
-    algo = RandomSearch(num_epochs=100)
+    algo = RandomSearch(num_epochs=10)
     model = algo.search(space, dataset, esti)
     test_model(model, data, True)
 

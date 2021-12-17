@@ -63,11 +63,12 @@ class AggAttn(MessagePassing) :
         # use dot-product attn
         x1,x2,x3=x[0],x[1][0],x[1][1] # q,k,v
         skip_connect,norm=self.skip_connect,self.norm
-
+        print('AggAttn')
+        print(x1.shape,x2.shape,x3.shape)
         if not skip_connect and not norm:
-            return self.propagate(edge_index, x1=x1, x2=x2, x3=x3).view(x1.size(0), -1)
+            return self.propagate(edge_index, x1=x1, x2=x2, x3=x3)
         
-        x = self.propagate(edge_index, x1=x1, x2=x2, x3=x3).view(x1.size(0), -1)
+        x = self.propagate(edge_index, x1=x1, x2=x2, x3=x3)
         if not norm:
             return x
 
@@ -76,15 +77,20 @@ class AggAttn(MessagePassing) :
         return self.ln_attn(x + x1)
 
     def message(self, x2_j, x1_i, x3_j, index, ptr):
-        # x1: query, x2: key, x3: value
+        print('message')
+        print(index.shape)
+        # x1: query, x2: key, x3: value # torch.Size([10556, 64]) ,index torch.Size([10556])
         node, dim = x1_i.size()
         dim_att = dim // self.att_head
-        x2_j = x2_j.view(node, self.att_head, dim_att)
-        x1_i = x1_i.view(node, self.att_head, dim_att)
-        attn = (x2_j * x1_i).sum(dim=-1) / np.sqrt(dim_att)
-        attn = softmax(attn, index, ptr)
-        attn = F.dropout(attn, p=self.dropout, training=self.training)
-        return x3_j.view(node, self.att_head, dim_att) * attn.unsqueeze(-1)
+        x2_j = x2_j.view(node, self.att_head, dim_att) #torch.Size([10556, 8, 8])
+        x1_i = x1_i.view(node, self.att_head, dim_att) #torch.Size([10556, 8, 8])
+        attn = (x2_j * x1_i).sum(dim=-1) / np.sqrt(dim_att)  #torch.Size([10556, 8])
+        attn = softmax(attn, index, ptr) #torch.Size([10556, 8])
+        attn = F.dropout(attn, p=self.dropout, training=self.training) #torch.Size([10556, 8])
+        out=x3_j.view(node, self.att_head, dim_att) * attn.unsqueeze(-1)
+        out=out.view(-1,dim)
+        print(out.shape)
+        return out
 
 class GATConv2(MessagePassing):
     _alpha: OptTensor
@@ -161,23 +167,23 @@ class GATConv2(MessagePassing):
                                              self.in_channels,
                                              self.out_channels, self.heads)
 
-# class Zero(nn.Module):
-#     def __init__(self, indim, outdim) -> None:
-#         super().__init__()
-#         self.outdim = outdim
-#         self.zero = nn.Parameter(torch.tensor(0.), requires_grad=True)
-    
-#     def forward(self, x, edge_index):
-#         return torch.zeros(x.size(0), self.outdim).to(x.device) * self.zero
-
 class Zero(nn.Module):
     def __init__(self, indim, outdim) -> None:
         super().__init__()
         self.outdim = outdim
-        self.ln = nn.Linear(1, 1)
+        self.zero = nn.Parameter(torch.tensor(0.), requires_grad=True)
     
     def forward(self, x, edge_index):
-        return 0.
+        return torch.zeros(x.size(0), self.outdim).to(x.device) * self.zero
+
+# class Zero(nn.Module):
+#     def __init__(self, indim, outdim) -> None:
+#         super().__init__()
+#         self.outdim = outdim
+#         self.ln = nn.Linear(1, 1)
+    
+#     def forward(self, x, edge_index):
+#         return 0.
 
 class Identity(nn.Module):
     def __init__(self) -> None:
