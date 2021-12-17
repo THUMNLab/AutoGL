@@ -1,28 +1,12 @@
-import sys
-
-sys.path.insert(0, "../")
 from tqdm import tqdm
-
-# import autogl.module.train
-# import torch_geometric
-# exit(0)
-#
-from autogl.datasets import build_dataset_from_name
-# from autogl.solver.classifier.link_predictor import AutoLinkPredictor
 from autogl.module.train.evaluation import Auc
-import yaml
 import random
 import torch
 import numpy as np
 import dgl
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import itertools
 import numpy as np
 import scipy.sparse as sp
-from autogl.module.model.dgl import AutoSAGE, AutoGAT, AutoGCN
-from autogl.datasets.utils.conversion import general_static_graphs_to_dgl_dataset
 
 
 def construct_negative_graph(graph, k):
@@ -68,7 +52,7 @@ def split_train_test(g):
 
     neg_eids = np.random.choice(len(neg_u), g.number_of_edges())
     test_neg_u, test_neg_v = neg_u[neg_eids[:test_size]], neg_v[neg_eids[:test_size]]
-    train_neg_u, train_neg_v = neg_u[neg_eids[train_size:]], neg_v[neg_eids[train_size:]]
+    train_neg_u, train_neg_v = neg_u[neg_eids[test_size:]], neg_v[neg_eids[test_size:]]
 
     train_g = dgl.remove_edges(g, eids[:test_size])
 
@@ -102,7 +86,7 @@ def split_train_valid_test(g):
     neg_eids = np.random.choice(len(neg_u), g.number_of_edges())
     test_neg_u, test_neg_v = neg_u[neg_eids[:test_size]], neg_v[neg_eids[:test_size]]
     valid_neg_u, valid_neg_v = neg_u[neg_eids[test_size:test_size+valid_size]], neg_v[neg_eids[test_size:test_size+valid_size]]
-    train_neg_u, train_neg_v = neg_u[neg_eids[train_size:]], neg_v[neg_eids[train_size:]]
+    train_neg_u, train_neg_v = neg_u[neg_eids[test_size+valid_size:]], neg_v[neg_eids[test_size+valid_size:]]
 
     train_g = dgl.remove_edges(g, eids[:test_size+valid_size])
 
@@ -145,19 +129,17 @@ if __name__ == "__main__":
             "gcn",
             "gat",
             "sage",
+            "gin"
         ],
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed")
     parser.add_argument('--repeat', type=int, default=10)
-    parser.add_argument("--device", default=0, type=int, help="GPU device")
+    parser.add_argument("--device", default="cuda", type=str, help="GPU device")
 
     args = parser.parse_args()
 
-    args.device = torch.device('cuda:0')
-    device = torch.device('cuda:0')
-
     if torch.cuda.is_available():
-        torch.cuda.set_device(args.device)
+        torch.cuda.set_device(torch.device(args.device))
 
     if args.dataset == 'Cora':
         dataset = CoraGraphDataset()
@@ -167,9 +149,6 @@ if __name__ == "__main__":
         dataset = PubmedGraphDataset()
     else:
         assert False
-
-    dataset = build_dataset_from_name(args.dataset.lower())
-    dataset = general_static_graphs_to_dgl_dataset(dataset)
 
     res = []
     for seed in tqdm(range(1234, 1234+args.repeat)):
@@ -185,17 +164,8 @@ if __name__ == "__main__":
         graph = dataset[0].to(args.device)
         num_features = graph.ndata['feat'].size(1)
 
-        if args.model == 'gcn':
-            model = AutoGCN
-        elif args.model == 'gat':
-            model = AutoGAT
-        elif args.model == 'sage':
-            automodel = AutoSAGE(
-                num_features=num_features,
-                num_classes=2,
-                device=args.device
-            )
-            automodel.hyperparams = {
+        if args.model == 'sage':
+            model_hp = {
                 "num_layers": 3,
                 "hidden": [16, 16],
                 "dropout": 0.0,
@@ -203,22 +173,26 @@ if __name__ == "__main__":
                 "agg": "mean",
             }
         else:
-            assert False
-
-        automodel.initialize()
+            model_hp = dict()
 
         trainer = LinkPredictionTrainer(
-            model = automodel,
+            model = args.model,
             num_features = num_features,
-            optimizer = None,
             lr = 1e-2,
             max_epoch = 100,
             early_stopping_round = 101,
             weight_decay = 0.0,
-            device = "auto",
-            init = True,
+            device = args.device,
             feval = [Auc],
             loss = "binary_cross_entropy_with_logits",
+            init = False
+        ).duplicate_from_hyper_parameter(
+            {
+                "trainer": {},
+                "encoder": model_hp,
+                "decoder": {}
+            },
+            restricted=False
         )
 
         train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g = split_train_test(graph.cpu())
@@ -231,40 +205,13 @@ if __name__ == "__main__":
             'test_neg': test_neg_g.to(args.device),
         }
 
-        trainer.train(dataset_splitted, False)
-        pre = trainer.evaluate(dataset_splitted, mask="test", feval=Auc)
+        trainer.train([dataset_splitted], False)
+        pre = trainer.evaluate([dataset_splitted], mask="test", feval=Auc)
         result = pre.item()
         res.append(result)
 
     print(np.mean(res), np.std(res))
-    exit(1)
 
-    # train
-    autoClassifier.fit(
-        dataset,
-        time_limit=3600,
-        evaluation_method=[Auc],
-        seed=seed,
-        train_split=0.85,
-        val_split=0.05,
-    )
-    autoClassifier.get_leaderboard().show()
-
-    # test
-    predict_result = autoClassifier.predict_proba()
-
-    pos_edge_index, neg_edge_index = (
-        dataset[0].test_pos_edge_index,
-        dataset[0].test_neg_edge_index,
-    )
-    E = pos_edge_index.size(1) + neg_edge_index.size(1)
-    link_labels = torch.zeros(E)
-    link_labels[: pos_edge_index.size(1)] = 1.0
-
-    print(
-        "test auc: %.4f"
-        % (Auc.evaluate(predict_result, link_labels.detach().cpu().numpy()))
-    )
 
 """
 AUC 0.8151564430268863
