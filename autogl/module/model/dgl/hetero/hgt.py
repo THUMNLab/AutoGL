@@ -204,9 +204,8 @@ class AutoHGT(BaseModel):
         self,  dataset=None, num_features=None, num_classes=None, device=None, init=False, **args
     ):
         super(AutoHGT, self).__init__()
-        
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
+        self.num_features = num_features
+        self.num_classes = num_classes
         self.device = device if device is not None else "cpu"
         self.init = True
 
@@ -264,7 +263,8 @@ class AutoHGT(BaseModel):
             "use_norm": True
         }
 
-        self.from_dataset(dataset)
+        if dataset is not None:
+            self.from_dataset(dataset)
         self.initialized = False
         if init is True:
             self.initialize()

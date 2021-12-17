@@ -121,7 +121,6 @@ class AutoHeteroRGCN(BaseModel):
         self,  G = None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
     ):
         super(AutoHeteroRGCN, self).__init__()
-        self.dataset = dataset
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
         self.device = device if device is not None else "cpu"
@@ -168,10 +167,8 @@ class AutoHeteroRGCN(BaseModel):
             "act": "leaky_rely",
         }
 
-        if G is not None:
-            self.from_dataset(G)
-        #if dataset is not None:
-        #    self.from_dataset(dataset)
+        if dataset is not None:
+            self.from_dataset(dataset)
         self.initialized = False
         if init is True:
             self.initialize()

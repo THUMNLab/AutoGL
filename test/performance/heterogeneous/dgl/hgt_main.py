@@ -2,27 +2,17 @@
 Performance check of AutoGL model + DGL (trainer + dataset)
 """
 import os
+os.environ["AUTOGL_BACKEND"] = "dgl"
 import numpy as np
 from tqdm import tqdm
-import dgl
-os.environ["AUTOGL_BACKEND"] = "dgl"
-import sys
-sys.path.append("../../../../")
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from autogl.module.model.dgl import AutoHGT, AutoHeteroRGCN
 from autogl.solver.utils import set_seed
-import logging
-
-
-import scipy.io
-import urllib.request
-import dgl
 import numpy as np
 import argparse
-
+from autogl.datasets import build_dataset_from_name
 
 def get_n_params(model):
     pp=0
@@ -93,21 +83,9 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     torch.manual_seed(0)
-    # data_url = 'https://data.dgl.ai/dataset/ACM.mat'
-    # data_file_path = '/tmp/ACM.mat'
 
-    # urllib.request.urlretrieve(data_url, data_file_path)
-    data_file_path = '/home/jcai/code/AutoGL/test/performance/heterogeneous/dgl/ACM.mat'
-    data = scipy.io.loadmat(data_file_path)
-
-    G = dgl.heterograph({
-            ('paper', 'written-by', 'author') : data['PvsA'].nonzero(),
-            ('author', 'writing', 'paper') : data['PvsA'].transpose().nonzero(),
-            ('paper', 'citing', 'paper') : data['PvsP'].nonzero(),
-            ('paper', 'cited', 'paper') : data['PvsP'].transpose().nonzero(),
-            ('paper', 'is-about', 'subject') : data['PvsL'].nonzero(),
-            ('subject', 'has', 'paper') : data['PvsL'].transpose().nonzero(),
-        })
+    dataset = build_dataset_from_name("hetero-acm-hgt")
+    G = dataset[0].to(args.device)
     print(G)
 
     pvc = data['PvsC'].tocsr()
@@ -182,7 +160,6 @@ if __name__=='__main__':
 
         optimizer = torch.optim.AdamW(model.parameters())
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, total_steps=args.n_epoch, max_lr = args.max_lr)
-        # print('Training MLP with #param: %d' % (get_n_params(model)))
         train(model, G, args)
         accs.append(test(model, G, test_idx, labels))
     print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
