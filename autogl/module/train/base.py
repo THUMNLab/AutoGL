@@ -382,6 +382,9 @@ class _BaseClassificationTrainer(BaseTrainer):
             self._encoder = None
         else:
             raise ValueError("Enc {} is not supported!".format(enc))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
 
     @property
     def decoder(self):
@@ -403,6 +406,9 @@ class _BaseClassificationTrainer(BaseTrainer):
             self._decoder = None
         else:
             raise ValueError("Dec {} is not supported!".format(dec))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
     
     @property
     def num_classes(self):
@@ -523,6 +529,11 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
             self._encoder = None
         else:
             raise ValueError("Enc {} is not supported!".format(enc))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
+        self.num_graph_features = self.num_graph_features
+
 
     @property
     def decoder(self):
@@ -547,6 +558,9 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
             self._decoder = dec
         else:
             raise ValueError("Invalid decoder setting")
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
 
     # override num_classes property to support last_dim setting
     @property
@@ -613,3 +627,6 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
             self._decoder = dec
         else:
             raise ValueError("Invalid decoder setting")
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
