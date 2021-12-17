@@ -97,6 +97,7 @@ if __name__ == "__main__":
     esti = OneShotEstimator()
     algo = RandomSearch(num_epochs=10)
     model = algo.search(space, dataset, esti)
+    print(model)
     test_model(model, data, True)
 
     # print("Random search + graphnas ")

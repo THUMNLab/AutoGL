@@ -73,7 +73,6 @@ class RandomSearch(BaseNAS):
                 bar.set_postfix(acc=metric, max_acc=max(cache.values()))
         selection = arch_perfs[np.argmax([x[0] for x in arch_perfs])][1]
         arch = space.parse_model(selection, self.device)
-        print("randomsearch",arch)
         return arch
 
     def sample(self):

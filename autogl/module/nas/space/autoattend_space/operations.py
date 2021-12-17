@@ -1,4 +1,4 @@
-        
+
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import softmax
 import torch
@@ -31,43 +31,47 @@ from torch_scatter import scatter_add
 import numpy as np
 from ..graph_nas_macro import GeoLayer
 
+
 class AggAdd(nn.Module):
-    def __init__(self, dim, att_head, dropout=0,norm=False,skip_connect=False,*args,**kwargs):
+    def __init__(self, dim, att_head, dropout=0, norm=False, skip_connect=False, *args, **kwargs):
         super(AggAdd, self).__init__()
         self.dropout = dropout
-        self.ln_add = nn.BatchNorm1d(dim, track_running_stats=True, affine=True)
-        self.norm=norm
-        self.skip_connect=skip_connect
+        self.ln_add = nn.BatchNorm1d(
+            dim, track_running_stats=True, affine=True)
+        self.norm = norm
+        self.skip_connect = skip_connect
 
-    def forward(self,x,edge_index,*args,**kwargs):
+    def forward(self, x, edge_index, *args, **kwargs):
         # x=[x_stem,[x_sides]]
-        norm=self.norm
-        x1,x2,x3=x[0],x[1][0],x[1][1]
+        norm = self.norm
+        x1, x2, x3 = x[0], x[1][0], x[1][1]
         if norm:
             return self.ln_add(x1 + x2)
         else:
             return x1 + x2
 
-class AggAttn(MessagePassing) :
-    def __init__(self, dim, att_head,dropout=0,norm=False,skip_connect=False,*args,**kwargs):
+
+class AggAttn(MessagePassing):
+    def __init__(self, dim, att_head, dropout=0, norm=False, skip_connect=False, *args, **kwargs):
         super(AggAttn, self).__init__()
         self.dropout = dropout
-        self.att_head=att_head
-        self.ln_attn = nn.BatchNorm1d(dim, track_running_stats=True, affine=True)
-        self.norm=norm
-        self.skip_connect=skip_connect
+        self.att_head = att_head
+        self.ln_attn = nn.BatchNorm1d(
+            dim, track_running_stats=True, affine=True)
+        self.norm = norm
+        self.skip_connect = skip_connect
+
     def __repr__(self) -> str:
         return 'AggAttn(att_head={}, dropout={})'.format(self.att_head, self.dropout)
-    def forward(self,x,edge_index,*args,**kwargs):
+
+    def forward(self, x, edge_index, *args, **kwargs):
         # x=[x_stem,[x_sides]]
         # use dot-product attn
-        x1,x2,x3=x[0],x[1][0],x[1][1] # q,k,v
-        skip_connect,norm=self.skip_connect,self.norm
-        print('AggAttn')
-        print(x1.shape,x2.shape,x3.shape)
+        x1, x2, x3 = x[0], x[1][0], x[1][1]  # q,k,v
+        skip_connect, norm = self.skip_connect, self.norm
         if not skip_connect and not norm:
             return self.propagate(edge_index, x1=x1, x2=x2, x3=x3)
-        
+
         x = self.propagate(edge_index, x1=x1, x2=x2, x3=x3)
         if not norm:
             return x
@@ -77,20 +81,22 @@ class AggAttn(MessagePassing) :
         return self.ln_attn(x + x1)
 
     def message(self, x2_j, x1_i, x3_j, index, ptr):
-        print('message')
-        print(index.shape)
         # x1: query, x2: key, x3: value # torch.Size([10556, 64]) ,index torch.Size([10556])
         node, dim = x1_i.size()
         dim_att = dim // self.att_head
-        x2_j = x2_j.view(node, self.att_head, dim_att) #torch.Size([10556, 8, 8])
-        x1_i = x1_i.view(node, self.att_head, dim_att) #torch.Size([10556, 8, 8])
-        attn = (x2_j * x1_i).sum(dim=-1) / np.sqrt(dim_att)  #torch.Size([10556, 8])
-        attn = softmax(attn, index, ptr) #torch.Size([10556, 8])
-        attn = F.dropout(attn, p=self.dropout, training=self.training) #torch.Size([10556, 8])
-        out=x3_j.view(node, self.att_head, dim_att) * attn.unsqueeze(-1)
-        out=out.view(-1,dim)
-        print(out.shape)
+        # torch.Size([10556, 8, 8])
+        x2_j = x2_j.view(node, self.att_head, dim_att)
+        # torch.Size([10556, 8, 8])
+        x1_i = x1_i.view(node, self.att_head, dim_att)
+        attn = (x2_j * x1_i).sum(dim=-1) / \
+            np.sqrt(dim_att)  # torch.Size([10556, 8])
+        attn = softmax(attn, index, ptr)  # torch.Size([10556, 8])
+        # torch.Size([10556, 8])
+        attn = F.dropout(attn, p=self.dropout, training=self.training)
+        out = x3_j.view(node, self.att_head, dim_att) * attn.unsqueeze(-1)
+        out = out.view(-1, dim)
         return out
+
 
 class GATConv2(MessagePassing):
     _alpha: OptTensor
@@ -167,12 +173,13 @@ class GATConv2(MessagePassing):
                                              self.in_channels,
                                              self.out_channels, self.heads)
 
+
 class Zero(nn.Module):
     def __init__(self, indim, outdim) -> None:
         super().__init__()
         self.outdim = outdim
         self.zero = nn.Parameter(torch.tensor(0.), requires_grad=True)
-    
+
     def forward(self, x, edge_index):
         return torch.zeros(x.size(0), self.outdim).to(x.device) * self.zero
 
@@ -181,27 +188,29 @@ class Zero(nn.Module):
 #         super().__init__()
 #         self.outdim = outdim
 #         self.ln = nn.Linear(1, 1)
-    
+
 #     def forward(self, x, edge_index):
 #         return 0.
+
 
 class Identity(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-    
+
     def forward(self, x, edge_index):
         return x
+
 
 class Linear(nn.Module):
     def __init__(self, in_dim, out_dim):
         super().__init__()
         self.core = nn.Linear(in_dim, out_dim)
-    
+
     def forward(self, x, *args):
         return self.core(x)
 
 
-agg_map={
-    'add':lambda dim,att_head=None,dropout=0,norm=False,skip_connect=False: AggAdd(dim,att_head,dropout,norm,skip_connect),
-    'attn':lambda dim,att_head=None,dropout=0,norm=False,skip_connect=False: AggAttn(dim,att_head,dropout,norm,skip_connect),
+agg_map = {
+    'add': lambda dim, att_head=None, dropout=0, norm=False, skip_connect=False: AggAdd(dim, att_head, dropout, norm, skip_connect),
+    'attn': lambda dim, att_head=None, dropout=0, norm=False, skip_connect=False: AggAttn(dim, att_head, dropout, norm, skip_connect),
 }

@@ -318,6 +318,7 @@ class CleanFixedArchitecture(FixedArchitecture):
         prefix : str
             Module name under global namespace.
         """
+        
         if module is None:
             module = self.model
         for name, mutable in module.named_children():
