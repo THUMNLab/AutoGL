@@ -49,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--dataset', type=str, choices=['Cora', 'CiteSeer', 'PubMed'], default='Cora')
     parser.add_argument('--repeat', type=int, default=50)
-    parser.add_argument('--model', type=str, choices=['gat', 'gcn', 'sage'], default='gat')
+    parser.add_argument('--model', type=str, choices=['gat-model', 'gcn-model', 'sage-model'], default='gat-model')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.0)
     parser.add_argument('--epoch', type=int, default=200)
@@ -79,12 +79,11 @@ if __name__ == '__main__':
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
 
-        if args.model == 'gat':
+        if args.model == 'gat-model':
             model = AutoGAT(
                 num_features=num_features,
                 num_classes=num_classes,
-                device=args.device,
-                init=False
+                device=args.device
             ).from_hyper_parameter({
                 # hp from model
                 "num_layers": 2,
@@ -94,24 +93,22 @@ if __name__ == '__main__':
                 "dropout": 0.6,
                 "act": "relu",
             }).model
-        elif args.model == 'gcn':
+        elif args.model == 'gcn-model':
             model = AutoGCN(
                 num_features=num_features,
                 num_classes=num_classes,
-                device=args.device,
-                init=False
+                device=args.device
             ).from_hyper_parameter({
                 "num_layers": 2,
                 "hidden": [16],
                 "dropout": 0.5,
                 "act": "relu"
             }).model
-        elif args.model == 'sage':
+        elif args.model == 'sage-model':
             model = AutoSAGE(
                 num_features=num_features,
                 num_classes=num_classes,
-                device=args.device,
-                init=False
+                device=args.device
             ).from_hyper_parameter({
                 "num_layers": 2,
                 "hidden": [64],
