@@ -5,79 +5,13 @@ import torch.utils.data
 import typing as _typing
 from sklearn.model_selection import StratifiedKFold, KFold
 from autogl import backend as _backend
-from autogl.data import Data, Dataset, InMemoryStaticGraphSet
-from ...data.graph import GeneralStaticGraph, GeneralStaticGraphGenerator
-from . import _pyg
+from autogl.data import InMemoryStaticGraphSet
 
 
 def index_to_mask(index: torch.Tensor, size):
     mask = torch.zeros(size, dtype=torch.bool, device=index.device)
     mask[index] = True
     return mask
-
-
-def split_edges(
-        dataset: InMemoryStaticGraphSet,
-        train_ratio: float, val_ratio: float
-) -> InMemoryStaticGraphSet:
-    test_ratio: float = 1 - train_ratio - val_ratio
-
-    def _split_edges_for_graph(homogeneous_static_graph: GeneralStaticGraph) -> GeneralStaticGraph:
-        if not isinstance(homogeneous_static_graph, GeneralStaticGraph):
-            raise TypeError
-        elif not homogeneous_static_graph.edges.is_homogeneous:
-            raise ValueError("The provided graph MUST consist of homogeneous edges.")
-        else:
-            split_data = _pyg.train_test_split_edges(
-                Data(
-                    edge_index=homogeneous_static_graph.edges.connections.detach().clone(),
-                    edge_attr=(
-                        homogeneous_static_graph.edges.data['edge_attr'].detach().clone()
-                        if 'edge_attr' in homogeneous_static_graph.edges.data else None
-                    )
-                ),
-                val_ratio, test_ratio
-            )
-            original_edge_type = [et for et in homogeneous_static_graph.edges][0]
-
-            split_static_graph = GeneralStaticGraphGenerator.create_heterogeneous_static_graph(
-                dict([
-                    (node_type, homogeneous_static_graph.nodes[node_type].data)
-                    for node_type in homogeneous_static_graph.nodes
-                ]),
-                {
-                    (original_edge_type.source_node_type, "train_pos_edge", original_edge_type.target_node_type): (
-                        getattr(split_data, "train_pos_edge_index"),
-                        {"edge_attr": getattr(split_data, "train_pos_edge_attr")}
-                        if isinstance(getattr(split_data, "train_pos_edge_attr"), torch.Tensor)
-                        else None
-                    ),
-                    (original_edge_type.source_node_type, "val_pos_edge", original_edge_type.target_node_type): (
-                        getattr(split_data, "val_pos_edge_index"),
-                        {"edge_attr": getattr(split_data, "val_pos_edge_attr")}
-                        if isinstance(getattr(split_data, "val_pos_edge_attr"), torch.Tensor)
-                        else None
-                    ),
-                    (original_edge_type.source_node_type, "val_neg_edge", original_edge_type.target_node_type):
-                        getattr(split_data, "val_neg_edge_index"),
-                    (original_edge_type.source_node_type, "test_pos_edge", original_edge_type.target_node_type): (
-                        getattr(split_data, "test_pos_edge_index"),
-                        {"edge_attr": getattr(split_data, "test_pos_edge_attr")}
-                        if isinstance(getattr(split_data, "test_pos_edge_attr"), torch.Tensor)
-                        else None
-                    ),
-                    (original_edge_type.source_node_type, "test_neg_edge", original_edge_type.target_node_type):
-                        getattr(split_data, "test_neg_edge_index")
-                },
-                homogeneous_static_graph.data
-            )
-            return split_static_graph
-
-    if not isinstance(dataset, InMemoryStaticGraphSet):
-        raise TypeError
-    for index in range(len(dataset)):
-        dataset[index] = _split_edges_for_graph(dataset[index])
-    return dataset
 
 
 def random_splits_mask(
