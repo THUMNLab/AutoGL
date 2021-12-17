@@ -36,7 +36,7 @@ class _SplitEdgesDGLImpl:
         neg_eids = np.random.choice(len(neg_u), g.number_of_edges())
         test_neg_u, test_neg_v = neg_u[neg_eids[:test_size]], neg_v[neg_eids[:test_size]]
         valid_neg_u, valid_neg_v = neg_u[neg_eids[test_size:test_size + valid_size]], neg_v[neg_eids[test_size:test_size + valid_size]]
-        train_neg_u, train_neg_v = neg_u[neg_eids[train_size:]], neg_v[neg_eids[train_size:]]
+        train_neg_u, train_neg_v = neg_u[neg_eids[test_size + valid_size:]], neg_v[neg_eids[test_size + valid_size:]]
 
         train_g = dgl.remove_edges(g, eids[:test_size + valid_size])
 
@@ -77,7 +77,7 @@ class _SplitEdgesDGLImpl:
 
         neg_eids = np.random.choice(len(neg_u), g.number_of_edges())
         test_neg_u, test_neg_v = neg_u[neg_eids[:test_size]], neg_v[neg_eids[:test_size]]
-        train_neg_u, train_neg_v = neg_u[neg_eids[train_size:]], neg_v[neg_eids[train_size:]]
+        train_neg_u, train_neg_v = neg_u[neg_eids[test_size:]], neg_v[neg_eids[test_size:]]
 
         train_g = dgl.remove_edges(g, eids[:test_size])
 

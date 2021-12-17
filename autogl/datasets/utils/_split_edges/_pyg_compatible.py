@@ -21,7 +21,8 @@ def split_edges_for_data(
             raise ValueError
         edge_index: torch.LongTensor = data.edge_index
         edge_attr: _typing.Optional[torch.Tensor] = data.edge_attr
-        __data = data
+        import copy
+        __data = copy.copy(data)
     elif isinstance(data, autogl.data.graph.GeneralStaticGraph):
         if not (data.nodes.is_homogeneous and data.edges.is_homogeneous):
             raise ValueError(
