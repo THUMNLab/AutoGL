@@ -30,7 +30,10 @@ class _DummyModel(torch.nn.Module):
         else:
             self.encoder = encoder.encoder
             self.decoder = None if decoder is None else decoder.decoder
-    
+
+    def __str__(self, ):
+        return "DummyModel(encoder={}, decoder={})".format(self.encoder, self.decoder)
+
     def encode(self, *args, **kwargs):
         return self.encoder(*args, **kwargs)
     

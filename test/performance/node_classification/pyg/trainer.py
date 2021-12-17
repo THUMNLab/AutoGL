@@ -76,11 +76,13 @@ if __name__ == '__main__':
             feval=['acc'],
             loss="nll_loss",
         ).duplicate_from_hyper_parameter({
-            "max_epoch": args.epoch,
-            "early_stopping_round": args.epoch + 1,
-            "lr": args.lr,
-            "weight_decay": args.weight_decay,
-            **model_hp
+            "trainer": {
+                "max_epoch": args.epoch,
+                "early_stopping_round": args.epoch + 1,
+                "lr": args.lr,
+                "weight_decay": args.weight_decay,
+            },
+            "encoder": model_hp
         })
 
         trainer.train(dataset, False)

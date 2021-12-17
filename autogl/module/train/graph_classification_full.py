@@ -509,7 +509,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
             return res[0]
         return res
 
-    def duplicate_from_hyper_parameter(self, hp, encoder=None, decoder=None, restricted=True):
+    def duplicate_from_hyper_parameter(self, hp, encoder="same", decoder="same", restricted=True):
         """
         The function of duplicating a new instance from the given hyperparameter.
 
