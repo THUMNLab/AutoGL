@@ -147,7 +147,7 @@ class BaseTrainer(AutoModule):
         self.loss = loss
 
     def _compose_model(self):
-        return _DummyModel(self.encoder, self.decoder)
+        return _DummyModel(self.encoder, self.decoder).to(self.device)
 
     def _initialize(self):
         self.encoder.initialize()

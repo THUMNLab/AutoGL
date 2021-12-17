@@ -32,7 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_seed', type=int, default=2021)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--repeat', type=int, default=50)
-    parser.add_argument('--model', type=str, choices=['gin', 'topkpool'], default='gin')
+    parser.add_argument('--model', type=str, choices=['gin', 'gat', 'gcn', 'sage'], default='gin')
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--epoch', type=int, default=100)
 
@@ -93,13 +93,15 @@ if __name__ == '__main__':
             feval=('acc')
         ).duplicate_from_hyper_parameter(
             {
-                # hp from trainer
-                "max_epoch": 100,
-                "batch_size": 32, 
-                "early_stopping_round": 101, 
-                "lr": 0.0001, 
-                "weight_decay": 0,
-                **model_hp
+                "trainer": {
+                    # hp from trainer
+                    "max_epoch": args.epoch,
+                    "batch_size": args.batch_size, 
+                    "early_stopping_round": args.epoch + 1, 
+                    "lr": args.lr, 
+                    "weight_decay": 0,
+                },
+                "encoder": model_hp
             }
         )
 

@@ -110,6 +110,7 @@ class AddPoolMLPDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
         super(AddPoolMLPDecoderMaintainer, self).__init__(
             output_dimension, device, *args, **kwargs
         )
+        self.num_graph_features = kwargs.get("num_graph_features", 0)
         self.hyper_parameter_space = [
             {
                 "parameterName": "hidden",
@@ -248,6 +249,7 @@ class DiffPoolDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
         super(DiffPoolDecoderMaintainer, self).__init__(
             output_dimension, device, *args, **kwargs
         )
+        self.num_graph_features = kwargs.get("num_graph_features", 0)
         self.hyper_parameter_space = [
             {
                 "parameterName": "ratio",
