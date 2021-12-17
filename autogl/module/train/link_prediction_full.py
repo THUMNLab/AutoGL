@@ -231,11 +231,11 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 break
         self.early_stopping.load_checkpoint(model)
 
-    def _train_only_dgl(self, dataset):
+    def _train_only_dgl(self, data):
         model = self._compose_model()
-        train_graph = dataset['train'].to(self.device)
-        train_pos_graph = dataset['train_pos'].to(self.device)
-        train_neg_data = dataset['train_neg'].to(self.device)
+        train_graph = data['train'].to(self.device)
+        train_pos_graph = data['train_pos'].to(self.device)
+        train_neg_data = data['train_neg'].to(self.device)
 
         optimizer = self.optimizer(
             model.parameters(), lr=self.lr, weight_decay=self.weight_decay
@@ -281,7 +281,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 feval = self.feval[0]
             else:
                 feval = self.feval
-            val_loss = self._evaluate_dgl(dataset, mask="val", feval=feval)
+            val_loss = self._evaluate_dgl([data], mask="val", feval=feval)
             if feval.is_higher_better() is True:
                 val_loss = -val_loss
             self.early_stopping(val_loss, model)
@@ -333,9 +333,10 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 self.valid_result_prob = self._predict_proba_pyg(dataset, "val")
                 self.valid_score = self._evaluate_pyg(dataset, mask="val", feval=self.feval)
         elif self.pyg_dgl == 'dgl':
-            self._train_only_dgl(dataset)
+            data = dataset[0]
+            self._train_only_dgl(data)
             if keep_valid_result:
-                self.valid_result = self._predict_only_dgl(dataset)
+                self.valid_result = self._predict_only_dgl(data)
                 self.valid_result_prob = self._predict_proba_dgl(dataset, "val")
                 self.valid_score = self._evaluate_dgl(dataset, mask="val", feval=self.feval)
 
@@ -392,6 +393,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         return link_probs
 
     def _predict_proba_dgl(self, dataset, mask=None, in_log_format=False):
+        dataset = dataset[0]
         train_graph = dataset['train']
         try:
             try:
@@ -522,6 +524,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
 
     def _evaluate_dgl(self, dataset, mask=None, feval=None):
+        dataset = dataset[0]
         if feval is None:
             feval = self.feval
         else:

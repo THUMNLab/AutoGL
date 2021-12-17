@@ -163,6 +163,24 @@ class AutoLinkPredictor(BaseClassifier):
         prob[:, 0] = 1 - sig_prob
         prob[:, 1] = sig_prob
         return prob
+    
+    def _compose_dataset(self, dataset):
+        if isinstance(dataset[0], (list, tuple)):
+            new_dataset = []
+            for data in dataset:
+                new_dataset.append({
+                    "train": data[0],
+                    "train_pos": data[1],
+                    "train_neg": data[2],
+                    "val_pos": data[3],
+                    "val_neg": data[4]
+                })
+                if len(data) == 7:
+                    new_dataset[-1]["test_pos"] = data[5]
+                    new_dataset[-1]["test_neg"] = data[6]
+            return new_dataset
+        else:
+            return convert_dataset(dataset)
 
     # pylint: disable=arguments-differ
     def fit(
@@ -244,7 +262,7 @@ class AutoLinkPredictor(BaseClassifier):
         if train_split is not None and val_split is not None:
             utils.split_edges(dataset, train_split, val_split)
         else:
-            if BACKEND == 'pyg' or (BACKEND == 'dgl' and isinstance(graph_data, Data)):
+            if BACKEND == 'pyg':
                 assert all(
                     [
                         hasattr(graph_data, f"{name}")
@@ -262,7 +280,6 @@ class AutoLinkPredictor(BaseClassifier):
                     "train and val ratio."
                 )
             elif BACKEND == 'dgl':
-                # todo: some logic problems
                 assert len(graph_data) in [5, 7], (
                     "The dataset has no default train/val split! Please manually pass "
                     "train and val ratio."
@@ -272,15 +289,21 @@ class AutoLinkPredictor(BaseClassifier):
 
         # feature engineering
         if self.feature_module is not None:
-            # todo: some logic problems
-            dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
+            if BACKEND == 'pyg':
+                dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
+            else:
+                dataset = self.feature_module.fit_transform([graph_data[0]], inplace=inplace)
+                dataset += graph_data[1:]
 
         self.dataset = dataset
 
         # check whether the dataset has features.
         # currently we only support graph classification with features.
         
-        feat = get_graph_node_features(graph_data)
+        if BACKEND == 'dgl':
+            feat = get_graph_node_features(graph_data[0])
+        else:
+            feat = get_graph_node_features(graph_data)
         assert feat is not None, (
             "Does not support fit on non node-feature dataset!"
             " Please add node features to dataset or specify feature engineers that generate"
@@ -310,11 +333,11 @@ class AutoLinkPredictor(BaseClassifier):
             )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(convert_dataset(self.dataset), True)
+                model.train(self._compose_dataset(self.dataset), True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=convert_dataset(self.dataset), time_limit=time_for_each_model
+                    trainer=model, dataset=self._compose_dataset(self.dataset), time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
@@ -342,13 +365,11 @@ class AutoLinkPredictor(BaseClassifier):
                     self.dataset[0].val_pos_edge_index,
                     self.dataset[0].val_neg_edge_index,
                 )
-                E = pos_edge_index.size(1) + neg_edge_index.size(1)
-                link_labels = torch.zeros(E, dtype=torch.float)
-                link_labels[: pos_edge_index.size(1)] = 1.0
             elif BACKEND == 'dgl':
-                val_mask = self.dataset[0].edata["val_mask"]
-                val_index = torch.nonzero(val_mask, as_tuple=False).squeeze()
-                link_labels = self.dataset[0].edata['etype'][val_index]
+                pos_edge_index, neg_edge_index = torch.stack(self.dataset[0][3].edges()), torch.stack(self.dataset[0][4].edges())
+            E = pos_edge_index.size(1) + neg_edge_index.size(1)
+            link_labels = torch.zeros(E, dtype=torch.float)
+            link_labels[: pos_edge_index.size(1)] = 1.0
 
             performance = self.ensemble_module.fit(
                 result_valid,
@@ -502,7 +523,12 @@ class AutoLinkPredictor(BaseClassifier):
                 "Please execute fit() first before" " predicting on remembered dataset"
             )
         elif not inplaced and self.feature_module is not None:
-            dataset = self.feature_module.transform(dataset, inplace=inplace)
+            if BACKEND == 'pyg':
+                dataset = self.feature_module.transform(dataset, inplace=inplace)
+            elif BACKEND == 'dgl':
+                import dgl
+                transformed = self.feature_module.transform([d[0] for d in dataset], inplace=inplace)
+                dataset = [[tran, None, None, None, None, d[1], d[2] if len(d) == 3 else dgl.DGLGraph()] for tran, d in zip(transformed, dataset)]
 
         if use_ensemble:
             LOGGER.info("Ensemble argument on, will try using ensemble model.")
@@ -552,7 +578,7 @@ class AutoLinkPredictor(BaseClassifier):
     def _predict_proba_by_name(self, dataset, name, mask="test"):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
-            self.trained_models[name].predict_proba(convert_dataset(dataset), mask=mask).cpu().numpy()
+            self.trained_models[name].predict_proba(self._compose_dataset(dataset), mask=mask).cpu().numpy()
         )
         self.trained_models[name].to(torch.device("cpu"))
         return predicted
