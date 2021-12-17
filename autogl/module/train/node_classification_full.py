@@ -471,8 +471,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             decoder = decoder.from_hyper_parameter_and_encoder(hp_decoder, encoder)
 
         ret = self.__class__(
-            encoder=encoder,
-            decoder=decoder,
+            model=(encoder, decoder),
             num_features=self.num_features,
             num_classes=self.num_classes,
             optimizer=self.opt_received,

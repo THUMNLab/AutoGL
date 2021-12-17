@@ -2,7 +2,7 @@
 HPO Module for tuning hyper parameters
 """
 
-#from ...utils import get_logger
+from ...utils import get_logger
 import hyperopt
 import time
 import math
@@ -14,13 +14,13 @@ import random
 mp.set_start_method("spawn", True)
 
 
-#LOGGER = get_logger("HPO")
+LOGGER = get_logger("HPO")
 
 
 class BaseHPOptimizer:
     def __init__(self, *args, **kwargs):
         super().__init__()
-        #self.logger = LOGGER
+        self.logger = LOGGER
 
     def _decompose_dld(self, config):
         self._dld = {}
