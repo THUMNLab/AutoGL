@@ -24,8 +24,10 @@ import inspect
 import sys
 
 from ..backend import *
-import dgl
-from dgl import function as fn
+# import dgl
+# from dgl import function as fn
+
+
 special_args = [
     "edge_index",
     "edge_index_i",
