@@ -67,7 +67,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         early_stopping_round: int = 100,
         weight_decay: float = 1e-4,
         device: Union[torch.device, str] = "auto",
-        init: bool = True,
+        init: bool = False,
         feval: Iterable[Type[Evaluation]] =[Logloss],
         loss: Union[Callable, str] = "nll_loss",
         lr_scheduler_type: Optional[str] = None,

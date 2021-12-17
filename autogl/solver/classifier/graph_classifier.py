@@ -317,7 +317,7 @@ class AutoGraphClassifier(BaseClassifier):
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
-            name = str(optimized)
+            name = str(optimized) + "_idx%d" % (idx)
             names.append(name)
             performance_on_valid, _ = optimized.get_valid_score(return_major=False)
             result_valid.append(

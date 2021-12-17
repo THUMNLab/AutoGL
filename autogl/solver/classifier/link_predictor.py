@@ -10,13 +10,13 @@ import torch
 import numpy as np
 import yaml
 
+from ...data import Data
 from .base import BaseClassifier
 from ..base import _parse_hp_space, _initialize_single_model
 from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT, BaseAutoModel
 from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
 from ...module.train import get_feval
-from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_node_features, set_seed
+from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_node_features, convert_dataset, set_seed
 from ...datasets import utils
 from ..utils import get_logger
 from ...backend import DependentBackend
@@ -78,7 +78,7 @@ class AutoLinkPredictor(BaseClassifier):
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
-        default_trainer=None,
+        default_trainer="LinkPredictionFull",
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -94,7 +94,7 @@ class AutoLinkPredictor(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "LinkPredictionFull",
+            default_trainer=default_trainer,
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -107,92 +107,53 @@ class AutoLinkPredictor(BaseClassifier):
     def _init_graph_module(
         self, graph_models, num_features, feval, device, loss
     ) -> "AutoLinkPredictor":
-        # load graph network module
-        self.graph_model_list = []
-        if isinstance(graph_models, (list, tuple)):
-            for model in graph_models:
-                if isinstance(model, str):
-                    if model in MODEL_DICT:
-                        self.graph_model_list.append(
-                            MODEL_DICT[model](
-                                num_classes=1,
-                                num_features=num_features,
-                                device=device,
-                                init=False,
-                            )
-                        )
-                    else:
-                        raise KeyError("cannot find model %s" % (model))
-                elif isinstance(model, type) and issubclass(model, BaseAutoModel):
-                    self.graph_model_list.append(
-                        model(
-                            num_classes=1,
-                            num_features=num_features,
-                            device=device,
-                            init=False,
-                        )
-                    )
-                elif isinstance(model, BaseAutoModel):
-                    # setup the hp of num_classes and num_features
-                    model.set_num_classes(1)
-                    model.set_num_features(num_features)
-                    self.graph_model_list.append(model.to(device))
-                elif isinstance(model, BaseLinkPredictionTrainer):
-                    # receive a trainer list, put trainer to list
-                    assert (
-                        model.get_model() is not None
-                    ), "Passed trainer should contain a model"
-                    model.model.set_num_classes(1)
-                    model.model.set_num_features(num_features)
-                    model.update_parameters(
-                        num_classes=1,
-                        num_features=num_features,
-                        loss=loss,
-                        feval=feval,
-                        device=device,
-                    )
-                    self.graph_model_list.append(model)
-                else:
-                    raise KeyError("cannot find graph network %s." % (model))
-        else:
-            raise ValueError(
-                "need graph network to be (list of) str or a BaseModel class/instance, get",
-                graph_models,
-                "instead.",
-            )
 
-        # wrap all model_cls with specified trainer
-        for i, model in enumerate(self.graph_model_list):
+        self.graph_model_list = []
+
+        for i, model in enumerate(graph_models):
+            # init the trainer
+            if not isinstance(model, BaseLinkPredictionTrainer):
+                trainer = (
+                    self._default_trainer if not isinstance(self._default_trainer, (tuple, list))
+                    else self._default_trainer[i]
+                )
+                if isinstance(trainer, str):
+                    trainer = TRAINER_DICT[trainer]()
+                if isinstance(model, (tuple, list)):
+                    trainer.encoder = model[0]
+                    trainer.decoder = model[1]
+                else:
+                    trainer.encoder = model
+            else:
+                trainer = model
+
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, BaseLinkPredictionTrainer):
-                        model.model.hyper_parameter_space = self._model_hp_spaces[i]
+                    if isinstance(self._model_hp_spaces[i], dict):
+                        encoder_hp_space = self._model_hp_spaces[i].get('encoder', None)
+                        decoder_hp_space = self._model_hp_spaces[i].get('decoder', None)
                     else:
-                        model.hyper_parameter_space = self._model_hp_spaces[i]
-            # initialize trainer if needed
-            if isinstance(model, BaseAutoModel):
-                name = (
-                    self._default_trainer
-                    if isinstance(self._default_trainer, str)
-                    else self._default_trainer[i]
-                )
-                model = TRAINER_DICT[name](
-                    model=model,
-                    num_features=num_features,
-                    loss=loss,
-                    feval=feval,
-                    device=device,
-                    init=False,
-                )
+                        encoder_hp_space = self._model_hp_spaces[i]
+                        decoder_hp_space = None
+                    if encoder_hp_space is not None:
+                        trainer.encoder.hyper_parameter_space = encoder_hp_space
+                    if decoder_hp_space is not None:
+                        trainer.decoder.hyper_parameter_space = decoder_hp_space
+            
             # set trainer hp space
             if self._trainer_hp_space is not None:
                 if isinstance(self._trainer_hp_space[0], list):
                     current_hp_for_trainer = self._trainer_hp_space[i]
                 else:
                     current_hp_for_trainer = self._trainer_hp_space
-                model.hyper_parameter_space = current_hp_for_trainer
-            self.graph_model_list[i] = model
+                trainer.hyper_parameter_space = current_hp_for_trainer
+
+            trainer.num_features = num_features
+            trainer.loss = loss
+            trainer.feval = feval
+            trainer.to(device)
+            self.graph_model_list.append(trainer)
 
         return self
 
@@ -283,7 +244,7 @@ class AutoLinkPredictor(BaseClassifier):
         if train_split is not None and val_split is not None:
             utils.split_edges(dataset, train_split, val_split)
         else:
-            if BACKEND == 'pyg':
+            if BACKEND == 'pyg' or (BACKEND == 'dgl' and isinstance(graph_data, Data)):
                 assert all(
                     [
                         hasattr(graph_data, f"{name}")
@@ -301,7 +262,8 @@ class AutoLinkPredictor(BaseClassifier):
                     "train and val ratio."
                 )
             elif BACKEND == 'dgl':
-                assert hasattr(graph_data, 'edata') and "train_mask" in graph_data.edata and "val_mask" in graph_data.edata, (
+                # todo: some logic problems
+                assert len(graph_data) in [5, 7], (
                     "The dataset has no default train/val split! Please manually pass "
                     "train and val ratio."
                 )
@@ -310,6 +272,7 @@ class AutoLinkPredictor(BaseClassifier):
 
         # feature engineering
         if self.feature_module is not None:
+            # todo: some logic problems
             dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
 
         self.dataset = dataset
@@ -347,15 +310,15 @@ class AutoLinkPredictor(BaseClassifier):
             )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(self.dataset, True)
+                model.train(convert_dataset(self.dataset), True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model
+                    trainer=model, dataset=convert_dataset(self.dataset), time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
-            name = optimized.get_name_with_hp() + "_idx%d" % (idx)
+            name = str(optimized) + "_idx%d" % (idx)
             names.append(name)
             performance_on_valid, _ = optimized.get_valid_score(return_major=False)
             result_valid.append(
@@ -589,7 +552,7 @@ class AutoLinkPredictor(BaseClassifier):
     def _predict_proba_by_name(self, dataset, name, mask="test"):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
-            self.trained_models[name].predict_proba(dataset, mask=mask).cpu().numpy()
+            self.trained_models[name].predict_proba(convert_dataset(dataset), mask=mask).cpu().numpy()
         )
         self.trained_models[name].to(torch.device("cpu"))
         return predicted

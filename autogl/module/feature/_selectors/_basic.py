@@ -8,7 +8,7 @@ from .._feature_engineer_registry import FeatureEngineerUniversalRegistry
 
 class BaseFeatureSelector(BaseFeatureEngineer):
     def __init__(self):
-        self._selection = _typing.Optional[torch.Tensor] = None
+        self._selection : _typing.Optional[torch.Tensor] = None
         super(BaseFeatureSelector, self).__init__()
 
     def _transform(self, static_graph: GeneralStaticGraph) -> GeneralStaticGraph:
