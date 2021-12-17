@@ -68,3 +68,4 @@ elif _backend.DependentBackend.is_pyg():
         ModelNet40TrainingDataset,
         ModelNet40TestDataset
     )
+from ._heterogeneous_datasets import *

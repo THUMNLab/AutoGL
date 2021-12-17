@@ -20,9 +20,9 @@ LOGGER = get_logger("LeaderBoard")
 BACKEND = DependentBackend.get_backend_name()
 
 if BACKEND == 'dgl':
-    from autogl.datasets.utils.conversion import general_static_graphs_to_dgl_dataset as _convert_dataset
+    from autogl.datasets.utils.conversion import to_dgl_dataset as _convert_dataset
 else:
-    from autogl.datasets.utils.conversion import general_static_graphs_to_pyg_dataset as _convert_dataset
+    from autogl.datasets.utils.conversion import to_pyg_dataset as _convert_dataset
 
 class LeaderBoard:
     """
