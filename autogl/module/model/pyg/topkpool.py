@@ -84,7 +84,7 @@ class Topkpool(torch.nn.Module):
         return x
 
 
-@register_model("topkpool")
+@register_model("topkpool-model")
 class AutoTopkpool(BaseAutoModel):
     r"""
     AutoTopkpool. The model used in this automodel is from https://arxiv.org/abs/1905.05178, https://arxiv.org/abs/1905.02850

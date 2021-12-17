@@ -284,7 +284,7 @@ class GCN(ClassificationSupportedSequentialModel):
         return (prob_adj > 0).nonzero(as_tuple=False).t()
 
 
-@register_model("gcn")
+@register_model("gcn-model")
 class AutoGCN(BaseAutoModel):
     r"""
     AutoGCN.

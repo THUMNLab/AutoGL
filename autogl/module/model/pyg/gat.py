@@ -114,7 +114,7 @@ class GAT(torch.nn.Module):
         return (prob_adj > 0).nonzero(as_tuple=False).t()
 
 
-@register_model("gat")
+@register_model("gat-model")
 class AutoGAT(BaseAutoModel):
     r"""
     AutoGAT. The model used in this automodel is GAT, i.e., the graph attentional network from the `"Graph Attention Networks"

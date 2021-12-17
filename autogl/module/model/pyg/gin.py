@@ -113,7 +113,7 @@ class GIN(torch.nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-@register_model("gin")
+@register_model("gin-model")
 class AutoGIN(BaseAutoModel):
     r"""
     AutoGIN. The model used in this automodel is GIN, i.e., the graph isomorphism network from the `"How Powerful are

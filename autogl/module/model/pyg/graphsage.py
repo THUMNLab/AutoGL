@@ -202,7 +202,7 @@ class GraphSAGE(ClassificationSupportedSequentialModel):
         return (prob_adj > 0).nonzero(as_tuple=False).t()
 
 
-@register_model("sage")
+@register_model("sage-model")
 class AutoSAGE(BaseAutoModel):
     r"""
     AutoSAGE. The model used in this automodel is GraphSAGE, i.e., the GraphSAGE from the `"Inductive Representation Learning on
