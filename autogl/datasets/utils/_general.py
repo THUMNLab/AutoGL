@@ -5,7 +5,7 @@ import torch.utils.data
 import typing as _typing
 from sklearn.model_selection import StratifiedKFold, KFold
 from autogl import backend as _backend
-from autogl.data import InMemoryStaticGraphSet
+from autogl.data import InMemoryDataset
 
 
 def index_to_mask(index: torch.Tensor, size):
@@ -15,15 +15,15 @@ def index_to_mask(index: torch.Tensor, size):
 
 
 def random_splits_mask(
-        dataset: InMemoryStaticGraphSet,
+        dataset: InMemoryDataset,
         train_ratio: float = 0.2, val_ratio: float = 0.4,
         seed: _typing.Optional[int] = None
-) -> InMemoryStaticGraphSet:
+) -> InMemoryDataset:
     r"""If the data has masks for train/val/test, return the splits with specific ratio.
 
     Parameters
     ----------
-    dataset : InMemoryStaticGraphSet
+    dataset : InMemoryDataset
         graph set
     train_ratio : float
         the portion of data that used for training.
@@ -69,7 +69,7 @@ def random_splits_mask(
 
 
 def random_splits_mask_class(
-        dataset: InMemoryStaticGraphSet,
+        dataset: InMemoryDataset,
         num_train_per_class: int = 20,
         num_val_per_class: int = 30,
         total_num_val: _typing.Optional[int] = ...,
@@ -86,8 +86,8 @@ def random_splits_mask_class(
 
     Parameters
     ----------
-    dataset: InMemoryStaticGraphSet
-        instance of InMemoryStaticGraphSet
+    dataset: InMemoryDataset
+        instance of ``InMemoryDataset``
     num_train_per_class : int
         the number of samples from every class used for training.
 
@@ -170,20 +170,20 @@ def random_splits_mask_class(
 
 
 def graph_cross_validation(
-        dataset: InMemoryStaticGraphSet,
+        dataset: InMemoryDataset,
         n_splits: int = 10, shuffle: bool = True,
         random_seed: _typing.Optional[int] = ...,
         stratify: bool = False
-) -> InMemoryStaticGraphSet:
-    r"""Cross validation for graph classification data, returning one fold with specific idx in autogl.datasets or pyg.Dataloader(default)
+) -> InMemoryDataset:
+    r"""Cross validation for graph classification data
 
     Parameters
     ----------
-    dataset : str
+    dataset : InMemoryDataset
         dataset with multiple graphs.
 
     n_splits : int
-        the number of how many folds will be splitted.
+        the number of folds to split.
 
     shuffle : bool
         shuffle or not for sklearn.model_selection.StratifiedKFold
@@ -193,8 +193,6 @@ def graph_cross_validation(
 
     stratify: bool
     """
-    if not isinstance(dataset, InMemoryStaticGraphSet):
-        raise TypeError
     if not isinstance(n_splits, int):
         raise TypeError
     elif not n_splits > 0:
@@ -231,8 +229,34 @@ def graph_cross_validation(
     return dataset
 
 
+def set_fold(dataset: InMemoryDataset, fold_id: int) -> InMemoryDataset:
+    r"""Set fold for graph dataset consist of multiple graphs.
+
+    Parameters
+    ----------
+    dataset: `autogl.data.InMemoryDataset`
+        dataset with multiple graphs.
+    fold_id: `int`
+        The fold in to use, MUST be in [0, dataset.n_splits)
+
+    Returns
+    -------
+    `autogl.data.InMemoryDataset`
+        The reference of original dataset.
+    """
+    if not (hasattr(dataset, 'folds') and dataset.folds is not None):
+        raise ValueError("Dataset do NOT contain folds")
+    if not 0 <= fold_id < len(dataset.folds):
+        raise ValueError(
+            f"Fold id {fold_id} exceed total cross validation split number {len(dataset.folds)}"
+        )
+    dataset.train_index = dataset.folds[fold_id].train_index
+    dataset.val_index = dataset.folds[fold_id].val_index
+    return dataset
+
+
 def graph_random_splits(
-        dataset: InMemoryStaticGraphSet,
+        dataset: InMemoryDataset,
         train_ratio: float = 0.2,
         val_ratio: float = 0.4,
         seed: _typing.Optional[int] = ...
