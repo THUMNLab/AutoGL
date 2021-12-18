@@ -333,30 +333,46 @@ def graph_get_split(
         raise ValueError
     elif mask.lower() == "train":
         optional_dataset_split = dataset.train_split
+        if optional_dataset_split is None:
+            raise ValueError(f"Provided dataset do NOT have {mask} split")
+        else:
+            sub_dataset = InMemoryDataset(
+                optional_dataset_split, train_index=list(range(len(optional_dataset_split)))
+            )
     elif mask.lower() == "val":
         optional_dataset_split = dataset.val_split
+        if optional_dataset_split is None:
+            raise ValueError(f"Provided dataset do NOT have {mask} split")
+        else:
+            sub_dataset = InMemoryDataset(
+                optional_dataset_split, val_index=list(range(len(optional_dataset_split)))
+            )
     elif mask.lower() == "test":
         optional_dataset_split = dataset.test_split
+        if optional_dataset_split is None:
+            raise ValueError(f"Provided dataset do NOT have {mask} split")
+        else:
+            sub_dataset = InMemoryDataset(
+                optional_dataset_split, test_index=list(range(len(optional_dataset_split)))
+            )
     else:
         raise ValueError(
             f"The provided mask parameter must be a str in ['train', 'val', 'test'], "
             f"illegal provided value is [{mask}]"
         )
-    if optional_dataset_split is None:
-        raise ValueError(
-            f"Provided dataset do NOT have {mask} split"
-        )
+    if not is_loader:
+        return sub_dataset
     if is_loader:
         if not (_backend.DependentBackend.is_dgl() or _backend.DependentBackend.is_pyg()):
             raise RuntimeError("Unsupported backend")
         elif _backend.DependentBackend.is_dgl():
             from dgl.dataloading.pytorch import GraphDataLoader
             return GraphDataLoader(
-                optional_dataset_split,
+                sub_dataset,
                 **{"batch_size": batch_size, "num_workers": num_workers}
             )
         elif _backend.DependentBackend.is_pyg():
-            dataset_split: _typing.Any = optional_dataset_split
+            _sub_dataset: _typing.Any = optional_dataset_split
             import torch_geometric
             if int(torch_geometric.__version__.split('.')[0]) >= 2:
                 # version 2.x
@@ -364,7 +380,7 @@ def graph_get_split(
             else:
                 from torch_geometric.data import DataLoader
             return DataLoader(
-                dataset_split, batch_size=batch_size, num_workers=num_workers
+                _sub_dataset, batch_size=batch_size, num_workers=num_workers
             )
     else:
-        return optional_dataset_split
+        return sub_dataset
