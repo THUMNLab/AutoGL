@@ -248,6 +248,9 @@ class InMemoryDataset(Dataset[_D]):
         elif train_index is None:
             self.__train_index: _typing.Optional[_typing.Iterable[int]] = None
         elif isinstance(train_index, _typing.Iterable):
+            if len(list(train_index)) == 0:
+                self.__train_index: _typing.Optional[_typing.Iterable[int]] = None
+                return
             if not all([isinstance(i, int) for i in train_index]):
                 raise TypeError
             if not (0 <= min(train_index) <= max(train_index) < len(self)):
@@ -261,6 +264,9 @@ class InMemoryDataset(Dataset[_D]):
         elif val_index is None:
             self.__val_index: _typing.Optional[_typing.Iterable[int]] = None
         elif isinstance(val_index, _typing.Iterable):
+            if len(list(val_index)) == 0:
+                self.__val_index: _typing.Optional[_typing.Iterable[int]] = None
+                return
             if not all([isinstance(i, int) for i in val_index]):
                 raise TypeError
             if not (0 <= min(val_index) <= max(val_index) < len(self)):
@@ -274,6 +280,9 @@ class InMemoryDataset(Dataset[_D]):
         elif test_index is None:
             self.__test_index: _typing.Optional[_typing.Set[int]] = None
         elif isinstance(test_index, _typing.Iterable):
+            if len(list(test_index)) == 0:
+                self.__test_index: _typing.Optional[_typing.Iterable[int]] = None
+                return
             if not all([isinstance(i, int) for i in test_index]):
                 raise TypeError
             if not (0 <= min(test_index) <= max(test_index) < len(self)):
