@@ -171,13 +171,12 @@ class Topkpool(torch.nn.Module):
 
     #def forward(self, g, h):
     def forward(self, data):
-        g, _ = data
-        h = g.ndata.pop('feat')
+        h = data.ndata.pop('feat')
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 
         for i in range(self.num_layers - 1):
-            h = self.gcnlayers[i](g, h)
+            h = self.gcnlayers[i](data, h)
             h = self.batch_norms[i](h)
             h = F.relu(h)
             hidden_rep.append(h)
@@ -186,7 +185,7 @@ class Topkpool(torch.nn.Module):
 
         # perform pooling over all nodes in each graph in every layer
         for i, h in enumerate(hidden_rep):
-            pooled_h = self.pool(g, h)
+            pooled_h = self.pool(data, h)
             #import pdb; pdb.set_trace()
             score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
 
@@ -270,7 +269,7 @@ class AutoTopkpool(BaseAutoModel):
         return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features, **kwargs)
 
     def _initialize(self):
-        self.model = Topkpool({
+        self._model = Topkpool({
             "features_num": self.input_dimension,
             "num_class": self.output_dimension,
             "num_graph_features": self.num_graph_features,

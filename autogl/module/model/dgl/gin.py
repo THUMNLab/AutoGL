@@ -180,7 +180,7 @@ class GIN(torch.nn.Module):
 
         self.fc1 = Linear(
             hidden[self.num_layers - 3] + self.num_graph_features,
-            hidden[self.num_layers - 3],
+            hidden[self.num_layers - 2],
         )
         self.fc2 = Linear(
             hidden[self.num_layers - 2], self.args["num_class"]
@@ -211,8 +211,7 @@ class GIN(torch.nn.Module):
 
     #def forward(self, g, h):
     def forward(self, data):
-        g, _ = data
-        x = g.ndata.pop('feat')
+        x = data.ndata.pop('feat')
 
         if self.num_graph_features > 0:
             graph_feature = data.gf
@@ -221,7 +220,7 @@ class GIN(torch.nn.Module):
         # hidden_rep = [h]
 
         for i in range(self.num_layers - 2):
-            x = self.ginlayers[i](g, x)
+            x = self.ginlayers[i](data, x)
             x = activate_func(x, self.args["act"])
             x = self.batch_norms[i](x)
             # h = F.relu(h)
@@ -233,7 +232,7 @@ class GIN(torch.nn.Module):
         x = F.dropout(x, p=self.args["dropout"], training=self.training)
 
         x = self.fc2(x)
-        x = self.pool(g, x)
+        x = self.pool(data, x)
         return F.log_softmax(x, dim=1)
         # score_over_layer = 0
         # perform pooling over all nodes in each graph in every layer
@@ -351,7 +350,7 @@ class AutoGIN(BaseAutoModel):
         }
     
     def from_hyper_parameter(self, hp, **kwargs):
-        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features **kwargs)
+        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features, **kwargs)
 
     def _initialize(self):
         # """Initialize model."""

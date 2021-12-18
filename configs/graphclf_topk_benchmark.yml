@@ -20,7 +20,7 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: topkpool
+  name: topkpool-model
 trainer:
   hp_space:
   - maxValue: 300

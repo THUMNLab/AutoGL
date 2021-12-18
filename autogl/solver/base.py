@@ -48,20 +48,18 @@ def _parse_hp_space(spaces):
 
 def _parse_model_hp(model):
     assert isinstance(model, dict)
-    output = []
     if "encoder" in model and "decoder" in model:
-        output.append({
+        return {
             "encoder": _parse_hp_space(model["encoder"].pop("hp_space", None)),
             "decoder": _parse_hp_space(model["decoder"].pop("hp_space", None)),
-        })
+        }
     elif "encoder" in model:
-        output.append({
+        return {
             "encoder": _parse_hp_space(model["encoder"].pop("hp_space", None)),
             "decoder": None,
-        })
+        }
     else:
-        output.append(_parse_hp_space(model.pop("hp_space", None)))
-    return output
+        return _parse_hp_space(model.pop("hp_space", None))
 
 class BaseSolver:
     r"""
