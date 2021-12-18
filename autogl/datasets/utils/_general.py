@@ -216,7 +216,7 @@ def graph_cross_validation(
         kf = KFold(
             n_splits=n_splits, shuffle=shuffle, random_state=_random_seed
         )
-    dataset_y = [g.data['y'].item() for g in dataset]
+    dataset_y = [g.data['y' if 'y' in g.data else 'label'].item() for g in dataset]
     idx_list = [
         (train_index.tolist(), test_index.tolist())
         for train_index, test_index

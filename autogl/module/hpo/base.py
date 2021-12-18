@@ -35,7 +35,10 @@ class BaseHPOptimizer:
                 newpara = para.copy()
                 newpara["parameterName"] = key + ":" + para["parameterName"]
                 if "cutPara" in para.keys():
-                    newpara["cutPara"] = key + ":" + para["cutPara"]
+                    if isinstance(newpara["cutPara"], str):
+                        newpara["cutPara"] = key + ":" + para["cutPara"]
+                    else:
+                        newpara["cutPara"] = [key + ":" + cutname for cutname in para["cutPara"]]
                 list_config.append(newpara)
         return list_config
 
