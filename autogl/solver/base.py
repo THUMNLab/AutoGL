@@ -15,7 +15,7 @@ from ..module.model import EncoderUniversalRegistry, DecoderUniversalRegistry, M
 from ..module.nas.algorithm import NAS_ALGO_DICT
 from ..module.nas.estimator import NAS_ESTIMATOR_DICT
 from ..module.nas.space import NAS_SPACE_DICT
-from ..module import BaseFeature, BaseHPOptimizer, BaseTrainer
+from ..module import BaseFeatureEngineer, BaseHPOptimizer, BaseTrainer
 from .utils import LeaderBoard
 from ..utils import get_logger
 
@@ -32,11 +32,13 @@ def _initialize_single_model(model):
         # initialize decoder
         name = model["decoder"].pop("name")
         decoder = DecoderUniversalRegistry.get_decoder(name)(**model["decoder"])
+        return (encoder, decoder)
+
     if "name" in model:
         # whole model
         name = model.pop("name")
         encoder = ModelUniversalRegistry.get_model(name)(**model)
-    return (encoder, decoder)
+    return encoder
 
 def _parse_hp_space(spaces):
     if spaces is None:
@@ -182,7 +184,7 @@ class BaseSolver:
         # load feature engineer module
 
         def get_feature(feature_engineer):
-            if isinstance(feature_engineer, BaseFeature):
+            if isinstance(feature_engineer, BaseFeatureEngineer):
                 return feature_engineer
             if isinstance(feature_engineer, str):
                 if feature_engineer in FEATURE_DICT:
@@ -192,12 +194,12 @@ class BaseSolver:
                 )
             raise TypeError(
                 f"Cannot parse feature argument {str(feature_engineer)} of"
-                " type {str(type(feature_engineer))}"
+                f" type {str(type(feature_engineer))}"
             )
 
         if feature_module is None:
             self.feature_module = None
-        elif isinstance(feature_module, (BaseFeature, str)):
+        elif isinstance(feature_module, (BaseFeatureEngineer, str)):
             self.feature_module = get_feature(feature_module)
         elif isinstance(feature_module, Iterable):
             self.feature_module = get_feature(feature_module[0])

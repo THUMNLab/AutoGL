@@ -1,6 +1,3 @@
-import sys
-
-sys.path.append("../")
 from autogl.datasets import build_dataset_from_name
 from autogl.solver.classifier.link_predictor import AutoLinkPredictor
 from autogl.module.train.evaluation import Auc
@@ -76,7 +73,8 @@ if __name__ == "__main__":
     )
     autoClassifier.get_leaderboard().show()
 
-    # test
+    # todo: move the test logic to solver, make solver handle this
+    # BUG: fix this under dgl backend
     predict_result = autoClassifier.predict_proba()
 
     pos_edge_index, neg_edge_index = (

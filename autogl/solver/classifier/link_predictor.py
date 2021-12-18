@@ -16,7 +16,7 @@ from ..base import _parse_hp_space, _initialize_single_model, _parse_model_hp
 from ...module.feature import FEATURE_DICT
 from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
 from ...module.train import get_feval
-from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_node_features, convert_dataset, set_seed
+from ..utils import LeaderBoard, get_graph_node_features, convert_dataset, set_seed
 from ...datasets import utils
 from ..utils import get_logger
 from ...backend import DependentBackend
@@ -260,7 +260,8 @@ class AutoLinkPredictor(BaseClassifier):
 
         # set up the dataset
         if train_split is not None and val_split is not None:
-            utils.split_edges(dataset, train_split, val_split)
+            dataset = utils.split_edges(dataset, train_split, val_split)
+            graph_data = dataset[0]
         else:
             if BACKEND == 'pyg':
                 assert all(
@@ -292,8 +293,8 @@ class AutoLinkPredictor(BaseClassifier):
             if BACKEND == 'pyg':
                 dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
             else:
-                dataset = self.feature_module.fit_transform([graph_data[0]], inplace=inplace)
-                dataset += graph_data[1:]
+                _dataset = self.feature_module.fit_transform([g[0] for g in dataset], inplace=inplace)
+                dataset = [[_d, *d[1:]] for _d, d in zip(_dataset, dataset)]
 
         self.dataset = dataset
 

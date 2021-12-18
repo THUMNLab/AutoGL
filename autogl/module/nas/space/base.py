@@ -99,7 +99,7 @@ class BoxModel(BaseAutoModel):
     _logger = get_logger("space model")
 
     def __init__(self, space_model, device=torch.device("cuda")):
-        super().__init__(init=True)
+        super().__init__(None, None, device)
         self.init = True
         self.space = []
         self.hyperparams = {}
@@ -109,6 +109,9 @@ class BoxModel(BaseAutoModel):
         self.params = {"num_class": self.num_classes, "features_num": self.num_features}
         self.device = device
         self.selection = None
+
+    def _initialize(self):
+        return True
 
     def fix(self, selection):
         """
@@ -124,11 +127,6 @@ class BoxModel(BaseAutoModel):
         apply_fixed_architecture(self._model, selection, verbose=False)
         return self
 
-    def to(self, device):
-        if isinstance(device, (str, torch.device)):
-            self.device = device
-        return super().to(device)
-
     def forward(self, *args, **kwargs):
         return self._model(*args, **kwargs)
 
@@ -141,16 +139,11 @@ class BoxModel(BaseAutoModel):
         ret_self._model.instantiate()
         if ret_self.selection:
             apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
-        ret_self.to(self.device)
+        ret_self.to_device(self.device)
         return ret_self
 
     def __repr__(self) -> str:
         return str({'parameter': get_hardware_aware_metric(self.model, 'parameter')})
-
-    @property
-    def model(self):
-        return self._model
-
 
 class BaseSpace(nn.Module):
     """

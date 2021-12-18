@@ -174,7 +174,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             self.initialize()
 
     def _compose_model(self):
-        return _DummyLinkModel(self.encoder, self.decoder)
+        return _DummyLinkModel(self.encoder, self.decoder).to(self.device)
 
     @classmethod
     def get_task_name(cls):
@@ -198,8 +198,8 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                     edge_index=data.train_pos_edge_index,
                     num_nodes=data.num_nodes,
                     num_neg_samples=data.train_pos_edge_index.size(1),
-                )
-
+                ).to(data.train_pos_edge_index.device)
+            
             optimizer.zero_grad()
             link_logits = model.encode(data)
             link_logits = model.decode(link_logits, data, data.train_pos_edge_index, neg_edge_index)
@@ -300,7 +300,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         return res
 
     def _predict_only_dgl(self, dataset):
-        pos_data = dataset['train']
+        pos_data = dataset['train'].to(self.device)
         model = self._compose_model()
         model.eval()
         with torch.no_grad():
@@ -394,17 +394,17 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
     def _predict_proba_dgl(self, dataset, mask=None, in_log_format=False):
         dataset = dataset[0]
-        train_graph = dataset['train']
+        train_graph = dataset['train'].to(self.device)
         try:
             try:
-                pos_graph = dataset[f'{mask}_pos']
-                neg_graph = dataset[f'{mask}_neg']
+                pos_graph = dataset[f'{mask}_pos'].to(self.device)
+                neg_graph = dataset[f'{mask}_neg'].to(self.device)
             except:
-                pos_graph = dataset[f'test_pos']
-                neg_graph = dataset[f'test_neg']
+                pos_graph = dataset[f'test_pos'].to(self.device)
+                neg_graph = dataset[f'test_neg'].to(self.device)
         except:
             import dgl
-            pos_graph = dataset[mask]
+            pos_graph = dataset[mask].to(self.device)
             neg_graph = dgl.graph([], num_nodes=0).to(self.device)
 
         model = self._compose_model()
@@ -530,13 +530,13 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         else:
             feval = get_feval(feval)
 
-        train_graph = dataset['train']
+        train_graph = dataset['train'].to(self.device)
         try:
-            pos_graph = dataset[f'{mask}_pos']
-            neg_graph = dataset[f'{mask}_neg']
+            pos_graph = dataset[f'{mask}_pos'].to(self.device)
+            neg_graph = dataset[f'{mask}_neg'].to(self.device)
         except:
-            pos_graph = dataset[f'test_pos']
-            neg_graph = dataset[f'test_neg']
+            pos_graph = dataset[f'test_pos'].to(self.device)
+            neg_graph = dataset[f'test_neg'].to(self.device)
 
         model = self._compose_model()
         model.eval()
@@ -606,7 +606,8 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             trainer_hp = origin_hp
         
         encoder = encoder.from_hyper_parameter(encoder_hp)
-        decoder = decoder.from_hyper_parameter_and_encoder(decoder_hp, encoder)
+        if decoder is not None:
+            decoder = decoder.from_hyper_parameter_and_encoder(decoder_hp, encoder)
         
         ret = self.__class__(
             model=(encoder, decoder),

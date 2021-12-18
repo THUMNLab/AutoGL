@@ -623,8 +623,10 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
                 device=self.device,
                 init=self.initialized
             )
-        elif isinstance(dec, (BaseDecoderMaintainer, None)):
+        elif isinstance(dec, BaseDecoderMaintainer):
             self._decoder = dec
+        elif dec is None:
+            self._decoder = None
         else:
             raise ValueError("Invalid decoder setting")
         self.num_features = self.num_features

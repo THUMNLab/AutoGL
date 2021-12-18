@@ -81,10 +81,10 @@ class GATEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
             dimensions.append(self.final_dimension)
         self._encoder = _GAT(
             self.input_dimension, self.hyper_parameters['hidden'],
-            self.hyper_parameters.get('num_hidden_heads', self.hyper_parameters['heads']),
+            self.hyper_parameters.get('num_hidden_heads', self.hyper_parameters.get('heads', 1)),
             self.hyper_parameters.get(
                 'num_output_heads',
-                self.hyper_parameters.get('num_hidden_heads', self.hyper_parameters['heads'])
+                self.hyper_parameters.get('num_hidden_heads', self.hyper_parameters.get('heads', 1))
             ),
             self.hyper_parameters['dropout'],
             self.hyper_parameters['act']

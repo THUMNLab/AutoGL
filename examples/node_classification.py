@@ -1,12 +1,11 @@
-import sys
 import yaml
 import random
 import torch.backends.cudnn
 import numpy as np
-sys.path.append("../")
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
 from autogl.module import Acc
+from autogl.backend import DependentBackend
 
 if __name__ == "__main__":
 
@@ -37,7 +36,7 @@ if __name__ == "__main__":
         help="config to use",
     )
     # following arguments will override parameters in the config file
-    parser.add_argument("--hpo", type=str, default="autone", help="hpo methods")
+    parser.add_argument("--hpo", type=str, default="tpe", help="hpo methods")
     parser.add_argument(
         "--max_eval", type=int, default=50, help="max hpo evaluation times"
     )
@@ -58,6 +57,8 @@ if __name__ == "__main__":
         torch.backends.cudnn.benchmark = False
 
     dataset = build_dataset_from_name(args.dataset)
+    label = dataset[0].nodes.data["y" if DependentBackend.is_pyg() else "label"]
+    num_classes = len(np.unique(label.numpy()))
 
     configs = yaml.load(open(args.configs, "r").read(), Loader=yaml.FullLoader)
     configs["hpo"]["name"] = args.hpo
@@ -73,8 +74,8 @@ if __name__ == "__main__":
             time_limit=3600,
             evaluation_method=[Acc],
             seed=seed,
-            train_split=20 * dataset.num_classes,
-            val_split=30 * dataset.num_classes,
+            train_split=20 * num_classes,
+            val_split=30 * num_classes,
             balanced=False,
         )
     autoClassifier.get_leaderboard().show()
@@ -83,5 +84,5 @@ if __name__ == "__main__":
     predict_result = autoClassifier.predict_proba()
     print(
         "test acc: %.4f"
-        % (Acc.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy()))
+        % (Acc.evaluate(predict_result, label[dataset[0].nodes.data["test_mask"]].cpu().numpy()))
     )

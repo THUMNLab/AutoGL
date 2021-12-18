@@ -226,6 +226,9 @@ class GCN(ClassificationSupportedSequentialModel):
                 for __edge_index in getattr(data, "edge_indexes")
             ]
 
+    def forward(self, data):
+        return self.cls_decode(self.cls_encode(data))
+
     def cls_encode(self, data) -> torch.Tensor:
         edge_indexes_and_weights: _typing.Union[
             _typing.Sequence[
