@@ -188,7 +188,7 @@ class TopKDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
         self._decoder = _TopKPoolDecoder(
             encoder.get_output_dimensions(),
             self.output_dimension,
-            self.hyper_parameters["float"]
+            self.hyper_parameters["dropout"]
         ).to(self.device)
         return True
 
