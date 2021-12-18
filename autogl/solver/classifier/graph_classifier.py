@@ -12,9 +12,8 @@ import yaml
 
 from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
-from ...module.model import BaseAutoModel, MODEL_DICT
 from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
-from ..base import _initialize_single_model, _parse_hp_space
+from ..base import _initialize_single_model, _parse_hp_space, _parse_model_hp
 from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features, convert_dataset
 from ...datasets import utils
 from ..utils import get_logger
@@ -656,12 +655,16 @@ class AutoGraphClassifier(BaseClassifier):
             if fe_list_ele != []:
                 solver.set_feature_module(fe_list_ele)
 
-        models = path_or_dict.pop("models", [{"name": "gin"}, {"name": "topkpool"}])
+        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}, {"name": "sage"}, {"name": "gin"}])
+        # models should be a list of model
+        # with each element in two cases
+        # * a dict describing a certain model
+        # * a dict containing {"encoder": encoder, "decoder": decoder}
         model_hp_space = [
-            _parse_hp_space(model.pop("hp_space", None)) for model in models
+            _parse_model_hp(model) for model in models
         ]
         model_list = [
-            _initialize_single_model(model.pop("name"), model) for model in models
+            _initialize_single_model(model) for model in models
         ]
 
         trainer = path_or_dict.pop("trainer", None)

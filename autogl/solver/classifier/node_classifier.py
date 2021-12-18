@@ -12,7 +12,7 @@ import numpy as np
 import yaml
 
 from .base import BaseClassifier
-from ..base import _parse_hp_space, _initialize_single_model
+from ..base import _parse_hp_space, _initialize_single_model, _parse_model_hp
 from ...module.feature import FEATURE_DICT
 from ...module.model import BaseEncoderMaintainer, BaseDecoderMaintainer, BaseAutoModel
 from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
@@ -732,12 +732,16 @@ class AutoNodeClassifier(BaseClassifier):
             if fe_list_ele != []:
                 solver.set_feature_module(fe_list_ele)
 
-        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}])
+        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}, {"name": "sage"}, {"name": "gin"}])
+        # models should be a list of model
+        # with each element in two cases
+        # * a dict describing a certain model
+        # * a dict containing {"encoder": encoder, "decoder": decoder}
         model_hp_space = [
-            _parse_hp_space(model.pop("hp_space", None)) for model in models
+            _parse_model_hp(model) for model in models
         ]
         model_list = [
-            _initialize_single_model(model.pop("name"), model) for model in models
+            _initialize_single_model(model) for model in models
         ]
 
         trainer = path_or_dict.pop("trainer", None)
