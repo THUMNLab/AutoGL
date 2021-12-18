@@ -11,7 +11,9 @@ class BaseFeatureSelector(BaseFeatureEngineer):
         self._selection = _typing.Optional[torch.Tensor] = None
         super(BaseFeatureSelector, self).__init__()
 
-    def _transform(self, static_graph: GeneralStaticGraph) -> GeneralStaticGraph:
+    def __transform_homogeneous_static_graph(
+            self, static_graph: GeneralStaticGraph
+    ) -> GeneralStaticGraph:
         if (
                 'x' in static_graph.nodes.data and
                 self._selection not in (Ellipsis, None) and
@@ -27,6 +29,20 @@ class BaseFeatureSelector(BaseFeatureEngineer):
         ):
             static_graph.nodes.data['feat'] = static_graph.nodes.data['feat'][:, self._selection]
         return static_graph
+
+    def _transform(
+            self, data: _typing.Union[GeneralStaticGraph, _typing.Any]
+    ) -> _typing.Union[GeneralStaticGraph, _typing.Any]:
+        if isinstance(data, GeneralStaticGraph):
+            return self.__transform_homogeneous_static_graph(data)
+        elif (
+                hasattr(data, 'x') and isinstance(data.x, torch.Tensor) and
+                torch.is_tensor(data.x) and data.x.dim() == 2
+        ):
+            data.x = data.x[:, self._selection]
+            return data
+        else:
+            return data
 
 
 @FeatureEngineerUniversalRegistry.register_feature_engineer("FilterConstant")
