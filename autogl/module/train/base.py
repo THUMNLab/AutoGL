@@ -129,14 +129,11 @@ class BaseTrainer(AutoModule):
     ):
         """
         The basic trainer.
-
         Used to automatically train the problems, e.g., node classification, graph classification, etc.
-
         Parameters
         ----------
         model: `BaseModel` or `str`
             The (name of) model used to train and predict.
-
         init: `bool`
             If True(False), the model will (not) be initialized.
         """
@@ -180,7 +177,6 @@ class BaseTrainer(AutoModule):
     def to(self, device: _typing.Union[str, torch.device]):
         """
         Transfer the trainer to another device
-
         Parameters
         ----------
         device: `str` or `torch.device`
@@ -202,7 +198,6 @@ class BaseTrainer(AutoModule):
         ----------
         return_major: ``bool``
             Wether to return the major ``feval``. Default ``False``.
-
         Returns
         -------
         ``evaluation`` or list of ``evaluation``:
@@ -234,31 +229,24 @@ class BaseTrainer(AutoModule):
     def train(self, dataset, keep_valid_result):
         """
         Train on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in training.
-
         keep_valid_result: `bool`
             If True(False), save the validation result after training.
-
         Returns
         -------
-
         """
         raise NotImplementedError()
 
     def predict(self, dataset, mask=None):
         """
         Predict on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in predicting.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         Returns
         -------
         prediction result
@@ -268,17 +256,13 @@ class BaseTrainer(AutoModule):
     def predict_proba(self, dataset, mask=None, in_log_format=False):
         """
         Predict the probability on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in predicting.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         in_log_format: `bool`.
             If True(False), the probability will (not) be log format.
-
         Returns
         -------
         The prediction result.
@@ -302,16 +286,12 @@ class BaseTrainer(AutoModule):
 
     def evaluate(self, dataset, mask=None, feval=None):
         """
-
         Parameters
         ----------
         dataset: The dataset used in evaluation.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         feval: The evaluation methods.
-
         Returns
         -------
         The evaluation result.
@@ -642,3 +622,55 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
         self.num_features = self.num_features
         self.num_classes = self.num_classes
         self.last_dim = self.last_dim
+
+
+# ============== Het =================
+class BaseNodeClassificationHetTrainer(BaseNodeClassificationTrainer):
+    """ Base class of trainer for classification tasks """
+
+    def __init__(
+        self,
+        model: _typing.Union[BaseAutoModel, str],
+        dataset: None,
+        num_features: int,
+        num_classes: int,
+        device: _typing.Union[torch.device, str, None] = "auto",
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
+    ):
+        self._dataset = dataset
+        super(BaseNodeClassificationHetTrainer, self).__init__(
+            model, None, num_features, num_classes, device, feval, loss
+        )
+        self.from_dataset(dataset)
+    
+    def from_dataset(self, dataset):
+        self._dataset = dataset
+        if self.encoder is not None:
+            self.encoder.from_dataset(self._dataset)
+
+    @property
+    def encoder(self):
+        return self._encoder
+
+    @encoder.setter
+    def encoder(self, enc: _typing.Union[BaseAutoModel, str, None]):
+        if isinstance(enc, str):
+            self._encoder = ModelUniversalRegistry.get_model(enc)(
+                self.num_features, self.num_classes, device=self.device
+            )
+        elif isinstance(enc, BaseAutoModel):
+            self._encoder = enc
+            if self.decoder is not None:
+                logging.warn("will disable decoder since a whole model is passed")
+                self.decoder = None
+        elif enc is None:
+            self._encoder = None
+        else:
+            raise ValueError("Enc {} is not supported!".format(enc))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        if self._dataset is not None:
+            self.from_dataset(self._dataset)
