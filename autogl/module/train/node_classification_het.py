@@ -71,7 +71,7 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         early_stopping_round=100,
         weight_decay=1e-4,
         device="auto",
-        init=True,
+        init=False,
         feval=[Logloss],
         loss="nll_loss",
         lr_scheduler_type=None,

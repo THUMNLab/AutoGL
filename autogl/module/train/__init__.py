@@ -7,6 +7,7 @@ from .base import (
     BaseNodeClassificationTrainer,
     BaseGraphClassificationTrainer,
     BaseLinkPredictionTrainer,
+    BaseNodeClassificationHetTrainer
 )
 
 
@@ -36,6 +37,7 @@ __all__ = [
     "Evaluation",
     "BaseGraphClassificationTrainer",
     "BaseNodeClassificationTrainer",
+    "BaseNodeClassificationHetTrainer",
     "BaseLinkPredictionTrainer",
     "GraphClassificationFullTrainer",
     "NodeClassificationFullTrainer",
