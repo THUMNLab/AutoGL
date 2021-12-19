@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from . import register_nas_space
 from .base import apply_fixed_architecture
 from .base import BaseSpace
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from ....utils import get_logger
 
 from ...model import AutoGCN
@@ -88,6 +88,6 @@ class SinglePathNodeClassificationSpace(BaseSpace):
                 x = F.dropout(x, p=self.dropout, training=self.training)
         return F.log_softmax(x, dim=1)
 
-    def parse_model(self, selection, device) -> BaseModel:
+    def parse_model(self, selection, device) -> BaseAutoModel:
         # return AutoGCN(self.input_dim, self.output_dim, device)
         return self.wrap(device).fix(selection)

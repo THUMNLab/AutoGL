@@ -9,6 +9,7 @@ os.environ["AUTOGL_BACKEND"] = "dgl"
 
 from autogl.solver import AutoNodeClassifier
 from autogl.datasets import build_dataset_from_name
+from helper import get_encoder_decoder_hp
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--dataset', type=str, choices=['Cora', 'CiteSeer', 'PubMed'], default='Cora')
     parser.add_argument('--repeat', type=int, default=50)
-    parser.add_argument('--model', type=str, choices=['gat', 'gcn', 'sage'], default='gat')
+    parser.add_argument('--model', type=str, choices=['gin', 'gat', 'gcn', 'sage', 'topk'], default='gin')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.0)
     parser.add_argument('--epoch', type=int, default=200)
@@ -39,32 +40,9 @@ if __name__ == '__main__':
     label = dataset[0].nodes.data['label'][dataset[0].nodes.data['test_mask']].numpy()
     accs = []
 
-    for seed in tqdm(range(args.repeat)):
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
-        if args.model == 'gat':
-            model_hp = {
-                # hp from model
-                "num_layers": 2,
-                "hidden": [8],
-                "heads": 8,
-                "dropout": 0.6,
-                "act": "elu",
-            }
-        elif args.model == 'gcn':
-            model_hp = {
-                "num_layers": 2,
-                "hidden": [16],
-                "dropout": 0.5,
-                "act": "relu"
-            }
-        elif args.model == 'sage':
-            model_hp = {
-                "num_layers": 2,
-                "hidden": [64],
-                "dropout": 0.5,
-                "act": "relu",
-                "agg": "gcn",
-            }
+    for seed in tqdm(range(args.repeat)):
         
         solver = AutoNodeClassifier(
             feature_module=None,
@@ -78,7 +56,7 @@ if __name__ == '__main__':
                 "lr": args.lr,
                 "weight_decay": args.weight_decay,
             }),
-            model_hp_spaces=[fixed(**model_hp)]
+            model_hp_spaces=[{"encoder": fixed(**model_hp), "decoder": fixed(**decoder_hp)}]
         )
 
         solver.fit(dataset, evaluation_method=['acc'], seed=seed)

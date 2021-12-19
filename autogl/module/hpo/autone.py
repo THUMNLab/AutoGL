@@ -10,19 +10,21 @@ from .base import BaseHPOptimizer, TimeTooLimitedError
 import random
 from .autone_file import utils
 
-from torch_geometric.data import GraphSAINTRandomWalkSampler
-
 from ..feature import NetLSD as SgNetLSD
 
-from torch_geometric.data import InMemoryDataset
-
 from autogl.backend import DependentBackend
-_isdgl=DependentBackend.is_dgl()
 
-class _MyDataset(InMemoryDataset):
-    def __init__(self, datalist) -> None:
-        super().__init__()
-        self.data, self.slices = self.collate(datalist)
+_isdgl=DependentBackend.is_dgl()
+if _isdgl:
+    import dgl
+else:
+    from torch_geometric.data import InMemoryDataset
+    from torch_geometric.data import GraphSAINTRandomWalkSampler
+
+    class _MyDataset(InMemoryDataset):
+        def __init__(self, datalist) -> None:
+            super().__init__()
+            self.data, self.slices = self.collate(datalist)
 
 @register_hpo("autone")
 class AutoNE(BaseHPOptimizer):
@@ -59,9 +61,10 @@ class AutoNE(BaseHPOptimizer):
         """
         self.feval_name = trainer.get_feval(return_major=True).get_eval_name()
         self.is_higher_better = trainer.get_feval(return_major=True).is_higher_better()
-        space = (
-            trainer.hyper_parameter_space + trainer.get_model().hyper_parameter_space
-        )
+        space = trainer.combined_hyper_parameter_space()
+        # space = (
+        #     trainer.hyper_parameter_space + trainer.get_model().hyper_parameter_space
+        # )
         current_space = self._encode_para(space)
 
         def sample_subgraph(whole_data):

@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 from . import register_nas_space
 from .base import BaseSpace, map_nn
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from .operation import act_map
 from ..utils import count_parameters, measure_latency
 
@@ -134,7 +134,7 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
                     ),
                 )
 
-    def parse_model(self, selection, device) -> BaseModel:
+    def parse_model(self, selection, device) -> BaseAutoModel:
         sel_list = []
         for i in range(self.layer_number):
             sel_list.append(
