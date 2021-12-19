@@ -15,11 +15,11 @@ logging.basicConfig(level=logging.INFO)
 from autogl.backend import DependentBackend
 
 if DependentBackend.is_dgl():
-    from autogl.module.model.dgl import BaseModel
+    from autogl.module.model.dgl import BaseAutoModel
     from dgl.data import CoraGraphDataset
 elif DependentBackend.is_pyg():
     from torch_geometric.datasets import Planetoid
-    from autogl.module.model.pyg import BaseModel
+    from autogl.module.model.pyg import BaseAutoModel
 
 import torch
 import torch.nn.functional as F
@@ -45,7 +45,7 @@ def test_model(model, data=None, check_children=False):
     - model.to()
     - model.initialize()
     """
-    assert isinstance(model, BaseModel)
+    assert isinstance(model, BaseAutoModel)
     assert hasattr(model, "to")
     assert hasattr(model, "initialize")
     model.initialize()

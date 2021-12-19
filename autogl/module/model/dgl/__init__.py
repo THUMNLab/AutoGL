@@ -1,5 +1,5 @@
 from ._model_registry import MODEL_DICT, ModelUniversalRegistry, register_model
-from .base import BaseModel
+from .base import BaseAutoModel
 from .topkpool import AutoTopkpool
 
 
@@ -15,7 +15,7 @@ from .hetero.HeteroRGCN import AutoHeteroRGCN
 __all__ = [
     "ModelUniversalRegistry",
     "register_model",
-    "BaseModel",
+    "BaseAutoModel",
     "AutoTopkpool",
     # "GraphSAINTAggregationModel",
     "GCN",

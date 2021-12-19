@@ -87,13 +87,14 @@ class BaseFeatureGenerator(BaseFeatureEngineer):
                 homogeneous_static_graph.nodes.data['feat'] = extracted_features
         return homogeneous_static_graph
 
-    def _transform(self, data: _typing.Any) -> _typing.Any:
+    def _transform(
+            self, data: _typing.Union[GeneralStaticGraph, _typing.Any]
+    ) -> _typing.Union[GeneralStaticGraph, _typing.Any]:
         if isinstance(data, GeneralStaticGraph):
             return self.__transform_homogeneous_static_graph(data)
         else:
-            raise NotImplementedError(
-                f"Feature Generator only support instance of {GeneralStaticGraph} as provided data"
-            )
+            data.x = self._extract_nodes_feature(data)
+            return data
 
 
 @FeatureEngineerUniversalRegistry.register_feature_engineer("OneHot".lower())

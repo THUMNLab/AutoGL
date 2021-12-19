@@ -40,7 +40,7 @@ models:
   - parameterName: mlp_layers
     type: DISCRETE
     feasiblePoints: '2,3,4'
-  name: gin
+  name: gin-model
 trainer:
   hp_space:
   - maxValue: 300

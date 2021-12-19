@@ -5,9 +5,7 @@ import torch.utils.data
 import typing as _typing
 from sklearn.model_selection import StratifiedKFold, KFold
 from autogl import backend as _backend
-from autogl.data import Data, Dataset, InMemoryStaticGraphSet
-from ...data.graph import GeneralStaticGraph, GeneralStaticGraphGenerator
-from . import _pyg
+from autogl.data import InMemoryDataset
 
 
 def index_to_mask(index: torch.Tensor, size):
@@ -16,80 +14,16 @@ def index_to_mask(index: torch.Tensor, size):
     return mask
 
 
-def split_edges(
-        dataset: InMemoryStaticGraphSet,
-        train_ratio: float, val_ratio: float
-) -> InMemoryStaticGraphSet:
-    test_ratio: float = 1 - train_ratio - val_ratio
-
-    def _split_edges_for_graph(homogeneous_static_graph: GeneralStaticGraph) -> GeneralStaticGraph:
-        if not isinstance(homogeneous_static_graph, GeneralStaticGraph):
-            raise TypeError
-        elif not homogeneous_static_graph.edges.is_homogeneous:
-            raise ValueError("The provided graph MUST consist of homogeneous edges.")
-        else:
-            split_data = _pyg.train_test_split_edges(
-                Data(
-                    edge_index=homogeneous_static_graph.edges.connections.detach().clone(),
-                    edge_attr=(
-                        homogeneous_static_graph.edges.data['edge_attr'].detach().clone()
-                        if 'edge_attr' in homogeneous_static_graph.edges.data else None
-                    )
-                ),
-                val_ratio, test_ratio
-            )
-            original_edge_type = [et for et in homogeneous_static_graph.edges][0]
-
-            split_static_graph = GeneralStaticGraphGenerator.create_heterogeneous_static_graph(
-                dict([
-                    (node_type, homogeneous_static_graph.nodes[node_type].data)
-                    for node_type in homogeneous_static_graph.nodes
-                ]),
-                {
-                    (original_edge_type.source_node_type, "train_pos_edge", original_edge_type.target_node_type): (
-                        getattr(split_data, "train_pos_edge_index"),
-                        {"edge_attr": getattr(split_data, "train_pos_edge_attr")}
-                        if isinstance(getattr(split_data, "train_pos_edge_attr"), torch.Tensor)
-                        else None
-                    ),
-                    (original_edge_type.source_node_type, "val_pos_edge", original_edge_type.target_node_type): (
-                        getattr(split_data, "val_pos_edge_index"),
-                        {"edge_attr": getattr(split_data, "val_pos_edge_attr")}
-                        if isinstance(getattr(split_data, "val_pos_edge_attr"), torch.Tensor)
-                        else None
-                    ),
-                    (original_edge_type.source_node_type, "val_neg_edge", original_edge_type.target_node_type):
-                        getattr(split_data, "val_neg_edge_index"),
-                    (original_edge_type.source_node_type, "test_pos_edge", original_edge_type.target_node_type): (
-                        getattr(split_data, "test_pos_edge_index"),
-                        {"edge_attr": getattr(split_data, "test_pos_edge_attr")}
-                        if isinstance(getattr(split_data, "test_pos_edge_attr"), torch.Tensor)
-                        else None
-                    ),
-                    (original_edge_type.source_node_type, "test_neg_edge", original_edge_type.target_node_type):
-                        getattr(split_data, "test_neg_edge_index")
-                },
-                homogeneous_static_graph.data
-            )
-            return split_static_graph
-
-    if not isinstance(dataset, InMemoryStaticGraphSet):
-        raise TypeError
-    for index in range(len(dataset)):
-        dataset[index] = _split_edges_for_graph(dataset[index])
-    return dataset
-
-
 def random_splits_mask(
-        dataset: InMemoryStaticGraphSet,
+        dataset: InMemoryDataset,
         train_ratio: float = 0.2, val_ratio: float = 0.4,
         seed: _typing.Optional[int] = None
-) -> InMemoryStaticGraphSet:
+) -> InMemoryDataset:
     r"""If the data has masks for train/val/test, return the splits with specific ratio.
 
     Parameters
     ----------
-    dataset : InMemoryStaticGraphSet
+    dataset : InMemoryDataset
         graph set
     train_ratio : float
         the portion of data that used for training.
@@ -135,7 +69,7 @@ def random_splits_mask(
 
 
 def random_splits_mask_class(
-        dataset: InMemoryStaticGraphSet,
+        dataset: InMemoryDataset,
         num_train_per_class: int = 20,
         num_val_per_class: int = 30,
         total_num_val: _typing.Optional[int] = ...,
@@ -152,8 +86,8 @@ def random_splits_mask_class(
 
     Parameters
     ----------
-    dataset: InMemoryStaticGraphSet
-        instance of InMemoryStaticGraphSet
+    dataset: InMemoryDataset
+        instance of ``InMemoryDataset``
     num_train_per_class : int
         the number of samples from every class used for training.
 
@@ -236,20 +170,20 @@ def random_splits_mask_class(
 
 
 def graph_cross_validation(
-        dataset: InMemoryStaticGraphSet,
+        dataset: InMemoryDataset,
         n_splits: int = 10, shuffle: bool = True,
         random_seed: _typing.Optional[int] = ...,
         stratify: bool = False
-) -> InMemoryStaticGraphSet:
-    r"""Cross validation for graph classification data, returning one fold with specific idx in autogl.datasets or pyg.Dataloader(default)
+) -> InMemoryDataset:
+    r"""Cross validation for graph classification data
 
     Parameters
     ----------
-    dataset : str
+    dataset : InMemoryDataset
         dataset with multiple graphs.
 
     n_splits : int
-        the number of how many folds will be splitted.
+        the number of folds to split.
 
     shuffle : bool
         shuffle or not for sklearn.model_selection.StratifiedKFold
@@ -259,8 +193,6 @@ def graph_cross_validation(
 
     stratify: bool
     """
-    if not isinstance(dataset, InMemoryStaticGraphSet):
-        raise TypeError
     if not isinstance(n_splits, int):
         raise TypeError
     elif not n_splits > 0:
@@ -284,7 +216,7 @@ def graph_cross_validation(
         kf = KFold(
             n_splits=n_splits, shuffle=shuffle, random_state=_random_seed
         )
-    dataset_y = [g.data['y'].item() for g in dataset]
+    dataset_y = [g.data['y' if 'y' in g.data else 'label'].item() for g in dataset]
     idx_list = [
         (train_index.tolist(), test_index.tolist())
         for train_index, test_index
@@ -297,8 +229,34 @@ def graph_cross_validation(
     return dataset
 
 
+def set_fold(dataset: InMemoryDataset, fold_id: int) -> InMemoryDataset:
+    r"""Set fold for graph dataset consist of multiple graphs.
+
+    Parameters
+    ----------
+    dataset: `autogl.data.InMemoryDataset`
+        dataset with multiple graphs.
+    fold_id: `int`
+        The fold in to use, MUST be in [0, dataset.n_splits)
+
+    Returns
+    -------
+    `autogl.data.InMemoryDataset`
+        The reference of original dataset.
+    """
+    if not (hasattr(dataset, 'folds') and dataset.folds is not None):
+        raise ValueError("Dataset do NOT contain folds")
+    if not 0 <= fold_id < len(dataset.folds):
+        raise ValueError(
+            f"Fold id {fold_id} exceed total cross validation split number {len(dataset.folds)}"
+        )
+    dataset.train_index = dataset.folds[fold_id].train_index
+    dataset.val_index = dataset.folds[fold_id].val_index
+    return dataset
+
+
 def graph_random_splits(
-        dataset: InMemoryStaticGraphSet,
+        dataset: InMemoryDataset,
         train_ratio: float = 0.2,
         val_ratio: float = 0.4,
         seed: _typing.Optional[int] = ...
@@ -327,9 +285,9 @@ def graph_random_splits(
         perm[int(len(dataset) * train_ratio): int(len(dataset) * (train_ratio + val_ratio))]
     )
     test_index = perm[int(len(dataset) * (train_ratio + val_ratio)):]
-    dataset.train_index = train_index
-    dataset.val_index = val_index
-    dataset.test_index = test_index
+    dataset.train_index = train_index.tolist()
+    dataset.val_index = val_index.tolist()
+    dataset.test_index = test_index.tolist()
     torch.set_rng_state(_rng_state)
     return dataset
 
@@ -375,30 +333,46 @@ def graph_get_split(
         raise ValueError
     elif mask.lower() == "train":
         optional_dataset_split = dataset.train_split
+        if optional_dataset_split is None:
+            raise ValueError(f"Provided dataset do NOT have {mask} split")
+        else:
+            sub_dataset = InMemoryDataset(
+                optional_dataset_split, train_index=list(range(len(optional_dataset_split)))
+            )
     elif mask.lower() == "val":
         optional_dataset_split = dataset.val_split
+        if optional_dataset_split is None:
+            raise ValueError(f"Provided dataset do NOT have {mask} split")
+        else:
+            sub_dataset = InMemoryDataset(
+                optional_dataset_split, val_index=list(range(len(optional_dataset_split)))
+            )
     elif mask.lower() == "test":
         optional_dataset_split = dataset.test_split
+        if optional_dataset_split is None:
+            raise ValueError(f"Provided dataset do NOT have {mask} split")
+        else:
+            sub_dataset = InMemoryDataset(
+                optional_dataset_split, test_index=list(range(len(optional_dataset_split)))
+            )
     else:
         raise ValueError(
             f"The provided mask parameter must be a str in ['train', 'val', 'test'], "
             f"illegal provided value is [{mask}]"
         )
-    if optional_dataset_split is None:
-        raise ValueError(
-            f"Provided dataset do NOT have {mask} split"
-        )
+    if not is_loader:
+        return sub_dataset
     if is_loader:
         if not (_backend.DependentBackend.is_dgl() or _backend.DependentBackend.is_pyg()):
             raise RuntimeError("Unsupported backend")
         elif _backend.DependentBackend.is_dgl():
             from dgl.dataloading.pytorch import GraphDataLoader
             return GraphDataLoader(
-                optional_dataset_split,
+                sub_dataset,
                 **{"batch_size": batch_size, "num_workers": num_workers}
             )
         elif _backend.DependentBackend.is_pyg():
-            dataset_split: _typing.Any = optional_dataset_split
+            _sub_dataset: _typing.Any = optional_dataset_split
             import torch_geometric
             if int(torch_geometric.__version__.split('.')[0]) >= 2:
                 # version 2.x
@@ -406,7 +380,7 @@ def graph_get_split(
             else:
                 from torch_geometric.data import DataLoader
             return DataLoader(
-                dataset_split, batch_size=batch_size, num_workers=num_workers
+                _sub_dataset, batch_size=batch_size, num_workers=num_workers
             )
     else:
-        return optional_dataset_split
+        return sub_dataset

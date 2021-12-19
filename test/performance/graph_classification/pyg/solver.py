@@ -12,6 +12,7 @@ from tqdm import tqdm
 from autogl.solver import AutoGraphClassifier
 from autogl.datasets import build_dataset_from_name, utils
 from autogl.solver.utils import set_seed
+from helper import get_encoder_decoder_hp
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_seed', type=int, default=2021)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--repeat', type=int, default=50)
-    parser.add_argument('--model', type=str, choices=['gin', 'topkpool'], default='gin')
+    parser.add_argument('--model', type=str, choices=['gin', 'gat', 'gcn', 'sage'], default='gin')
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--epoch', type=int, default=100)
 
@@ -54,6 +55,8 @@ if __name__ == '__main__':
 
     labels = np.array([x.data['y'].item() for x in dataset.test_split])
 
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
+
     accs = []
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
@@ -73,23 +76,7 @@ if __name__ == '__main__':
                     "weight_decay": 0,
                 }
             ),
-            model_hp_spaces=[
-                fixed(**{
-                    # hp from model
-                    "num_layers": 5,
-                    "hidden": [64,64,64,64],
-                    "dropout": 0.5,
-                    "act": "relu",
-                    "eps": "False",
-                    "mlp_layers": 2,
-                    "neighbor_pooling_type": "sum",
-                    "graph_pooling_type": "sum"
-                }) if args.model == 'gin' else fixed(**{
-                    "ratio": 0.8,
-                    "dropout": 0.5,
-                    "act": "relu"
-                }),
-            ]
+            model_hp_spaces=[{"encoder": fixed(**model_hp), "decoder": fixed(**decoder_hp)}]
         )
         solver.fit(dataset, evaluation_method=['acc'])
         out = solver.predict(dataset, mask='test')

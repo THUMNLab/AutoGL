@@ -14,6 +14,7 @@ from torch_geometric.data import DataLoader
 from autogl.datasets import utils
 from autogl.module.train import GraphClassificationFullTrainer
 from autogl.solver.utils import set_seed
+from helper import get_encoder_decoder_hp
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -34,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_seed', type=int, default=2021)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--repeat', type=int, default=50)
-    parser.add_argument('--model', type=str, choices=['gin', 'topkpool'], default='gin')
+    parser.add_argument('--model', type=str, choices=['gin', 'gat', 'gcn', 'sage'], default='gin')
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--epoch', type=int, default=100)
 
@@ -63,24 +64,7 @@ if __name__ == '__main__':
 
     accs = []
 
-    if args.model == 'gin':
-        model_hp = {
-            # hp from model
-            "num_layers": 5,
-            "hidden": [64,64,64,64],
-            "dropout": 0.5,
-            "act": "relu",
-            "eps": "False",
-            "mlp_layers": 2,
-            "neighbor_pooling_type": "sum",
-            "graph_pooling_type": "sum"
-        }
-    elif args.model == 'topkpool':
-        model_hp = {
-            "ratio": 0.8,
-            "dropout": 0.5,
-            "act": "relu"
-        }
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
     from tqdm import tqdm
     for seed in tqdm(range(args.repeat)):
@@ -92,17 +76,21 @@ if __name__ == '__main__':
             init=False,
             num_features=dataset[0].x.size(1),
             num_classes=max([data.y.item() for data in dataset]) + 1,
+            num_graph_features=0,
             loss='nll_loss',
             feval=('acc')
         ).duplicate_from_hyper_parameter(
             {
-                # hp from trainer
-                "max_epoch": args.epoch,
-                "batch_size": args.batch_size, 
-                "early_stopping_round": args.epoch + 1, 
-                "lr": args.lr, 
-                "weight_decay": 0,
-                **model_hp
+                "trainer": {
+                    # hp from trainer
+                    "max_epoch": args.epoch,
+                    "batch_size": args.batch_size, 
+                    "early_stopping_round": args.epoch + 1, 
+                    "lr": args.lr, 
+                    "weight_decay": 0,
+                },
+                "encoder": model_hp,
+                "decoder": decoder_hp
             }
         )
 
