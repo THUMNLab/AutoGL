@@ -684,8 +684,7 @@ class AutoNodeClassifier(BaseClassifier):
         if dataset is None:
             dataset = self.dataset
         if label is None:
-            _node = dataset[0].nodes.data
-            label = _node['y' if 'y' in _node else 'label'][_node['test_mask']].cpu().numpy()
+            label = get_graph_labels(dataset[0])[get_graph_masks(dataset[0], mask)].cpu().numpy()
         evaluator = get_feval(metric)
         if isinstance(evaluator, Sequence):
             return [evals.evaluate(predicted, label) for evals in evaluator]

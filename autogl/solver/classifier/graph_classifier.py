@@ -611,7 +611,7 @@ class AutoGraphClassifier(BaseClassifier):
                 masked_dataset = dataset
             else:
                 masked_dataset = utils.graph_get_split(dataset, mask, False)
-            label = np.array([d.data['y' if 'y' in d.data else 'label'].item() for d in masked_dataset])
+            label = get_dataset_labels(masked_dataset)
         evaluator = get_feval(metric)
         if isinstance(evaluator, Sequence):
             return [evals.evaluate(predicted, label) for evals in evaluator]

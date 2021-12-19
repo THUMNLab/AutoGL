@@ -242,7 +242,7 @@ def get_graph_labels(graph):
     return None
 
 def get_dataset_labels(dataset):
-    if isinstance(dataset, Dataset):
+    if isinstance(dataset[0], GeneralStaticGraph):
         return torch.LongTensor([d.data['label' if BACKEND == 'dgl' else 'y'] for d in dataset])
     if BACKEND == 'pyg':
         return dataset.data.y
