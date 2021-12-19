@@ -222,7 +222,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         self.__training_sampler_num_workers: int = 0
 
         super(NodeClassificationGraphSAINTTrainer, self).__init__(
-            model, num_features, num_classes, device, init, feval, loss
+            model, None, num_features, num_classes, device, feval, loss
         )
         self.__is_initialized: bool = False
         if init:
@@ -606,18 +606,6 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         else:
             return self._valid_score, [f.is_higher_better() for f in self.feval]
 
-    @property
-    def hyper_parameter_space(self) -> _typing.Sequence[_typing.Dict[str, _typing.Any]]:
-        return self._hyper_parameter_space
-
-    @hyper_parameter_space.setter
-    def hyper_parameter_space(
-        self, hp_space: _typing.Sequence[_typing.Dict[str, _typing.Any]]
-    ) -> None:
-        if not isinstance(hp_space, _typing.Sequence):
-            raise TypeError
-        self._hyper_parameter_space = hp_space
-
     def __repr__(self) -> str:
         import yaml
 
@@ -656,15 +644,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
         """
         if model is None or not isinstance(model, BaseAutoModel):
             model: BaseAutoModel = self.model
-        model = model.from_hyper_parameter(
-            dict(
-                [
-                    x
-                    for x in hp.items()
-                    if x[0] in [y["parameterName"] for y in model.hyper_parameter_space]
-                ]
-            )
-        )
+        model = model.from_hyper_parameter(hp["encoder"])
         return NodeClassificationGraphSAINTTrainer(
             model,
             self.num_features,
@@ -675,7 +655,7 @@ class NodeClassificationGraphSAINTTrainer(BaseNodeClassificationTrainer):
             feval=self.feval,
             loss=self.loss,
             lr_scheduler_type=self._lr_scheduler_type,
-            **hp,
+            **hp["trainer"],
         )
 
 
@@ -1463,7 +1443,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             self.__predicting_sampler_num_workers = cpu_count
 
         super(NodeClassificationNeighborSamplingTrainer, self).__init__(
-            model, num_features, num_classes, device, init, feval, loss
+            model, None, num_features, num_classes, device, feval, loss
         )
 
         self.__neighbor_sampler_store: _DeterministicNeighborSamplerStore = (
@@ -1944,18 +1924,6 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         else:
             return self._valid_score, [f.is_higher_better() for f in self.feval]
 
-    @property
-    def hyper_parameter_space(self) -> _typing.Sequence[_typing.Dict[str, _typing.Any]]:
-        return self._hyper_parameter_space
-
-    @hyper_parameter_space.setter
-    def hyper_parameter_space(
-        self, hp_space: _typing.Sequence[_typing.Dict[str, _typing.Any]]
-    ) -> None:
-        if not isinstance(hp_space, _typing.Sequence):
-            raise TypeError
-        self._hyper_parameter_space = hp_space
-
     def __repr__(self) -> str:
         import yaml
 
@@ -1993,15 +1961,7 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
         """
         if model is None or not isinstance(model, BaseAutoModel):
             model: BaseAutoModel = self.model
-        model = model.from_hyper_parameter(
-            dict(
-                [
-                    x
-                    for x in hp.items()
-                    if x[0] in [y["parameterName"] for y in model.hyper_parameter_space]
-                ]
-            )
-        )
+        model = model.from_hyper_parameter(hp["encoder"])
         return NodeClassificationNeighborSamplingTrainer(
             model,
             self.num_features,
@@ -2012,5 +1972,5 @@ class NodeClassificationNeighborSamplingTrainer(BaseNodeClassificationTrainer):
             feval=self.feval,
             loss=self.loss,
             lr_scheduler_type=self._lr_scheduler_type,
-            **hp,
+            **hp["trainer"],
         )
