@@ -14,6 +14,7 @@ from torch_geometric.data import DataLoader
 from autogl.datasets import utils
 from autogl.module.train import GraphClassificationFullTrainer
 from autogl.solver.utils import set_seed
+from helper import get_encoder_decoder_hp
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -63,24 +64,7 @@ if __name__ == '__main__':
 
     accs = []
 
-    if args.model == 'gin':
-        model_hp = {
-            # hp from model
-            "num_layers": 5,
-            "hidden": [64,64,64,64],
-            "dropout": 0.5,
-            "act": "relu",
-            "eps": "False",
-            "mlp_layers": 2,
-            "neighbor_pooling_type": "sum",
-            "graph_pooling_type": "sum"
-        }
-    elif args.model == 'topkpool':
-        model_hp = {
-            "ratio": 0.8,
-            "dropout": 0.5,
-            "act": "relu"
-        }
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
     from tqdm import tqdm
     for seed in tqdm(range(args.repeat)):
@@ -105,7 +89,8 @@ if __name__ == '__main__':
                     "lr": args.lr, 
                     "weight_decay": 0,
                 },
-                "encoder": model_hp
+                "encoder": model_hp,
+                "decoder": decoder_hp
             }
         )
 

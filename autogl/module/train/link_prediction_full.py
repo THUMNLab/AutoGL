@@ -28,6 +28,7 @@ def get_feval(feval):
 class _DummyLinkModel(torch.nn.Module):
     def __init__(self, encoder, decoder):
         super().__init__()
+        self.automodelflag = False
         if isinstance(encoder, BaseAutoModel):
             self.automodelflag = True
             self.encoder = encoder.model

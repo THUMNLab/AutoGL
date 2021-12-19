@@ -14,6 +14,7 @@ from dgl.dataloading import GraphDataLoader
 from autogl.datasets import utils
 from autogl.module.train import GraphClassificationFullTrainer
 from autogl.solver.utils import set_seed
+from helper import get_encoder_decoder_hp
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -81,7 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_seed', type=int, default=2021)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--repeat', type=int, default=50)
-    parser.add_argument('--model', type=str, choices=['gin', 'gat', 'gcn', 'sage'], default='gin')
+    parser.add_argument('--model', type=str, choices=['gin', 'gat', 'gcn', 'sage', 'topk'], default='gin')
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--epoch', type=int, default=100)
 
@@ -108,23 +109,7 @@ if __name__ == '__main__':
 
     accs = []
 
-    if args.model == 'gin':
-        model_hp = {
-            "num_layers": 5,
-            "hidden": [64],
-            "dropout": 0.5,
-            "act": "relu",
-            "eps": "False",
-            "mlp_layers": 2,
-            "neighbor_pooling_type": "sum",
-            "graph_pooling_type": "sum"
-        }
-    elif args.model == 'topkpool':
-        model_hp = {
-            "num_layers": 5,
-            "hidden": [64],
-            "dropout": 0.5
-        }
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
     from tqdm import tqdm
     for seed in tqdm(range(10)):
@@ -147,7 +132,8 @@ if __name__ == '__main__':
                 "lr": args.lr, 
                 "weight_decay": 0
                 },
-            "encoder": model_hp
+            "encoder": model_hp,
+            "decoder": decoder_hp
         })
 
         trainer.train(dataset, False)

@@ -1,3 +1,4 @@
+import logging
 import torch.nn.functional
 import typing as _typing
 import torch_geometric
@@ -23,7 +24,8 @@ class _GAT(torch.nn.Module):
             self, input_dimension: int,
             per_head_output_dimensions: _typing.Sequence[int],
             num_hidden_heads: int, num_output_heads: int,
-            _dropout: float, _act: _typing.Optional[str]
+            _dropout: float, _act: _typing.Optional[str],
+            concat_last: bool = True
     ):
         super(_GAT, self).__init__()
         self._dropout: float = _dropout
@@ -41,7 +43,8 @@ class _GAT(torch.nn.Module):
                     input_dimension if layer == 0 else total_output_dimensions[layer - 1],
                     per_head_output_dimensions[layer],
                     num_hidden_heads if layer < num_layers - 1 else num_output_heads,
-                    dropout=_dropout
+                    dropout=_dropout,
+                    concat=True if layer < num_layers - 1 or concat_last else False
                 )
             )
 
@@ -65,6 +68,7 @@ class _GAT(torch.nn.Module):
             if layer < len(self.__convolution_layers) - 1:
                 x: torch.Tensor = _utils.activation.activation_func(x, self._act)
             results.append(x)
+        logging.debug("{:d} layer, each layer shape {:s}".format(len(results), " ".join([str(x.shape) for x in results])))
         return results
 
 
@@ -73,21 +77,23 @@ class _GAT(torch.nn.Module):
 class GATEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     def _initialize(self) -> _typing.Optional[bool]:
         dimensions = list(self.hyper_parameters['hidden'])
+        concat_last = True
         if (
                 self.final_dimension not in (Ellipsis, None)
                 and isinstance(self.final_dimension, int)
                 and self.final_dimension > 0
         ):
             dimensions.append(self.final_dimension)
+            concat_last = False
+        logging.debug("current dimensions %s", dimensions)
         self._encoder = _GAT(
-            self.input_dimension, self.hyper_parameters['hidden'],
-            self.hyper_parameters.get('num_hidden_heads', self.hyper_parameters.get('heads', 1)),
-            self.hyper_parameters.get(
-                'num_output_heads',
-                self.hyper_parameters.get('num_hidden_heads', self.hyper_parameters.get('heads', 1))
-            ),
+            self.input_dimension,
+            dimensions,
+            self.hyper_parameters.get('num_hidden_heads'),
+            self.hyper_parameters.get('num_output_heads'),
             self.hyper_parameters['dropout'],
-            self.hyper_parameters['act']
+            self.hyper_parameters['act'],
+            concat_last=concat_last
         )
         return True
 

@@ -1,3 +1,4 @@
+import logging
 import torch.nn.functional
 import typing as _typing
 import dgl
@@ -22,7 +23,7 @@ class GAT(torch.nn.Module):
     def __init__(
             self, input_dimension: int, dimensions: _typing.Sequence[int],
             num_hidden_heads: int, num_output_heads: int,
-            act: _typing.Optional[str], dropout: _typing.Optional[float]
+            act: _typing.Optional[str], dropout: _typing.Optional[float], concat_last: bool = True
     ):
         super(GAT, self).__init__()
         dimensions = GATUtils.to_total_hidden_dimensions(
@@ -46,6 +47,7 @@ class GAT(torch.nn.Module):
                 )
             )
         self.__activation: _typing.Optional[str] = act
+        self.__concat_last = concat_last
 
     def forward(
             self, graph: dgl.DGLGraph, *__args, **__kwargs
@@ -56,10 +58,14 @@ class GAT(torch.nn.Module):
         x: torch.Tensor = graph.ndata['feat']
         results = [x]
         for layer in range(num_layers):
-            x = self.__convolutions[layer](graph, x).flatten(1)
+            if layer < num_layers - 1 or self.__concat_last:
+                x = self.__convolutions[layer](graph, x).flatten(1)
+            else:
+                x = self.__convolutions[layer](graph, x).mean(1)
             if layer < num_layers - 1:
                 x = _utils.activation.activation_func(x, self.__activation)
             results.append(x)
+        logging.debug("{:d} layer, each layer shape {:s}".format(len(results), " ".join([str(x.shape) for x in results])))
         return results
 
 
@@ -171,17 +177,21 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
 
     def _initialize(self) -> _typing.Optional[bool]:
         dimensions = list(self.hyper_parameters["hidden"])
+        concat_last = True
         if (
                 self.final_dimension not in (Ellipsis, None) and
                 isinstance(self.final_dimension, int) and
                 self.final_dimension > 0
         ):
             dimensions.append(self.final_dimension)
+            concat_last = False
+        logging.debug("current dimensions %s", dimensions)
         self._encoder: torch.nn.Module = GAT(
             self.input_dimension, dimensions,
             self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
             self.hyper_parameters.get("num_output_heads", 1),
             self.hyper_parameters.get("act"),
-            self.hyper_parameters.get("dropout")
+            self.hyper_parameters.get("dropout"),
+            concat_last
         ).to(self.device)
         return True

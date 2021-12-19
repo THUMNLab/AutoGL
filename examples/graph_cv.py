@@ -89,18 +89,7 @@ if __name__ == "__main__":
             seed=args.seed,
             evaluation_method=[Acc],
         )
-        predict_result = autoClassifier.predict_proba(dataset, mask="val")
-        acc = Acc.evaluate(
-            predict_result, dataset.data.y[dataset.val_index].cpu().detach().numpy()
-        )
-        print(
-            "test acc %.4f"
-            % (
-                Acc.evaluate(
-                    predict_result,
-                    dataset.data.y[dataset.val_index].cpu().detach().numpy(),
-                )
-            )
-        )
+        acc = autoClassifier.evaluate(dataset, mask="val", metric="acc")
+        print("test acc fold {:d}: {:.4f}".format(fold, acc))
         accs.append(acc)
     print("Average acc on", args.dataset, ":", np.mean(accs), "~", np.std(accs))

@@ -9,8 +9,8 @@ import dgl
 import torch
 import numpy as np
 import scipy.sparse as sp
-from autogl.module.model.dgl import AutoSAGE, AutoGAT, AutoGCN
 from autogl.datasets.utils.conversion import to_dgl_dataset
+from helper import get_encoder_decoder_hp
 
 
 def construct_negative_graph(graph, k):
@@ -135,6 +135,8 @@ if __name__ == "__main__":
             "gcn",
             "gat",
             "sage",
+            "gin",
+            "topk"
         ],
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed")
@@ -142,9 +144,6 @@ if __name__ == "__main__":
     parser.add_argument("--device", default="cuda", type=str, help="GPU device")
 
     args = parser.parse_args()
-
-    if torch.cuda.is_available():
-        torch.cuda.set_device(torch.device(args.device))
 
     dataset = build_dataset_from_name(args.dataset.lower())
     dataset = to_dgl_dataset(dataset)
@@ -163,16 +162,7 @@ if __name__ == "__main__":
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
-        if args.model == 'sage':
-            model_hp = {
-                "num_layers": 3,
-                "hidden": [16, 16],
-                "dropout": 0.0,
-                "act": "relu",
-                "agg": "mean",
-            }
-        else:
-            model_hp = dict()
+        model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
         autoClassifier = AutoLinkPredictor(
             feature_module=None,
@@ -186,27 +176,13 @@ if __name__ == "__main__":
                 "lr":0.01,
                 "weight_decay": 0.0,
             }),
-            model_hp_spaces=[fixed(**model_hp)]
+            model_hp_spaces=[{"encoder": fixed(**model_hp), "decoder": fixed(**decoder_hp)}]
         )
         autoClassifier.fit(
             dataset,
             time_limit=3600,
             evaluation_method=[Auc],
             seed=seed,
-            # train_split=0.85,
-            # val_split=0.05,
         )
-        autoClassifier.get_leaderboard().show()
-
-        # test
-        predict_result = autoClassifier.predict_proba()
-
-        pos_edge_index, neg_edge_index = torch.stack(dataset[0][-2].edges()), torch.stack(dataset[0][-1].edges())
-        E = pos_edge_index.size(1) + neg_edge_index.size(1)
-        link_labels = torch.zeros(E)
-        link_labels[: pos_edge_index.size(1)] = 1.0
-
-        print(
-            "test auc: %.4f"
-            % (Auc.evaluate(predict_result, link_labels.detach().cpu().numpy()))
-        )
+        auc = autoClassifier.evaluate(metric='auc')        
+        print("test auc: {:.4f}".format(auc))

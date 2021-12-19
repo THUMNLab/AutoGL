@@ -9,6 +9,7 @@ import torch
 import numpy as np
 import scipy.sparse as sp
 from autogl.datasets.utils.conversion import to_dgl_dataset
+from helper import get_encoder_decoder_hp
 
 
 def construct_negative_graph(graph, k):
@@ -130,7 +131,8 @@ if __name__ == "__main__":
             "gcn",
             "gat",
             "sage",
-            "gin"
+            "gin",
+            "topk"
         ],
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed")
@@ -138,9 +140,6 @@ if __name__ == "__main__":
     parser.add_argument("--device", default="cuda", type=str, help="GPU device")
 
     args = parser.parse_args()
-
-    if torch.cuda.is_available():
-        torch.cuda.set_device(torch.device(args.device))
 
     dataset = build_dataset_from_name(args.dataset.lower())
     dataset = to_dgl_dataset(dataset)
@@ -159,16 +158,7 @@ if __name__ == "__main__":
         graph = dataset[0].to(args.device)
         num_features = graph.ndata['feat'].size(1)
 
-        if args.model == 'sage':
-            model_hp = {
-                "num_layers": 3,
-                "hidden": [16, 16],
-                "dropout": 0.0,
-                "act": "relu",
-                "agg": "mean",
-            }
-        else:
-            model_hp = dict()
+        model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
         trainer = LinkPredictionTrainer(
             model = args.model,
@@ -185,7 +175,7 @@ if __name__ == "__main__":
             {
                 "trainer": {},
                 "encoder": model_hp,
-                "decoder": {}
+                "decoder": decoder_hp
             },
             restricted=False
         )

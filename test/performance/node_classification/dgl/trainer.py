@@ -11,6 +11,7 @@ from dgl.data import CoraGraphDataset, PubmedGraphDataset, CiteseerGraphDataset
 from autogl.module.train import NodeClassificationFullTrainer
 from autogl.solver.utils import set_seed
 import logging
+from helper import get_encoder_decoder_hp
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -44,33 +45,10 @@ if __name__ == '__main__':
     num_classes = dataset.num_classes
     accs = []
 
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
+
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
-
-        if args.model == 'gat':
-            model_hp = {
-                # hp from model
-                "num_layers": 2,
-                "hidden": [8],
-                "heads": 8,
-                "dropout": 0.6,
-                "act": "elu",
-            }
-        elif args.model == 'gcn':
-            model_hp = {
-                "num_layers": 2,
-                "hidden": [16],
-                "dropout": 0.5,
-                "act": "relu"
-            }
-        elif args.model == 'sage':
-            model_hp = {
-                "num_layers": 2,
-                "hidden": [64],
-                "dropout": 0.5,
-                "act": "relu",
-                "agg": "gcn",
-            }
 
         trainer = NodeClassificationFullTrainer(
             model=args.model,
@@ -87,7 +65,8 @@ if __name__ == '__main__':
                 "lr": args.lr,
                 "weight_decay": args.weight_decay
             },
-            "encoder": model_hp
+            "encoder": model_hp,
+            "decoder": decoder_hp
         })
 
         trainer.train(dataset, False)
