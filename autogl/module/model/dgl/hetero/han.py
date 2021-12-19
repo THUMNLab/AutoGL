@@ -237,7 +237,7 @@ class AutoHAN(BaseModel):
 
     def from_hyper_parameter(self, hp):
         ret_self = self.__class__(
-            meta_path=self.meta_path,
+            meta_path=self.meta_paths,
             num_features=self.num_features,
             num_classes=self.num_classes,
             device=self.device,

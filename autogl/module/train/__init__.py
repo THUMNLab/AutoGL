@@ -26,6 +26,9 @@ def register_trainer(name):
 
 from .graph_classification_full import GraphClassificationFullTrainer
 from .node_classification_full import NodeClassificationFullTrainer
+from .node_classification_hgt import NodeClassificationHgtTrainer
+from .node_classification_han import NodeClassificationHanTrainer
+from .node_classification_het import NodeClassificationHetTrainer
 if DependentBackend.is_pyg():
     from .link_prediction import LinkPredictionTrainer
 elif DependentBackend.is_dgl():
@@ -41,6 +44,8 @@ __all__ = [
     "BaseLinkPredictionTrainer",
     "GraphClassificationFullTrainer",
     "NodeClassificationFullTrainer",
+    "NodeClassificationHgtTrainer",
+    "NodeClassificationHanTrainer",
     "NodeClassificationGraphSAINTTrainer",
     "NodeClassificationLayerDependentImportanceSamplingTrainer",
     "NodeClassificationNeighborSamplingTrainer",

@@ -173,10 +173,10 @@ class HGT(nn.Module):
 class AutoHGT(BaseModel):
 
     def __init__(
-        #self,  dataset=None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
         self,  G = None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
     ):
         super(AutoHGT, self).__init__()
+        self.G = G
         self.meta_paths = meta_paths
         self.num_features = num_features if num_features is not None else 0
         self.num_classes = int(num_classes) if num_classes is not None else 0
@@ -265,8 +265,8 @@ class AutoHGT(BaseModel):
             node_dict[ntype] = len(node_dict)
         for etype in G.etypes:
             edge_dict[etype] = len(edge_dict)
-        self.params["node_dcit"] = node_dict
-        self.params["edge_dcit"] = edge_dict
+        self.params["node_dict"] = node_dict
+        self.params["edge_dict"] = edge_dict
 
 
 

@@ -12,7 +12,7 @@ sys.path.append("../../../../")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from autogl.module.model.dgl import AutoHGT
+from autogl.module.model.dgl import AutoHGT, AutoHeteroRGCN
 from autogl.solver.utils import set_seed
 import logging
 
@@ -20,9 +20,7 @@ import logging
 import scipy.io
 import urllib.request
 import dgl
-import math
 import numpy as np
-from model import *
 import argparse
 
 
@@ -34,6 +32,12 @@ def get_n_params(model):
             nn = nn*s
         pp += nn
     return pp
+
+def test(model, graph, idx, labels):
+    model.eval()
+    pred = model(graph,'paper')[idx].max(1)[1].cpu()
+    acc = (pred == labels[idx]).float().mean()
+    return acc
 
 def train(model, G, args):
     best_val_acc = torch.tensor(0)
@@ -50,27 +54,27 @@ def train(model, G, args):
         optimizer.step()
         train_step += 1
         scheduler.step(train_step)
-        if epoch % 5 == 0:
-            model.eval()
-            logits = model(G, 'paper')
-            pred   = logits.argmax(1).cpu()
-            train_acc = (pred[train_idx] == labels[train_idx]).float().mean()
-            val_acc   = (pred[val_idx]   == labels[val_idx]).float().mean()
-            test_acc  = (pred[test_idx]  == labels[test_idx]).float().mean()
-            if best_val_acc < val_acc:
-                best_val_acc = val_acc
-                best_test_acc = test_acc
-            print('Epoch: %d LR: %.5f Loss %.4f, Train Acc %.4f, Val Acc %.4f (Best %.4f), Test Acc %.4f (Best %.4f)' % (
-                epoch,
-                optimizer.param_groups[0]['lr'], 
-                loss.item(),
-                train_acc.item(),
-                val_acc.item(),
-                best_val_acc.item(),
-                test_acc.item(),
-                best_test_acc.item(),
-            ))
-    return best_test_acc
+    #     if epoch % 5 == 0:
+    #         model.eval()
+    #         logits = model(G, 'paper')
+    #         pred   = logits.argmax(1).cpu()
+    #         train_acc = (pred[train_idx] == labels[train_idx]).float().mean()
+    #         val_acc   = (pred[val_idx]   == labels[val_idx]).float().mean()
+    #         test_acc  = (pred[test_idx]  == labels[test_idx]).float().mean()
+    #         if best_val_acc < val_acc:
+    #             best_val_acc = val_acc
+    #             best_test_acc = test_acc
+    #         print('Epoch: %d LR: %.5f Loss %.4f, Train Acc %.4f, Val Acc %.4f (Best %.4f), Test Acc %.4f (Best %.4f)' % (
+    #             epoch,
+    #             optimizer.param_groups[0]['lr'], 
+    #             loss.item(),
+    #             train_acc.item(),
+    #             val_acc.item(),
+    #             best_val_acc.item(),
+    #             test_acc.item(),
+    #             best_test_acc.item(),
+    #         ))
+    # return best_test_acc
 
 
 if __name__=='__main__':
@@ -81,16 +85,18 @@ if __name__=='__main__':
     parser.add_argument('--n_inp',   type=int, default=256)
     parser.add_argument('--clip',    type=int, default=1.0) 
     parser.add_argument('--max_lr',  type=float, default=1e-3) 
-    parser.add_argument('--repeat', type=int, default=1)
+    parser.add_argument('--repeat', type=int, default=50)
     parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--model', type=str, choices=['hgt', 'HeteroRGCN'], default='hgt')
 
     args = parser.parse_args()
 
     torch.manual_seed(0)
-    data_url = 'https://data.dgl.ai/dataset/ACM.mat'
-    data_file_path = '/tmp/ACM.mat'
+    # data_url = 'https://data.dgl.ai/dataset/ACM.mat'
+    # data_file_path = '/tmp/ACM.mat'
 
-    urllib.request.urlretrieve(data_url, data_file_path)
+    # urllib.request.urlretrieve(data_url, data_file_path)
+    data_file_path = '/home/jcai/code/AutoGL/test/performance/heterogeneous/dgl/ACM.mat'
     data = scipy.io.loadmat(data_file_path)
 
     G = dgl.heterograph({
@@ -118,11 +124,11 @@ if __name__=='__main__':
     test_idx = torch.tensor(shuffle[900:]).long()
 
     #node_dict = {}
-    #edge_dict = {}
+    edge_dict = {}
     #for ntype in G.ntypes:
     #    node_dict[ntype] = len(node_dict)
-    #for etype in G.etypes:
-    #    edge_dict[etype] = len(edge_dict)
+    for etype in G.etypes:
+       edge_dict[etype] = len(edge_dict)
 
     for etype in G.etypes:
         G.edges[etype].data['id'] = torch.ones(G.number_of_edges(etype), dtype=torch.long) * len(edge_dict)
@@ -141,29 +147,40 @@ if __name__=='__main__':
 
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
-        model = AutoHGT(G=G,
-            node_dict=node_dict, 
-            edge_dict=edge_dict,
-            num_features=num_features,
-            num_classes=num_classes,
-            device=args.device,
-            init=False
-        ).from_hyper_parameter({
-            # hp from model
-            "num_layers": 2,
-            "hidden": [256,256,256],
-            "heads": 4,
-            "dropout": 0.2,
-            "act": "gelu",
-            "use_norm": True,
-        }).model
+        if args.model=='hgt':
+            model = AutoHGT(G=G,
+                num_features=num_features,
+                num_classes=num_classes,
+                device=args.device,
+                init=False
+            ).from_hyper_parameter({
+                # hp from model
+                "num_layers": 2,
+                "hidden": [256,256,256],
+                "heads": 4,
+                "dropout": 0.2,
+                "act": "gelu",
+                "use_norm": True,
+            }).model
+        elif args.model=='HeteroRGCN':
+            model = AutoHeteroRGCN(G=G,
+                num_features=num_features,
+                num_classes=num_classes,
+                device=args.device,
+                init=False
+            ).from_hyper_parameter({
+                # hp from model
+                "num_layers": 2,
+                "hidden": [256],
+                "act": "leaky_relu",
+            }).model
+
 
         model.to(args.device)
 
         optimizer = torch.optim.AdamW(model.parameters())
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, total_steps=args.n_epoch, max_lr = args.max_lr)
-        print('Training MLP with #param: %d' % (get_n_params(model)))
-        best_test_acc = train(model, G, args)
-        accs.append(best_test_acc)
+        # print('Training MLP with #param: %d' % (get_n_params(model)))
+        train(model, G, args)
+        accs.append(test(model, G, test_idx, labels))
     print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
-

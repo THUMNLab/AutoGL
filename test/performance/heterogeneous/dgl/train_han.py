@@ -1,73 +1,28 @@
 """
-Performance check of AutoGL model + DGL (trainer + dataset)
+Performance check of AutoGL trainer + DGL dataset
 """
 import os
-import datetime
-import errno
 import numpy as np
 from tqdm import tqdm
-import dgl
-os.environ["AUTOGL_BACKEND"] = "dgl"
-import sys
-import os.path as osp
-sys.path.append("../../../../")
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from autogl.module.model.dgl import AutoHAN
-from autogl.solver.utils import set_seed
-import logging
-import argparse
-
+import urllib
+import scipy
+import dgl
+import os.path as osp
+os.environ["AUTOGL_BACKEND"] = "dgl"
+import sys
 import pickle
 import random
-
+from dgl.data import CoraGraphDataset, PubmedGraphDataset, CiteseerGraphDataset
 from dgl.data.utils import download, get_download_dir, _get_dgl_url
-from pprint import pprint
+from autogl.module.train import NodeClassificationHetTrainer
+from autogl.solver.utils import set_seed
+import logging
 from scipy import sparse
 from scipy import io as sio 
-#from model import *
-from sklearn.metrics import f1_score
-import autogl.module.model
-
-class EarlyStopping(object):
-    def __init__(self, patience=10):
-        dt = datetime.datetime.now()
-        self.filename = 'early_stop_{}_{:02d}-{:02d}-{:02d}.pth'.format(
-            dt.date(), dt.hour, dt.minute, dt.second)
-        self.patience = patience
-        self.counter = 0
-        self.best_acc = None
-        self.best_loss = None
-        self.early_stop = False
-
-    def step(self, loss, acc, model):
-        if self.best_loss is None:
-            self.best_acc = acc
-            self.best_loss = loss
-            self.save_checkpoint(model)
-        elif (loss > self.best_loss) and (acc < self.best_acc):
-            self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            if (loss <= self.best_loss) and (acc >= self.best_acc):
-                self.save_checkpoint(model)
-            self.best_loss = np.min((loss, self.best_loss))
-            self.best_acc = np.max((acc, self.best_acc))
-            self.counter = 0
-        return self.early_stop
-
-    def save_checkpoint(self, model):
-        """Saves model when validation loss decreases."""
-        torch.save(model.state_dict(), self.filename)
-
-    def load_checkpoint(self, model):
-        """Load the latest checkpoint."""
-        model.load_state_dict(torch.load(self.filename))
-
+from pprint import pprint
+logging.basicConfig(level=logging.ERROR)
 
 def set_random_seed(seed=0):
     """Set random seed.
@@ -169,7 +124,6 @@ def load_acm_raw(remove_self_loop):
     })
 
     hg.nodes['paper'].data['feat'] = torch.FloatTensor(p_vs_t.toarray())
-    #features = torch.FloatTensor(p_vs_t.toarray())
 
     pc_p, pc_c = p_vs_c.nonzero()
     labels = np.zeros(len(p_selected), dtype=np.int64)
@@ -192,7 +146,6 @@ def load_acm_raw(remove_self_loop):
     val_mask = get_binary_mask(num_nodes, val_idx)
     test_mask = get_binary_mask(num_nodes, test_idx)
 
-    #return hg, features, labels, num_classes, train_idx, val_idx, test_idx, \
     return hg, labels, num_classes, train_idx, val_idx, test_idx, \
             train_mask, val_mask, test_mask
 
@@ -204,91 +157,82 @@ def load_data(dataset, remove_self_loop=False):
     else:
         return NotImplementedError('Unsupported dataset {}'.format(dataset))
 
-def score(logits, labels):
-    _, indices = torch.max(logits, dim=1)
-    prediction = indices.long().cpu().numpy()
-    labels = labels.cpu().numpy()
-
-    accuracy = (prediction == labels).sum() / len(prediction)
-    micro_f1 = f1_score(labels, prediction, average='micro')
-    macro_f1 = f1_score(labels, prediction, average='macro')
-
-    return accuracy, micro_f1, macro_f1
-
-def evaluate(model, g, labels, mask, loss_func):
-    model.eval()
-    with torch.no_grad():
-        logits = model(g, 'paper')
-    loss = loss_func(logits[mask], labels[mask])
-    accuracy, micro_f1, macro_f1 = score(logits[mask], labels[mask])
-
-    return loss, accuracy, micro_f1, macro_f1
-
 def main(args):
     # If args['hetero'] is True, g would be a heterogeneous graph.
     # Otherwise, it will be a list of homogeneous graphs.
     #g, features, labels, num_classes, train_idx, val_idx, test_idx, train_mask, \
-    g, labels, num_classes, train_idx, val_idx, test_idx, train_mask, \
+    G, labels, num_classes, train_idx, val_idx, test_idx, train_mask, \
     val_mask, test_mask = load_data(args['dataset'])
+    data = {"G":G, "labels":labels, "num_classes":num_classes, "train_idx":train_idx,
+             "val_idx":val_idx, "test_idx":test_idx, "train_mask":train_mask, 
+             "val_mask":val_mask, "test_mask":test_mask}
+    G = G.to(args['device'])
 
     if hasattr(torch, 'BoolTensor'):
         train_mask = train_mask.bool()
         val_mask = val_mask.bool()
         test_mask = test_mask.bool()
 
-    #features = features.to(args['device'])
     labels = labels.to(args['device'])
     train_mask = train_mask.to(args['device'])
     val_mask = val_mask.to(args['device'])
     test_mask = test_mask.to(args['device'])
 
-    model = AutoHAN(meta_paths=[['pa', 'ap'], ['pf', 'fp']],
-                num_features=g.nodes['paper'].data['feat'].shape[1],
-                num_classes=num_classes,
-                device = args['device']
-                ).model
-    g = g.to(args['device'])
+    meta_paths=[['pa', 'ap'], ['pf', 'fp']]
 
-    stopper = EarlyStopping(patience=args['patience'])
-    loss_fcn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=args['lr'],
-                                 weight_decay=args['weight_decay'])
+    num_features = G.nodes['paper'].data['feat'].shape[1]
+    num_classes = data["num_classes"]
+    accs = []
 
-    for epoch in range(args['num_epochs']):
-        print(epoch)
-        model.train()
-        logits = model(g, 'paper')
-        print(logits[train_mask].size()) # torch.Size([808, 3])
-        print(logits[train_mask].size()) # torch.Size([808])
-        loss = loss_fcn(logits[train_mask], labels[train_mask])
+    for seed in tqdm(range(args["repeat"])):
+        set_seed(seed)
+        if args["model"] == 'han':
+            model_hp = {
+                # hp from model
+                "num_layers": 2,
+                "hidden": [256], ##
+                "heads": [8], ##
+                "dropout": 0.2,
+                "act": "gelu",
+            }
+        trainer = NodeClassificationHetTrainer(
+            model=args["model"],
+            G = G,
+            meta_paths = meta_paths, #
+            num_features=num_features,
+            num_classes=num_classes,
+            device=args["device"],
+            init=False,
+            feval=['acc'],
+            loss="nll_loss",
+        ).duplicate_from_hyper_parameter({
+            "max_epoch": args["num_epochs"],
+            "early_stopping_round": args["num_epochs"] + 1,
+            "lr": args["lr"],
+            "weight_decay": args["weight_decay"],
+            **model_hp
+        })
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        train_acc, train_micro_f1, train_macro_f1 = score(logits[train_mask], labels[train_mask])
-        val_loss, val_acc, val_micro_f1, val_macro_f1 = evaluate(model, g, labels, val_mask, loss_fcn)
-        early_stop = stopper.step(val_loss.data.item(), val_acc, model)
-
-        print('Epoch {:d} | Train Loss {:.4f} | Train Micro f1 {:.4f} | Train Macro f1 {:.4f} | '
-              'Val Loss {:.4f} | Val Micro f1 {:.4f} | Val Macro f1 {:.4f}'.format(
-            epoch + 1, loss.item(), train_micro_f1, train_macro_f1, val_loss.item(), val_micro_f1, val_macro_f1))
-
-        if early_stop:
-            break
-
-    stopper.load_checkpoint(model)
-    test_loss, test_acc, test_micro_f1, test_macro_f1 = evaluate(model, g, labels, test_mask, loss_fcn)
-    print('Test loss {:.4f} | Test Micro f1 {:.4f} | Test Macro f1 {:.4f}'.format(
-        test_loss.item(), test_micro_f1, test_macro_f1))
+        trainer.train(data, G, False, train_mask)
+        output = trainer.predict(G, test_idx)
+        acc = (output == labels[test_idx]).float().mean().item()
+        print(acc)
+        accs.append(acc)
+    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='HAN dgl model')
+    import argparse
+    parser = argparse.ArgumentParser('dgl trainer_han')
+    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--dataset', type=str, choices=['Cora', 'CiteSeer', 'PubMed'], default='Cora')
+    parser.add_argument('--repeat', type=int, default=10) # 50
+    parser.add_argument('--model', type=str, choices=['gat', 'gcn', 'sage'], default='gat')
+    parser.add_argument('--n_inp',   type=int, default=256)
+    parser.add_argument('--clip',    type=int, default=1.0) 
+
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed')
-    #parser.add_argument('-ld', '--log-dir', type=str, default='results',
-    #                    help='Dir for saving training results')
     parser.add_argument('--hetero', action='store_true',
                         help='Use metapath coalescing with DGL\'s own dataset')
     parser.add_argument('--num_epochs', type=int, default=200,
@@ -299,13 +243,13 @@ if __name__ == '__main__':
                         help='Weight decay')
     parser.add_argument('--lr', type=float, default=0.005,
                         help='Learning rate')
+
     args = parser.parse_args().__dict__
     args['dataset'] = 'ACMRaw' if not args['hetero'] else 'ACM'
     args['device'] = 'cuda:6' if torch.cuda.is_available() else 'cpu'
-    args['num_epochs'] = 10
+    args['num_epochs'] = 200
+    args['model'] = "han"
     set_random_seed(args['seed'])
     print(args)
-
+    
     main(args)
-
-

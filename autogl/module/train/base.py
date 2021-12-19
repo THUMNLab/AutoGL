@@ -94,14 +94,11 @@ class BaseTrainer:
     ):
         """
         The basic trainer.
-
         Used to automatically train the problems, e.g., node classification, graph classification, etc.
-
         Parameters
         ----------
         model: `BaseModel` or `str`
             The (name of) model used to train and predict.
-
         init: `bool`
             If True(False), the model will (not) be initialized.
         """
@@ -154,7 +151,6 @@ class BaseTrainer:
     def to(self, device: torch.device):
         """
         Transfer the trainer to another device
-
         Parameters
         ----------
         device: `str` or `torch.device`
@@ -180,7 +176,6 @@ class BaseTrainer:
         ----------
         return_major: ``bool``
             Wether to return the major ``feval``. Default ``False``.
-
         Returns
         -------
         ``evaluation`` or list of ``evaluation``:
@@ -224,31 +219,24 @@ class BaseTrainer:
     def train(self, dataset, keep_valid_result):
         """
         Train on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in training.
-
         keep_valid_result: `bool`
             If True(False), save the validation result after training.
-
         Returns
         -------
-
         """
         raise NotImplementedError()
 
     def predict(self, dataset, mask=None):
         """
         Predict on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in predicting.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         Returns
         -------
         prediction result
@@ -258,17 +246,13 @@ class BaseTrainer:
     def predict_proba(self, dataset, mask=None, in_log_format=False):
         """
         Predict the probability on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in predicting.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         in_log_format: `bool`.
             If True(False), the probability will (not) be log format.
-
         Returns
         -------
         The prediction result.
@@ -292,16 +276,12 @@ class BaseTrainer:
 
     def evaluate(self, dataset, mask=None, feval=None):
         """
-
         Parameters
         ----------
         dataset: The dataset used in evaluation.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         feval: The evaluation methods.
-
         Returns
         -------
         The evaluation result.
@@ -420,3 +400,70 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
         super(BaseLinkPredictionTrainer, self).__init__(
             model, num_features, 2, device, init, feval, loss
         )
+
+# ============== Het =================
+class _BaseClassificationHetTrainer(BaseTrainer):
+    """ Base class of trainer for classification tasks """
+
+    def __init__(
+        self,
+        model: _typing.Union[BaseModel, str],
+        G, # Jie
+        meta_paths, # Jie
+        num_features: int,
+        num_classes: int,
+        device: _typing.Union[torch.device, str, None] = "auto",
+        init: bool = True,
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
+    ):
+        self.num_features: int = num_features
+        self.num_classes: int = num_classes
+        if type(device) == torch.device or (
+            type(device) == str and device.lower() != "auto"
+        ):
+            __device: torch.device = torch.device(device)
+        else:
+            __device: torch.device = torch.device(
+                "cuda"
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0
+                else "cpu"
+            )
+        if type(model) == str:
+            _model: BaseModel = ModelUniversalRegistry.get_model(model)(
+                G, meta_paths, num_features, num_classes, __device, init=init
+            ) # Jie
+        elif isinstance(model, BaseModel):
+            _model: BaseModel = model
+        elif model is None:
+            _model = None
+        else:
+            raise TypeError(
+                f"Model argument only support str or BaseModel, got {model}."
+            )
+        super(_BaseClassificationHetTrainer, self).__init__(
+            _model, __device, init, feval, loss
+        )
+
+
+class BaseNodeClassificationHetTrainer(_BaseClassificationHetTrainer):
+    def __init__(
+        self,
+        model: _typing.Union[BaseModel, str],
+        G,
+        meta_paths,
+        num_features: int,
+        num_classes: int,
+        device: _typing.Union[torch.device, str, None] = None,
+        init: bool = True,
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
+    ):
+        super(BaseNodeClassificationHetTrainer, self).__init__(
+            model, G, meta_paths, num_features, num_classes, device, init, feval, loss
+        )
+
