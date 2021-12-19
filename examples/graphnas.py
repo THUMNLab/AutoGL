@@ -1,6 +1,5 @@
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
-from autogl.module.train import Acc
 from autogl.solver.utils import set_seed
 import argparse
 from autogl.backend import DependentBackend
@@ -18,5 +17,5 @@ if __name__ == '__main__':
     solver = AutoNodeClassifier.from_config(args.config)
     solver.fit(dataset)
     solver.get_leaderboard().show()
-    out = solver.predict_proba()
-    print('acc on dataset', Acc.evaluate(out, label))
+    acc = solver.evaluate(metric="acc")
+    print('acc on dataset', acc)

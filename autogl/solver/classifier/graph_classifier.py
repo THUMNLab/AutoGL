@@ -5,6 +5,7 @@ import time
 import json
 
 from copy import deepcopy
+from typing import Sequence
 
 import torch
 import numpy as np
@@ -591,6 +592,30 @@ class AutoGraphClassifier(BaseClassifier):
             dataset, inplaced, inplace, use_ensemble, use_best, name, mask
         )
         return np.argmax(proba, axis=1)
+
+    def evaluate(self, dataset=None,
+        inplaced=False,
+        inplace=False,
+        use_ensemble=True,
+        use_best=True,
+        name=None,
+        mask="test",
+        label=None,
+        metric="acc"
+    ):
+        predicted = self.predict_proba(dataset, inplaced, inplace, use_ensemble, use_best, name, mask)
+        if dataset is None:
+            dataset = self.dataset
+        if label is None:
+            if mask == "all":
+                masked_dataset = dataset
+            else:
+                masked_dataset = utils.graph_get_split(dataset, mask, False)
+            label = np.array([d.data['y' if 'y' in d.data else 'label'].item() for d in masked_dataset])
+        evaluator = get_feval(metric)
+        if isinstance(evaluator, Sequence):
+            return [evals.evaluate(predicted, label) for evals in evaluator]
+        return evaluator.evaluate(predicted, label)
 
     @classmethod
     def from_config(cls, path_or_dict, filetype="auto") -> "AutoGraphClassifier":

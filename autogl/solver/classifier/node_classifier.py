@@ -670,6 +670,27 @@ class AutoNodeClassifier(BaseClassifier):
         )
         return np.argmax(proba, axis=1)
 
+    def evaluate(self, dataset=None,
+        inplaced=False,
+        inplace=False,
+        use_ensemble=True,
+        use_best=True,
+        name=None,
+        mask="test",
+        label=None,
+        metric="acc"
+    ):
+        predicted = self.predict_proba(dataset, inplaced, inplace, use_ensemble, use_best, name, mask)
+        if dataset is None:
+            dataset = self.dataset
+        if label is None:
+            _node = dataset[0].nodes.data
+            label = _node['y' if 'y' in _node else 'label'][_node['test_mask']].cpu().numpy()
+        evaluator = get_feval(metric)
+        if isinstance(evaluator, Sequence):
+            return [evals.evaluate(predicted, label) for evals in evaluator]
+        return evaluator.evaluate(predicted, label)
+
     @classmethod
     def from_config(cls, path_or_dict, filetype="auto") -> "AutoNodeClassifier":
         """

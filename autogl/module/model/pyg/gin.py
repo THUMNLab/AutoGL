@@ -152,12 +152,13 @@ class AutoGIN(BaseAutoModel):
         num_classes=None,
         device=None,
         init=False,
-        num_graph_features=None,
+        num_graph_features=0,
         **args
     ):
 
         super().__init__(num_features, num_classes, device, num_graph_features=num_graph_features, **args)
-        
+        self.num_graph_features = num_graph_features
+
         self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
@@ -209,7 +210,7 @@ class AutoGIN(BaseAutoModel):
         }
 
     def from_hyper_parameter(self, hp, **kwargs):
-        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features **kwargs)
+        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features, **kwargs)
 
     def _initialize(self):
         # """Initialize model."""

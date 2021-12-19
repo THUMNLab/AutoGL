@@ -85,13 +85,5 @@ if __name__ == "__main__":
     print("best single model:\n", autoClassifier.get_leaderboard().get_best_model(0))
 
     # test
-    predict_result = autoClassifier.predict_proba()
-    print(
-        "test acc %.4f"
-        % (
-            Acc.evaluate(
-                predict_result,
-                np.array([d.data["y" if backend == "pyg" else "label"] for d in dataset.test_split]),
-            )
-        )
-    )
+    acc = autoClassifier.evaluate(metric="acc")
+    print("test acc {:.4f}".format(acc))

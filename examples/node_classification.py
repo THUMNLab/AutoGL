@@ -79,10 +79,5 @@ if __name__ == "__main__":
             balanced=False,
         )
     autoClassifier.get_leaderboard().show()
-
-    # test
-    predict_result = autoClassifier.predict_proba()
-    print(
-        "test acc: %.4f"
-        % (Acc.evaluate(predict_result, label[dataset[0].nodes.data["test_mask"]].cpu().numpy()))
-    )
+    acc = autoClassifier.evaluate(metric="acc")
+    print("test acc: {:.4f}".format(acc))

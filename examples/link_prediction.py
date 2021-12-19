@@ -73,19 +73,5 @@ if __name__ == "__main__":
     )
     autoClassifier.get_leaderboard().show()
 
-    # todo: move the test logic to solver, make solver handle this
-    # BUG: fix this under dgl backend
-    predict_result = autoClassifier.predict_proba()
-
-    pos_edge_index, neg_edge_index = (
-        dataset[0].test_pos_edge_index,
-        dataset[0].test_neg_edge_index,
-    )
-    E = pos_edge_index.size(1) + neg_edge_index.size(1)
-    link_labels = torch.zeros(E)
-    link_labels[: pos_edge_index.size(1)] = 1.0
-
-    print(
-        "test auc: %.4f"
-        % (Auc.evaluate(predict_result, link_labels.detach().cpu().numpy()))
-    )
+    auc = autoClassifier.evaluate(metric="auc")
+    print("test auc: {:.4f}".format(auc))

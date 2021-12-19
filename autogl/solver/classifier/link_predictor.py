@@ -1,10 +1,12 @@
 """
 Auto Classfier for Node Classification
 """
+import logging
 import time
 import json
 
 from copy import deepcopy
+from typing import Sequence
 
 import torch
 import numpy as np
@@ -23,6 +25,21 @@ from ...backend import DependentBackend
 
 LOGGER = get_logger("LinkPredictor")
 BACKEND = DependentBackend.get_backend_name()
+
+def _negative_sample_dgl(train_graph, pos_graph):
+    import scipy.sparse as sp
+    import dgl
+    u, v = train_graph.edges()
+    up, vp = pos_graph.edges()
+    u_all, v_all = np.concatenate([u.numpy(), up.numpy()]), np.concatenate([v.numpy(), vp.numpy()])
+    adj = sp.coo_matrix((np.ones(len(u_all)), (u_all, v_all)))
+    adj_neg = 1 - adj.todense() - np.eye(train_graph.number_of_nodes())
+    neg_u, neg_v = np.where(adj_neg != 0)
+
+    # sample negative edges
+    neg_eids = np.random.choice(len(neg_u), len(up))
+    return dgl.DGLGraph((neg_u[:neg_eids], neg_v[:neg_eids]), num_nodes=train_graph.number_of_nodes())
+
 
 class AutoLinkPredictor(BaseClassifier):
     """
@@ -641,6 +658,75 @@ class AutoLinkPredictor(BaseClassifier):
             dataset, inplaced, inplace, use_ensemble, use_best, name, mask
         )
         return (proba > threshold).astype("int")
+
+    def evaluate(self, dataset=None,
+        inplaced=False,
+        inplace=False,
+        use_ensemble=True,
+        use_best=True,
+        name=None,
+        mask="test",
+        label=None,
+        metric="acc"
+    ):
+        if dataset is None:
+            dataset = self.dataset
+            assert dataset is not None, (
+                "Please execute fit() first before" " predicting on remembered dataset"
+            )
+        elif not inplaced and self.feature_module is not None:
+            if BACKEND == 'pyg':
+                dataset = self.feature_module.transform(dataset, inplace=inplace)
+            elif BACKEND == 'dgl':
+                import dgl
+                transformed = self.feature_module.transform([d[0] for d in dataset], inplace=inplace)
+                dataset = [[tran, None, None, None, None, d[1], d[2] if len(d) == 3 else dgl.DGLGraph()] for tran, d in zip(transformed, dataset)]
+
+        graph = dataset[0]
+        mask2posid_dgl = {"train": 1, "val": 3, "test": 5}
+        mask2negid_dgl = {"train": 2, "val": 4, "test": 6}
+        if BACKEND == 'pyg' and not hasattr(graph, f"{mask}_neg_edge_index"):
+            from torch_geometric.utils import negative_sampling
+            logging.warn(
+                "No negative edges passed, will generate random negative edges instead."
+                " However, results may be inconsistent across different run."
+                " Fix negative edges before passing the dataset is recommended"
+            )
+            setattr(graph, f"{mask}_neg_edge_index", negative_sampling(
+                getattr(graph, f"{mask}_pos_edge_index"), graph.num_nodes
+            ))
+        elif BACKEND == 'dgl':
+            neg_graph = graph[{"train": 2, "val": 4, "test": 6}[mask]]
+            if neg_graph is None or len(neg_graph.edges()[0]) == 0:
+                logging.warn(
+                    "No negative edges passed, will generate random negative edges instead."
+                    " However, results may be inconsistent across different run."
+                    " Fix negative edges before passing the dataset is recommended"
+                )
+                neg_edges = _negative_sample_dgl(graph[0], graph[{"train": 1, "val": 3, "test": 5}[mask]])
+                graph[{"train": 2, "val": 4, "test": 6}[mask]] = neg_edges
+
+        predicted = self.predict_proba(dataset, inplaced, inplace, use_ensemble, use_best, name, mask)
+        if label is None:
+            if BACKEND == 'pyg':
+                pos_edge_index, neg_edge_index = (
+                    getattr(dataset[0], f"{mask}_pos_edge_index"),
+                    getattr(dataset[0], f"{mask}_neg_edge_index"),
+                )
+            elif BACKEND == 'dgl':
+                pos_edge_index, neg_edge_index = (
+                    torch.stack(self.dataset[0][mask2posid_dgl[mask]].edges()),
+                    torch.stack(self.dataset[0][mask2negid_dgl[mask]].edges())
+                )
+            E = pos_edge_index.size(1) + neg_edge_index.size(1)
+            label = torch.zeros(E, dtype=torch.float)
+            label[: pos_edge_index.size(1)] = 1.0
+            label = label.cpu().numpy()
+        evaluator = get_feval(metric)
+        if isinstance(evaluator, Sequence):
+            return [evals.evaluate(predicted, label) for evals in evaluator]
+        return evaluator.evaluate(predicted, label)
+
 
     @classmethod
     def from_config(cls, path_or_dict, filetype="auto") -> "AutoLinkPredictor":

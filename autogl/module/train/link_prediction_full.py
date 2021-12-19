@@ -29,6 +29,7 @@ class _DummyLinkModel(torch.nn.Module):
     def __init__(self, encoder, decoder):
         super().__init__()
         if isinstance(encoder, BaseAutoModel):
+            self.automodelflag = True
             self.encoder = encoder.model
             self.decoder = None
         else:
@@ -36,12 +37,14 @@ class _DummyLinkModel(torch.nn.Module):
             self.decoder = None if decoder is None else decoder.decoder
     
     def encode(self, data):
-        if isinstance(self.encoder, BaseAutoModel):
+        if self.automodelflag:
             return self.encoder.lp_encode(data)
         return self.encoder(data)
     
     def decode(self, features, data, pos_edges, neg_edges):
-        if isinstance(self.encoder, BaseAutoModel) or self.decoder is None:
+        if self.automodelflag:
+            return self.encoder.lp_decode(features, pos_edges, neg_edges)
+        if self.decoder is None:
             return features
         return self.decoder(features, data, pos_edges, neg_edges)
 
