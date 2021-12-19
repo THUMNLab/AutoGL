@@ -35,6 +35,10 @@ class BaseAutoModel(AutoModule):
         self._kwargs = kwargs
         super(BaseAutoModel, self).__init__(device)
 
+    def to(self, device):
+        # compatible with v0.2
+        self.to_device(device)
+
     def to_device(self, device):
         self.device = device
         if self.model is not None:

@@ -167,6 +167,16 @@ class BaseTrainer(AutoModule):
     ):
         self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(_feval)
 
+    @property
+    def model(self):
+        # compatible with v0.2
+        return self.encoder
+    
+    @model.setter
+    def model(self, model):
+        # compatible with v0.2
+        self.encoder = model
+
     def to(self, device: _typing.Union[str, torch.device]):
         """
         Transfer the trainer to another device
