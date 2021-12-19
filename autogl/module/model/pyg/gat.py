@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GATConv
 from . import register_model
-from .base import BaseModel, activate_func
+from .base import BaseAutoModel, activate_func
 from ....utils import get_logger
 
 LOGGER = get_logger("GATModel")
@@ -114,8 +114,8 @@ class GAT(torch.nn.Module):
         return (prob_adj > 0).nonzero(as_tuple=False).t()
 
 
-@register_model("gat")
-class AutoGAT(BaseModel):
+@register_model("gat-model")
+class AutoGAT(BaseAutoModel):
     r"""
     AutoGAT. The model used in this automodel is GAT, i.e., the graph attentional network from the `"Graph Attention Networks"
     <https://arxiv.org/abs/1710.10903>`_ paper. The layer is
@@ -155,18 +155,10 @@ class AutoGAT(BaseModel):
     """
 
     def __init__(
-        self, num_features=None, num_classes=None, device=None, init=False, **args
+        self, num_features=None, num_classes=None, device=None, **args
     ):
-        super(AutoGAT, self).__init__()
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.device = device if device is not None else "cpu"
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
-        self.space = [
+        super().__init__(num_features, num_classes, device, **args)
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -202,7 +194,7 @@ class AutoGAT(BaseModel):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 2,
             "hidden": [32],
             "heads": 4,
@@ -210,13 +202,10 @@ class AutoGAT(BaseModel):
             "act": "leaky_relu",
         }
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
-
-    def initialize(self):
+    def _initialize(self):
         # """Initialize model."""
-        if self.initialized:
-            return
-        self.initialized = True
-        self.model = GAT({**self.params, **self.hyperparams}).to(self.device)
+        self._model = GAT({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            **self.hyper_parameters
+        }).to(self.device)

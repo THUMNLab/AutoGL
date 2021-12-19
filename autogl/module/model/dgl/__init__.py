@@ -1,5 +1,5 @@
 from ._model_registry import MODEL_DICT, ModelUniversalRegistry, register_model
-from .base import BaseModel
+from .base import BaseAutoModel
 from .topkpool import AutoTopkpool
 
 
@@ -8,11 +8,14 @@ from .gcn import GCN, AutoGCN
 from .graphsage import GraphSAGE, AutoSAGE
 from .gat import GAT,AutoGAT
 from .gin import AutoGIN
+from .hetero.hgt import AutoHGT
+from .hetero.han import AutoHAN
+from .hetero.HeteroRGCN import AutoHeteroRGCN
 
 __all__ = [
     "ModelUniversalRegistry",
     "register_model",
-    "BaseModel",
+    "BaseAutoModel",
     "AutoTopkpool",
     # "GraphSAINTAggregationModel",
     "GCN",
@@ -21,5 +24,8 @@ __all__ = [
     "AutoSAGE",
     "GAT",
     "AutoGAT",
-    "AutoGIN"
+    "AutoGIN",
+    "AutoHGT",
+    "AutoHAN", 
+    "AutoHeteroRGCN",
 ]

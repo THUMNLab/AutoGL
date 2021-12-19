@@ -1,5 +1,5 @@
 from ._model_registry import MODEL_DICT, ModelUniversalRegistry, register_model
-from .base import BaseModel
+from .base import BaseAutoModel
 from .topkpool import AutoTopkpool
 
 # from .graph_sage import AutoSAGE
@@ -12,7 +12,7 @@ from .gin import AutoGIN
 __all__ = [
     "ModelUniversalRegistry",
     "register_model",
-    "BaseModel",
+    "BaseAutoModel",
     "AutoTopkpool",
     "AutoSAGE",
     "GraphSAINTAggregationModel",

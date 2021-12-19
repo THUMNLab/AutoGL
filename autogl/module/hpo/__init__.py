@@ -1,6 +1,7 @@
 import importlib
 import os
 from .base import BaseHPOptimizer
+from .auto_module import AutoModule
 
 HPO_DICT = {}
 
@@ -52,6 +53,7 @@ def build_hpo_from_name(name: str) -> BaseHPOptimizer:
 
 
 __all__ = [
+    "AutoModule",
     "BaseHPOptimizer",
     "AnnealAdvisorHPO",
     "AutoNE",

@@ -4,7 +4,7 @@ from torch.nn import Linear, ReLU, Sequential, LeakyReLU, Tanh, ELU
 from torch_geometric.nn import GINConv, global_add_pool
 from torch.nn import BatchNorm1d
 from . import register_model
-from .base import BaseModel, activate_func
+from .base import BaseAutoModel, activate_func
 from copy import deepcopy
 from ....utils import get_logger
 
@@ -113,8 +113,8 @@ class GIN(torch.nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-@register_model("gin")
-class AutoGIN(BaseModel):
+@register_model("gin-model")
+class AutoGIN(BaseAutoModel):
     r"""
     AutoGIN. The model used in this automodel is GIN, i.e., the graph isomorphism network from the `"How Powerful are
     Graph Neural Networks?" <https://arxiv.org/abs/1810.00826>`_ paper. The layer is
@@ -152,24 +152,14 @@ class AutoGIN(BaseModel):
         num_classes=None,
         device=None,
         init=False,
-        num_graph_features=None,
+        num_graph_features=0,
         **args
     ):
 
-        super(AutoGIN, self).__init__()
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.num_graph_features = (
-            int(num_graph_features) if num_graph_features is not None else 0
-        )
-        self.device = device if device is not None else "cpu"
+        super().__init__(num_features, num_classes, device, num_graph_features=num_graph_features, **args)
+        self.num_graph_features = num_graph_features
 
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-            "num_graph_features": self.num_graph_features,
-        }
-        self.space = [
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -210,7 +200,7 @@ class AutoGIN(BaseModel):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 3,
             "hidden": [64, 32],
             "dropout": 0.5,
@@ -219,13 +209,14 @@ class AutoGIN(BaseModel):
             "mlp_layers": 2,
         }
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
+    def from_hyper_parameter(self, hp, **kwargs):
+        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features, **kwargs)
 
-    def initialize(self):
+    def _initialize(self):
         # """Initialize model."""
-        if self.initialized:
-            return
-        self.initialized = True
-        self.model = GIN({**self.params, **self.hyperparams}).to(self.device)
+        self._model = GIN({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            "num_graph_features": self.num_graph_features,
+            **self.hyper_parameters
+        }).to(self.device)

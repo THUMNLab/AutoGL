@@ -6,6 +6,45 @@ hpo:
   name: anneal
 models:
 - hp_space:
+  - parameterName: num_layers
+    type: DISCRETE
+    feasiblePoints: '3,4,5'
+
+  - parameterName: hidden
+    type: NUMERICAL_LIST
+    numericalType: INTEGER
+    length: 5
+    minValue: [8, 8, 8, 8, 8]
+    maxValue: [64, 64, 64, 64, 64]
+    scalingType: LOG
+    cutPara: ["num_layers"]
+    cutFunc: "lambda x: x[0] - 1"
+
+  - parameterName: dropout
+    type: DOUBLE
+    maxValue: 0.9
+    minValue: 0.1
+    scalingType: LINEAR
+
+  - parameterName: act
+    type: CATEGORICAL
+    feasiblePoints:
+      - leaky_relu
+      - relu
+      - elu
+      - tanh
+
+  - parameterName: eps
+    type: CATEGORICAL
+    feasiblePoints:
+      - True
+      - False
+
+  - parameterName: mlp_layers
+    type: DISCRETE
+    feasiblePoints: '2,3,4'
+  name: gin-model
+- hp_space:
   - maxValue: 0.9
     minValue: 0.1
     parameterName: ratio
@@ -23,7 +62,7 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: topkpool
+  name: topkpool-model
 trainer:
   hp_space:
   - maxValue: 300

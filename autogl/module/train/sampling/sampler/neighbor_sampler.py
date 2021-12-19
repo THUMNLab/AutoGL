@@ -85,8 +85,12 @@ class NeighborSampler(TargetDependantSampler, _typing.Iterable):
             return _deterministic
 
         self.__edge_weight: torch.Tensor = self.__compute_edge_weight(edge_index)
-        self.__pyg_neighbor_sampler: torch_geometric.data.NeighborSampler = (
-            torch_geometric.data.NeighborSampler(
+        if int(torch_geometric.__version__.split('.')[0]) > 1:
+            from torch_geometric.loader import NeighborSampler as NS
+        else:
+            from torch_geometric.data import NeighborSampler as NS
+        self.__pyg_neighbor_sampler: NS = (
+            NS(
                 edge_index,
                 list(sampling_sizes[::-1]),
                 target_nodes_indexes,

@@ -20,9 +20,9 @@ LOGGER = get_logger("LeaderBoard")
 BACKEND = DependentBackend.get_backend_name()
 
 if BACKEND == 'dgl':
-    from autogl.datasets.utils.conversion import general_static_graphs_to_dgl_dataset as _convert_dataset
+    from autogl.datasets.utils.conversion import to_dgl_dataset as _convert_dataset
 else:
-    from autogl.datasets.utils.conversion import general_static_graphs_to_pyg_dataset as _convert_dataset
+    from autogl.datasets.utils.conversion import to_pyg_dataset as _convert_dataset
 
 class LeaderBoard:
     """
@@ -242,7 +242,7 @@ def get_graph_labels(graph):
     return None
 
 def get_dataset_labels(dataset):
-    if isinstance(dataset, Dataset):
+    if isinstance(dataset[0], GeneralStaticGraph):
         return torch.LongTensor([d.data['label' if BACKEND == 'dgl' else 'y'] for d in dataset])
     if BACKEND == 'pyg':
         return dataset.data.y
@@ -250,7 +250,9 @@ def get_dataset_labels(dataset):
         return torch.LongTensor([d[1] for d in dataset])
 
 def convert_dataset(dataset):
-    if isinstance(dataset, Dataset): return _convert_dataset(dataset)
+    # todo: replace the trick by re-implementing the convert_dataset in utils
+    if hasattr(dataset[0], "edges"): return _convert_dataset(dataset)
+    # if isinstance(dataset, Dataset): return _convert_dataset(dataset)
     return dataset
 
 def set_seed(seed=None):
