@@ -2,56 +2,20 @@
 Performance check of AutoGL model + DGL (trainer + dataset)
 """
 import os
-os.system["AUTOGL_BACKEND"] = "dgl"
-import datetime
+os.environ["AUTOGL_BACKEND"] = "dgl"
+
 import numpy as np
 from tqdm import tqdm
 
 import torch
 from autogl.module.model.dgl import AutoHAN
+from helper import EarlyStopping
 import argparse
 
 import random
 
 from sklearn.metrics import f1_score
 from autogl.datasets import build_dataset_from_name
-
-class EarlyStopping(object):
-    def __init__(self, patience=10):
-        dt = datetime.datetime.now()
-        self.filename = 'early_stop_{}_{:02d}-{:02d}-{:02d}.pth'.format(
-            dt.date(), dt.hour, dt.minute, dt.second)
-        self.patience = patience
-        self.counter = 0
-        self.best_acc = None
-        self.best_loss = None
-        self.early_stop = False
-
-    def step(self, loss, acc, model):
-        if self.best_loss is None:
-            self.best_acc = acc
-            self.best_loss = loss
-            self.save_checkpoint(model)
-        elif (loss > self.best_loss) and (acc < self.best_acc):
-            self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            if (loss <= self.best_loss) and (acc >= self.best_acc):
-                self.save_checkpoint(model)
-            self.best_loss = np.min((loss, self.best_loss))
-            self.best_acc = np.max((acc, self.best_acc))
-            self.counter = 0
-        return self.early_stop
-
-    def save_checkpoint(self, model):
-        """Saves model when validation loss decreases."""
-        torch.save(model.state_dict(), self.filename)
-
-    def load_checkpoint(self, model):
-        """Load the latest checkpoint."""
-        model.load_state_dict(torch.load(self.filename))
 
 def set_random_seed(seed=0):
     """Set random seed.
@@ -85,7 +49,7 @@ def score(logits, labels):
 def evaluate(model, g, labels, mask, loss_func):
     model.eval()
     with torch.no_grad():
-        logits = model(g, 'paper')
+        logits = model(g)
     loss = loss_func(logits[mask], labels[mask])
     accuracy, micro_f1, macro_f1 = score(logits[mask], labels[mask])
 
@@ -100,15 +64,17 @@ def main(args):
     num_classes = labels.max().item() + 1
 
     labels = labels.to(args['device'])
-    train_mask = g.nodes[node_type].data['train_mask'].to(args['device'])
-    val_mask = g.nodes[node_type].data['val_mask'].to(args['device'])
-    test_mask = g.nodes[node_type].data['test_mask'].to(args['device'])
+    train_mask = g.nodes[node_type].data['train_mask'].to(args['device']).bool()
+    val_mask = g.nodes[node_type].data['val_mask'].to(args['device']).bool()
+    test_mask = g.nodes[node_type].data['test_mask'].to(args['device']).bool()
 
-    model = AutoHAN(dataset=dataset,
-                num_features=g.nodes[node_type].data['feat'].shape[1],
-                num_classes=num_classes,
-                device = args['device']
-                ).model
+    model = AutoHAN(
+        dataset=dataset,
+        num_features=g.nodes[node_type].data['feat'].shape[1],
+        num_classes=num_classes,
+        device = args['device'],
+        init=True
+    ).model
     g = g.to(args['device'])
 
     stopper = EarlyStopping(patience=args['patience'])
@@ -117,11 +83,8 @@ def main(args):
                                  weight_decay=args['weight_decay'])
 
     for epoch in range(args['num_epochs']):
-        print(epoch)
         model.train()
-        logits = model(g, 'paper')
-        print(logits[train_mask].size()) # torch.Size([808, 3])
-        print(logits[train_mask].size()) # torch.Size([808])
+        logits = model(g)
         loss = loss_fcn(logits[train_mask], labels[train_mask])
 
         optimizer.zero_grad()
@@ -156,9 +119,9 @@ if __name__ == '__main__':
                         help='Weight decay')
     parser.add_argument('--lr', type=float, default=0.005,
                         help='Learning rate')
+    parser.add_argument('--device', type=int, default=0)
     args = parser.parse_args().__dict__
-    args['dataset'] = 'ACMRaw' if not args['hetero'] else 'ACM'
-    args['device'] = 'cuda:6' if torch.cuda.is_available() else 'cpu'
+    args['device'] = 'cuda:{}'.format(args['device']) if args['device'] > -1 else 'cpu'
     args['num_epochs'] = 10
     set_random_seed(args['seed'])
     print(args)

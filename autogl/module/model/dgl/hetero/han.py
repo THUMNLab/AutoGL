@@ -1,3 +1,4 @@
+import logging
 import dgl
 import math
 import torch
@@ -8,7 +9,7 @@ from dgl.nn.functional import edge_softmax
 from dgl.nn.pytorch import GATConv
 
 from .. import register_model
-from ..base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from .base import BaseHeteroModelMaintainer
 from .....utils import get_logger
 
 LOGGER = get_logger("HANModel")
@@ -143,7 +144,7 @@ class HAN(nn.Module):
         return self.predict(h)
 
 @register_model("han")
-class AutoHAN(BaseModel):
+class AutoHAN(BaseHeteroModelMaintainer):
     r"""
     AutoHAN.
     The model used in this automodel is HAN, i.e., the graph convolutional network from the
@@ -173,20 +174,11 @@ class AutoHAN(BaseModel):
         If True(False), the model will (not) be initialized.
     """
     def __init__(
-        self,  dataset=None, num_features=None, num_classes=None, device=None, init=True, **args
+        self, num_features=None, num_classes=None, device=None, init=False, dataset=None, **args
     ):
-        super(AutoHAN, self).__init__()
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.device = device if device is not None else "cpu"
-        self.init = init
+        super().__init__(num_features, num_classes, device, dataset, **args)
 
-        self.params = {
-            # "meta_paths": self.meta_paths,
-            "num_features": self.num_features,
-            "num_class": self.num_classes,
-        }
-        self.space = [
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -225,7 +217,7 @@ class AutoHAN(BaseModel):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 2,
             "hidden": [256],
             "heads": [8],
@@ -233,34 +225,18 @@ class AutoHAN(BaseModel):
             "act": "gelu",
         }
 
-        if dataset is not None:
-            self.from_dataset(dataset)
-        self.initialized = False
         if init is True:
             self.initialize()
 
-    def initialize(self):
-        # """Initialize model."""
-        if self.initialized:
-            return
-        self.initialized = True
-        print(self.params)
-        self.model = HAN({**self.params, **self.hyperparams}).to(self.device)
+    def _initialize(self):
+        self._model = HAN(dict(
+            num_features=self.input_dimension,
+            num_class=self.output_dimension,
+            out_key=self.out_key,
+            meta_paths=self.meta_paths,
+            **self.hyper_parameters
+        )).to(self.device)
 
     def from_dataset(self, dataset):
-        self.params["out_key"] = dataset.target_node_type 
-        self.params["meta_paths"] = dataset.metapaths
-
-    def from_hyper_parameter(self, hp):
-        ret_self = self.__class__(
-            meta_path=self.meta_paths,
-            num_features=self.num_features,
-            num_classes=self.num_classes,
-            device=self.device,
-            init=False,
-        )
-        ret_self.hyperparams.update(hp)
-        ret_self.params.update(self.params)
-        ret_self.initialize()
-        return ret_self
-
+        self.register_parameter("out_key", dataset.schema["target_node_type"])
+        self.register_parameter("meta_paths", dataset.schema.meta_paths)

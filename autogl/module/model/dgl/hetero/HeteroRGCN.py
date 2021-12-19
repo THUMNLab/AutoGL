@@ -1,13 +1,9 @@
-import dgl
-import math
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import dgl.function as fn
-from dgl.nn.functional import edge_softmax
 
 from .. import register_model
-from ..base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from .base import BaseHeteroModelMaintainer
+from ..base import activate_func
 from .....utils import get_logger
 
 LOGGER = get_logger("HGTModel")
@@ -52,6 +48,7 @@ class HeteroRGCN(nn.Module):
         super(HeteroRGCN, self).__init__()
         self.args = args 
         self.edge_type = self.args["edge_type"]
+        self.out_key = self.args["out_key"]
         missing_keys = list(
             set(
                 [
@@ -60,6 +57,8 @@ class HeteroRGCN(nn.Module):
                     "num_layers",
                     "hidden",
                     "act",
+                    "out_key",
+                    "edge_type"
                 ]
             )
             - set(self.args.keys())
@@ -78,17 +77,17 @@ class HeteroRGCN(nn.Module):
             self.layers.append(HeteroRGCNLayer(self.args["hidden"][i], self.args["hidden"][i+1], self.edge_type))
         self.layers.append(HeteroRGCNLayer(self.args["hidden"][-1], self.args["num_class"], self.edge_type))
             
-    def forward(self, G, out_key):
+    def forward(self, G):
         h_dict = {ntype : G.nodes[ntype].data['feat'] for ntype in G.ntypes}
         for l in range(self.num_layers):
             h_dict = self.layers[l](G, h_dict)
             if l!=self.num_layers-1:
                 h_dict = {k : activate_func(h, self.args["act"]) for k, h in h_dict.items()}    
 
-        return h_dict[out_key]
+        return h_dict[self.out_key]
 
 @register_model("HeteroRGCN")
-class AutoHeteroRGCN(BaseModel):
+class AutoHeteroRGCN(BaseHeteroModelMaintainer):
     r"""
     AutoHAN.
     The model used in this automodel is HeteroRGCN, i.e., the relational graph convolutional network from the
@@ -118,19 +117,11 @@ class AutoHeteroRGCN(BaseModel):
         If True(False), the model will (not) be initialized.
     """
     def __init__(
-        self,  G = None, meta_paths = None, num_features=None, num_classes=None, device=None, init=False, **args
+        self, num_features=None, num_classes=None, device=None, init=False, dataset=None, **args
     ):
-        super(AutoHeteroRGCN, self).__init__()
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.device = device if device is not None else "cpu"
-        self.init = True
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
-        self.space = [
+        super().__init__(num_features, num_classes, device, dataset)
+        
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -161,43 +152,25 @@ class AutoHeteroRGCN(BaseModel):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 2,
             "hidden": [256],
             "act": "leaky_rely",
         }
 
-        if dataset is not None:
-            self.from_dataset(dataset)
-        self.initialized = False
         if init is True:
             self.initialize()
 
-
-
-    def initialize(self):
+    def _initialize(self):
         # """Initialize model."""
-        if self.initialized:
-            return
-        self.initialized = True
-        print(self.params)
-        self.model = HeteroRGCN({**self.params, **self.hyperparams}).to(self.device)
-
+        self._model = HeteroRGCN(dict(
+            features_num=self.input_dimension,
+            num_class=self.output_dimension,
+            edge_type=self.edge_type,
+            out_key=self.out_key,
+            **self.hyper_parameters
+        )).to(self.device)
 
     def from_dataset(self, dataset):
-        self.params["out_key"] = dataset.schema['target_node_type'] 
-        self.params["edge_type"] = dataset[0].etypes
-
-
-    def from_hyper_parameter(self, hp):
-        ret_self = self.__class__(
-            G=self.G,
-            num_features=self.num_features,
-            num_classes=self.num_classes,
-            device=self.device,
-            init=False,
-        )
-        ret_self.hyperparams.update(hp)
-        ret_self.params.update(self.params)
-        ret_self.initialize()
-        return ret_self
+        self.register_parameter("out_key", dataset.schema['target_node_type'])
+        self.register_parameter("edge_type", dataset[0].etypes)

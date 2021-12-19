@@ -595,72 +595,6 @@ class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
             encoder, decoder, num_features, 2, last_dim, device, feval, loss
         )
 
-# ============== Het =================
-class BaseNodeClassificationHetTrainer(BaseTrainer):
-    """ Base class of trainer for classification tasks """
-
-    def __init__(
-        self,
-        model: _typing.Union[BaseAutoModel, str],
-        G, # Jie
-        meta_paths, # Jie
-        num_features: int,
-        num_classes: int,
-        device: _typing.Union[torch.device, str, None] = "auto",
-        init: bool = True,
-        feval: _typing.Union[
-            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
-        ] = (Acc,),
-        loss: str = "nll_loss",
-    ):
-        self.num_features: int = num_features
-        self.num_classes: int = num_classes
-        if type(device) == torch.device or (
-            type(device) == str and device.lower() != "auto"
-        ):
-            __device: torch.device = torch.device(device)
-        else:
-            __device: torch.device = torch.device(
-                "cuda"
-                if torch.cuda.is_available() and torch.cuda.device_count() > 0
-                else "cpu"
-            )
-        if type(model) == str:
-            _model: BaseAutoModel = ModelUniversalRegistry.get_model(model)(
-                G, meta_paths, num_features, num_classes, __device, init=init
-            ) # Jie
-        elif isinstance(model, BaseAutoModel):
-            _model: BaseAutoModel = model
-        elif model is None:
-            _model = None
-        else:
-            raise TypeError(
-                f"Model argument only support str or BaseModel, got {model}."
-            )
-        super(BaseNodeClassificationHetTrainer, self).__init__(
-            _model, __device, init, feval, loss
-        )
-
-
-class BaseNodeClassificationHetTrainer(BaseTrainer):
-    def __init__(
-        self,
-        model: _typing.Union[BaseAutoModel, str],
-        G,
-        meta_paths,
-        num_features: int,
-        num_classes: int,
-        device: _typing.Union[torch.device, str, None] = None,
-        init: bool = True,
-        feval: _typing.Union[
-            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
-        ] = (Acc,),
-        loss: str = "nll_loss",
-    ):
-        super(BaseNodeClassificationHetTrainer, self).__init__(
-            model, G, meta_paths, num_features, num_classes, device, init, feval, loss
-        )
-
     # override decoder since no num_classes is needed
     @property
     def decoder(self):
@@ -688,3 +622,55 @@ class BaseNodeClassificationHetTrainer(BaseTrainer):
         self.num_features = self.num_features
         self.num_classes = self.num_classes
         self.last_dim = self.last_dim
+
+
+# ============== Het =================
+class BaseNodeClassificationHetTrainer(BaseNodeClassificationTrainer):
+    """ Base class of trainer for classification tasks """
+
+    def __init__(
+        self,
+        model: _typing.Union[BaseAutoModel, str],
+        dataset: None,
+        num_features: int,
+        num_classes: int,
+        device: _typing.Union[torch.device, str, None] = "auto",
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
+    ):
+        self._dataset = dataset
+        super(BaseNodeClassificationHetTrainer, self).__init__(
+            model, None, num_features, num_classes, device, feval, loss
+        )
+        self.from_dataset(dataset)
+    
+    def from_dataset(self, dataset):
+        self._dataset = dataset
+        if self.encoder is not None:
+            self.encoder.from_dataset(self._dataset)
+
+    @property
+    def encoder(self):
+        return self._encoder
+
+    @encoder.setter
+    def encoder(self, enc: _typing.Union[BaseAutoModel, str, None]):
+        if isinstance(enc, str):
+            self._encoder = ModelUniversalRegistry.get_model(enc)(
+                self.num_features, self.num_classes, device=self.device
+            )
+        elif isinstance(enc, BaseAutoModel):
+            self._encoder = enc
+            if self.decoder is not None:
+                logging.warn("will disable decoder since a whole model is passed")
+                self.decoder = None
+        elif enc is None:
+            self._encoder = None
+        else:
+            raise ValueError("Enc {} is not supported!".format(enc))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        if self._dataset is not None:
+            self.from_dataset(self._dataset)

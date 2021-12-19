@@ -1,3 +1,4 @@
+import logging
 import dgl
 import math
 import torch
@@ -7,7 +8,8 @@ import dgl.function as fn
 from dgl.nn.functional import edge_softmax
 
 from .. import register_model
-from ..base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from .base import BaseHeteroModelMaintainer
+from ..base import activate_func
 from .....utils import get_logger
 
 LOGGER = get_logger("HGTModel")
@@ -136,7 +138,10 @@ class HGT(nn.Module):
                     "heads",
                     "dropout",
                     "act",
-                    "use_norm",  # use layer norm
+                    "use_norm",
+                    "node_dict",
+                    "edge_dict",
+                    "out_key"
                 ]
             )
             - set(self.args.keys())
@@ -146,6 +151,7 @@ class HGT(nn.Module):
 
         self.node_dict = self.args["node_dict"]
         self.edge_dict = self.args["edge_dict"]
+        self.out_key = self.args["out_key"]
         self.gcs = nn.ModuleList()
         self.num_layers = int(self.args["num_layers"])
 
@@ -172,7 +178,7 @@ class HGT(nn.Module):
         return self.out(h[self.out_key])
 
 @register_model("hgt")
-class AutoHGT(BaseModel):
+class AutoHGT(BaseHeteroModelMaintainer):
     r"""
     AutoHGT.
     The model used in this automodel is HGT, i.e., the graph convolutional network from the
@@ -201,19 +207,11 @@ class AutoHGT(BaseModel):
         If True(False), the model will (not) be initialized.
     """
     def __init__(
-        self,  dataset=None, num_features=None, num_classes=None, device=None, init=False, **args
+        self, num_features=None, num_classes=None, device=None, init=False, dataset=None, **args
     ):
-        super(AutoHGT, self).__init__()
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.device = device if device is not None else "cpu"
-        self.init = True
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
-        self.space = [
+        super().__init__(num_features, num_classes, device, dataset, **args)
+        
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -254,7 +252,7 @@ class AutoHGT(BaseModel):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 2,
             "hidden": [256],
             "heads": 4,
@@ -263,36 +261,22 @@ class AutoHGT(BaseModel):
             "use_norm": True
         }
 
-        if dataset is not None:
-            self.from_dataset(dataset)
-        self.initialized = False
         if init is True:
             self.initialize()
 
-    def initialize(self):
-        # """Initialize model."""
-        if self.initialized:
-            return
-        self.initialized = True
-        print(self.params)
-        self.model = HGT({**self.params, **self.hyperparams}).to(self.device)
+    def _initialize(self):
+        self._model = HGT(dict(
+            features_num=self.input_dimension, 
+            num_class=self.output_dimension, 
+            out_key=self.out_key,
+            node_dict=self.node_dict,
+            edge_dict=self.edge_dict,
+            **self.hyper_parameters
+        )).to(self.device)
 
     def from_dataset(self, dataset):
-        self.params["out_key"] = dataset.target_node_type 
-        # self.meta_paths = dataset.metapaths
-        self.params["node_dict"] = dataset.node_dict
-        self.params["edge_dict"] = dataset.edge_dict
-
-
-    def from_hyper_parameter(self, hp):
-        ret_self = self.__class__(
-            G=self.G,
-            num_features=self.num_features,
-            num_classes=self.num_classes,
-            device=self.device,
-            init=False,
-        )
-        ret_self.hyperparams.update(hp)
-        ret_self.params.update(self.params)
-        ret_self.initialize()
-        return ret_self
+        G: dgl.DGLGraph = dataset[0]
+        # generate edge and node dict
+        self.register_parameter("out_key", dataset.schema["target_node_type"])
+        self.register_parameter("node_dict", dict(zip(G.ntypes, range(len(G.ntypes)))))
+        self.register_parameter("edge_dict", dict(zip(G.etypes, range(len(G.etypes)))))

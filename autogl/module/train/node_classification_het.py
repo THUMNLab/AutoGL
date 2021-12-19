@@ -13,8 +13,7 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
 )
 import torch.nn.functional as F
-import numpy as np
-from ..model import MODEL_DICT, BaseModel
+from ..model import BaseAutoModel
 from .evaluation import get_feval, Logloss
 from typing import Union
 from copy import deepcopy
@@ -44,7 +43,7 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
     Used to automatically train the node classification problem.
     Parameters
     ----------
-    model: ``BaseModel`` or ``str``
+    model: ``BaseAutoModel`` or ``str``
         The (name of) model used to train and predict.
     optimizer: ``Optimizer`` of ``str``
         The (name of) optimizer used to train and predict.
@@ -62,15 +61,14 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
 
     def __init__(
         self,
-        model: Union[BaseModel, str] = None,
-        G=None,
-        meta_paths = None, # Jie
+        model: Union[BaseAutoModel, str] = None,
+        dataset = None,
         num_features=None,
         num_classes=None,
-        optimizer=None,
-        lr=None,
-        max_epoch=None,
-        early_stopping_round=None,
+        optimizer=torch.optim.AdamW,
+        lr=1e-4,
+        max_epoch=100,
+        early_stopping_round=100,
         weight_decay=1e-4,
         device="auto",
         init=True,
@@ -82,36 +80,31 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
     ):
         super().__init__(
             model,
-            G,
-            meta_paths,
+            dataset,
             num_features,
             num_classes,
             device=device,
-            init=init,
             feval=feval,
             loss=loss,
         )
        
         self.opt_received = optimizer
-        if type(optimizer) == str and optimizer.lower() == "adam":
-            self.optimizer = torch.optim.Adam
-        elif type(optimizer) == str and optimizer.lower() == "sgd":
-            self.optimizer = torch.optim.SGD
+        if isinstance(optimizer, str):
+            if optimizer.lower() == "adam": self.optimizer = torch.optim.Adam
+            elif optimizer.lower() == "sgd": self.optimizer = torch.optim.SGD
+            else: raise ValueError("Currently not support optimizer {}".format(optimizer))
+        elif isinstance(optimizer, type) and issubclass(optimizer, torch.optim.Optimizer):
+            self.optimizer = optimizer
         else:
-            self.optimizer = torch.optim.Adam
+            raise ValueError("Currently not support optimizer {}".format(optimizer))
 
         self.lr_scheduler_type = lr_scheduler_type
 
-        self.lr = lr if lr is not None else 1e-4
-        self.max_epoch = max_epoch if max_epoch is not None else 100
-        self.early_stopping_round = (
-            early_stopping_round if early_stopping_round is not None else 100
-        )
+        self.lr = lr
+        self.max_epoch = max_epoch
+        self.early_stopping_round = early_stopping_round
         self.args = args
         self.kwargs = kwargs
-
-        self.feval = get_feval(feval)
-
         self.weight_decay = weight_decay
 
         self.early_stopping = EarlyStopping(
@@ -122,11 +115,9 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         self.valid_result_prob = None
         self.valid_score = None
 
-        self.initialized = False
-
         self.pyg_dgl = DependentBackend.get_backend_name()
 
-        self.space = [
+        self.hyper_parameter_space = [
             {
                 "parameterName": "max_epoch",
                 "type": "INTEGER",
@@ -157,7 +148,7 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
             },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "max_epoch": self.max_epoch,
             "early_stopping_round": self.early_stopping_round,
             "lr": self.lr,
@@ -167,40 +158,22 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         if init is True:
             self.initialize()
 
-    def initialize(self):
-        #  Initialize the auto model in trainer.
-        if self.initialized is True:
-            return
-        self.initialized = True
-        self.model.initialize()
-
-    def get_model(self):
-        # Get auto model used in trainer.
-        return self.model
+    def _initialize(self):
+        self.encoder.initialize()
 
     @classmethod
     def get_task_name(cls):
-        # Get task name, i.e., `NodeClassification`.
         return "NodeClassificationHet"
 
-    def train_only(self, data, G, train_mask=None):
-        """
-        The function of training on the given dataset and mask.
-        Parameters
-        ----------
-        data: The node classification dataset used to be trained. It should consist of masks, including train_mask, and etc.
-        train_mask: The mask used in training stage.
-        Returns
-        -------
-        self: ``autogl.train.NodeClassificationTrainer``
-            A reference of current trainer.
-        """
-        labels = data["labels"]
-        labels = labels.to(self.device)
-        val_mask = data["val_mask"]
-        val_mask = val_mask.to(self.device)
+    def _train_only(self, dataset, train_mask="train"):
+        G = dataset[0].to(self.device)
+        field = dataset.schema["target_node_type"]
+        labels = G.nodes[field].data['label'].to(self.device)
+        train_mask = self._get_mask(dataset, train_mask).to(self.device)
+        val_mask = self._get_mask(dataset, "val").to(self.device)
+        model = self.encoder.model.to(self.device)
         optimizer = self.optimizer(
-            self.model.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
 
         lr_scheduler_type = self.lr_scheduler_type
@@ -218,19 +191,17 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
             scheduler = None
 
         for epoch in range(1, self.max_epoch):
-            self.model.model.train()
+            model.train()
             optimizer.zero_grad()
-            if hasattr(self.model.model, 'cls_forward'):
-                logits = self.model.model.cls_forward(G, 'paper')
-            else:
-                logits = self.model.model.forward(G, 'paper')
+            logits = model(G)
 
-            # 手工定义的loss，后面需要改
-            loss_fcn = torch.nn.CrossEntropyLoss()
-            # print(logits[train_mask].size()) # torch.Size([1, 4025, 3])
-            # print(labels[train_mask].size()) # torch.Size([1, 4025])
-            loss = loss_fcn(logits[train_mask], labels[train_mask]) #!!!!!!
-            # loss = loss_fcn(logits[train_mask][0], labels[train_mask][0]) #!!!!!!
+            if hasattr(F, self.loss):
+                loss = getattr(F, self.loss)(logits[train_mask], labels[train_mask])
+            else:
+                raise TypeError(
+                    "PyTorch does not support loss type {}".format(self.loss)
+                )
+
             loss.backward()
             optimizer.step()
             if self.lr_scheduler_type:
@@ -242,42 +213,30 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
                 else:
                     feval = self.feval
 
-                # val_loss = self.evaluate([data], mask=val_mask, feval=feval)
-                val_loss = self.evaluate(G, labels, val_mask, loss_fcn)[0]
+                val_loss = self.evaluate(dataset, mask=val_mask, feval=feval)
                 if feval.is_higher_better() is True:
                     val_loss = -val_loss
 
-                self.early_stopping(val_loss, self.model.model)
+                self.early_stopping(val_loss, model)
                 if self.early_stopping.early_stop:
                     LOGGER.debug("Early stopping at %d", epoch)
                     break
-        if hasattr(data, "val_mask") and data.val_mask is not None:
-            self.early_stopping.load_checkpoint(self.model.model)
+        if val_mask is not None:
+            self.early_stopping.load_checkpoint(model)
 
-    def predict_only(self, G, mask=None):
-        """
-        The function of predicting on the given dataset and mask.
-        Parameters
-        ----------
-        data: The node classification dataset used to be predicted.
-        train_mask: The mask used in training stage.
-        Returns
-        -------
-        res: The result of predicting on the given dataset.
-        """
-        self.model.model.eval()
+    def _predict_only(self, dataset, mask=None):
+        model = self.encoder.model.to(self.device)
+        model.eval()
+        G = dataset[0].to(self.device)
         with torch.no_grad():
-            if hasattr(self.model.model, 'cls_forward'):
-                res = self.model.model.cls_forward(G, 'paper')
-            else:
-                res = self.model.model.forward(G, 'paper')
+            res = model(G)
 
         if mask is None:
             return res
         else:
             return res[mask]
 
-    def train(self, data, G, keep_valid_result=True, train_mask=None):
+    def train(self, dataset, keep_valid_result=True, train_mask="train"):
         """
         The function of training on the given dataset and keeping valid result.
         Parameters
@@ -291,18 +250,19 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         self: ``autogl.train.NodeClassificationTrainer``
             A reference of current trainer.
         """
-        self.train_only(data, G, train_mask)
+        self._train_only(dataset, train_mask)
+        G = dataset[0].to(self.device)
         if keep_valid_result:
             # generate labels
-            val_mask = data["val_mask"]
-            self.valid_result = self.predict_only(G)[val_mask].max(1)[1]
-            self.valid_result_prob = self.predict_only(G)[val_mask]
+            val_mask = G.nodes[dataset.schema["target_node_type"]].data["val_mask"]
+            self.valid_result = self._predict_only(dataset)[val_mask].max(1)[1]
+            self.valid_result_prob = self._predict_only(dataset)[val_mask]
             self.valid_score = self.evaluate(
-                data, mask=val_mask, feval=self.feval
+                dataset, mask=val_mask, feval=self.feval
             )
             # print(self.valid_score)
 
-    def predict(self, G, mask=None):
+    def predict(self, dataset, mask="test"):
         """
         The function of predicting on the given dataset.
         Parameters
@@ -314,9 +274,9 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         -------
         The prediction result of ``predict_proba``.
         """
-        return self.predict_proba(G, mask=mask, in_log_format=True).max(1)[1]
+        return self.predict_proba(dataset, mask=mask, in_log_format=True).max(1)[1]
 
-    def predict_proba(self, G, mask=None, in_log_format=False):
+    def predict_proba(self, dataset, mask="test", in_log_format=False):
         """
         The function of predicting the probability on the given dataset.
         Parameters
@@ -330,9 +290,10 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         -------
         The prediction result.
         """
-        # data = dataset[0]
-        # data = data.to(self.device)
-        ret = self.predict_only(G, mask)
+        G = dataset[0].to(self.device)
+        if mask in ["train", "val", "test"]:
+            mask = G.nodes[dataset.schema["target_node_type"]].data[f"{mask}_mask"]
+        ret = self._predict_only(dataset, mask)
         if in_log_format is True:
             return ret
         else:
@@ -376,11 +337,16 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
                 "learning_rate": self.lr,
                 "max_epoch": self.max_epoch,
                 "early_stopping_round": self.early_stopping_round,
-                "model": repr(self.model),
+                "model": repr(self.model.model),
             }
         )
+    
+    def _get_mask(self, dataset, mask):
+        if mask in ["train", "val", "test"]:
+            return dataset[0].nodes[dataset.schema["target_node_type"]].data[f"{mask}_mask"].bool()
+        return mask
 
-    def evaluate(self, G, labels, mask=None, loss_func = None):
+    def evaluate(self, dataset, mask='val', feval = None):
         """
         The function of training on the given dataset and keeping valid result.
         Parameters
@@ -394,17 +360,37 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         -------
         res: The evaluation result on the given dataset.
         """
-        mask = mask.bool()
-        self.model.model.eval()
-        with torch.no_grad():
-            logits = self.model.model(G, 'paper')
-        loss = loss_func(logits[mask], labels[mask])
-        accuracy, micro_f1, macro_f1 = score(logits[mask], labels[mask])
+        G = dataset[0].to(self.device)
 
-        return loss, accuracy, micro_f1, macro_f1
+        mask = self._get_mask(dataset, mask)
+        label = G.nodes[dataset.schema["target_node_type"]].data['label'].to(self.device)
+
+        if feval is None:
+            feval = self.feval
+        else:
+            feval = get_feval(feval)
+
+        y_pred_prob = self.predict_proba(dataset, mask)
+
+        y_true = label[mask] if mask is not None else label
+
+        if not isinstance(feval, list):
+            feval = [feval]
+            return_signle = True
+        else:
+            return_signle = False
+
+        res = []
+        for f in feval:
+            try:
+                res.append(f.evaluate(y_pred_prob, y_true))
+            except:
+                res.append(f.evaluate(y_pred_prob.cpu().numpy(), y_true.cpu().numpy()))
+        if return_signle:
+            return res[0]
+        return res
 
     def to(self, new_device):
-        assert isinstance(new_device, torch.device)
         self.device = new_device
         if self.model is not None:
             self.model.to(self.device)
@@ -424,32 +410,27 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         self: ``autogl.train.NodeClassificationTrainer``
             A new instance of trainer.
         """
+        trainer_hp = hp["trainer"]
+        model_hp = hp["encoder"]
         if not restricted:
-            origin_hp = deepcopy(self.hyperparams)
-            origin_hp.update(hp)
-            hp = origin_hp
+            origin_hp = deepcopy(self.hyper_parameters)
+            origin_hp.update(trainer_hp)
+            trainer_hp = origin_hp
         if model is None:
             model = self.model
-        model = model.from_hyper_parameter(
-            dict(
-                [
-                    x
-                    for x in hp.items()
-                    if x[0] in [y["parameterName"] for y in model.space]
-                ]
-            )
-        )
+        model = model.from_hyper_parameter(model_hp)
 
         ret = self.__class__(
             model=model,
+            dataset=self._dataset,
             num_features=self.num_features,
             num_classes=self.num_classes,
             optimizer=self.opt_received,
-            lr=hp["lr"],
-            max_epoch=hp["max_epoch"],
-            early_stopping_round=hp["early_stopping_round"],
+            lr=trainer_hp["lr"],
+            max_epoch=trainer_hp["max_epoch"],
+            early_stopping_round=trainer_hp["early_stopping_round"],
             device=self.device,
-            weight_decay=hp["weight_decay"],
+            weight_decay=trainer_hp["weight_decay"],
             feval=self.feval,
             loss=self.loss,
             lr_scheduler_type=self.lr_scheduler_type,
@@ -459,17 +440,3 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
         )
 
         return ret
-
-    @property
-    def hyper_parameter_space(self):
-        # """Get the space of hyperparameter."""
-        return self.space
-
-    @hyper_parameter_space.setter
-    def hyper_parameter_space(self, space):
-        # """Set the space of hyperparameter."""
-        self.space = space
-
-    def get_hyper_parameter(self):
-        # """Get the hyperparameter in this trainer."""
-        return self.hyperparams
