@@ -1,5 +1,5 @@
 """
-Auto Classfier for Node Classification
+Auto Classfier for Heterogeneous Node Classification
 """
 import time
 import json
@@ -11,25 +11,20 @@ import torch
 import numpy as np
 import yaml
 
-from .base import BaseClassifier
-from ..base import _parse_hp_space, _initialize_single_model, _parse_model_hp
-from ...module.feature import FEATURE_DICT
-from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
-from ...module.train import get_feval
-from ...module.nas.space import NAS_SPACE_DICT
-from ...module.nas.algorithm import NAS_ALGO_DICT
-from ...module.nas.estimator import NAS_ESTIMATOR_DICT, BaseEstimator
-from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_labels, get_graph_masks, get_graph_node_features, get_graph_node_number, set_seed, convert_dataset
-from ...datasets import utils
-from ...utils import get_logger
+from ..base import BaseClassifier
+from ...base import _parse_hp_space, _initialize_single_model, _parse_model_hp
+from ....module.train import TRAINER_DICT, BaseNodeClassificationHetTrainer
+from ....module.train import get_feval
+from ...utils import LeaderBoard, set_seed
+from ....utils import get_logger
 
-LOGGER = get_logger("NodeClassifier")
+LOGGER = get_logger("HeteroNodeClassifier")
 
-class AutoNodeClassifier(BaseClassifier):
+class AutoHeteroNodeClassifier(BaseClassifier):
     """
-    Auto Multi-class Graph Node Classifier.
+    Auto Multi-class HeteroGraph Node Classifier.
 
-    Used to automatically solve the node classification problems.
+    Used to automatically solve the heterogeneous node classification problems.
 
     Parameters
     ----------
@@ -39,15 +34,6 @@ class AutoNodeClassifier(BaseClassifier):
 
     graph_models: list of autogl.module.model.BaseModel or list of str
         The (name of) models to be optimized as backbone. Default ``['gat', 'gcn']``.
-
-    nas_algorithms: (list of) autogl.module.nas.algorithm.BaseNAS or str (Optional)
-        The (name of) nas algorithms used. Default ``None``.
-
-    nas_spaces: (list of) autogl.module.nas.space.BaseSpace or str (Optional)
-        The (name of) nas spaces used. Default ``None``.
-
-    nas_estimators: (list of) autogl.module.nas.estimator.BaseEstimator or str (Optional)
-        The (name of) nas estimators used. Default ``None``.
 
     hpo_module: autogl.module.hpo.BaseHPOptimizer or str or None
         The (name of) hpo module used to search for best hyper parameters. Default ``anneal``.
@@ -83,15 +69,11 @@ class AutoNodeClassifier(BaseClassifier):
 
     def __init__(
         self,
-        feature_module=None,
-        graph_models=("gat", "gcn"),    # TODO: support a list of model
-        nas_algorithms=None,
-        nas_spaces=None,
-        nas_estimators=None,
+        graph_models=("han", "hgt"),
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
-        default_trainer="NodeClassificationFull",
+        default_trainer="NodeClassificationHet",
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -99,11 +81,13 @@ class AutoNodeClassifier(BaseClassifier):
     ):
 
         super().__init__(
-            feature_module=feature_module,
+            # currently we do not support feature engineering
+            feature_module=None,
             graph_models=graph_models,
-            nas_algorithms=nas_algorithms,
-            nas_spaces=nas_spaces,
-            nas_estimators=nas_estimators,
+            # currently we do not support nas for heterogeneous node classifier
+            nas_algorithms=None,
+            nas_spaces=None,
+            nas_estimators=None,
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
@@ -118,14 +102,14 @@ class AutoNodeClassifier(BaseClassifier):
         self.dataset = None
 
     def _init_graph_module(
-        self, graph_models, num_classes, num_features, feval, device, loss
-    ) -> "AutoNodeClassifier":
+        self, graph_models, num_classes, num_features, feval, device, loss, dataset
+    ) -> "AutoHeteroNodeClassifier":
         # load graph network module
         self.graph_model_list = []
 
         for i, model in enumerate(graph_models):
             # init the trainer
-            if not isinstance(model, BaseNodeClassificationTrainer):
+            if not isinstance(model, BaseNodeClassificationHetTrainer):
                 trainer = (
                     self._default_trainer if not isinstance(self._default_trainer, (tuple, list))
                     else self._default_trainer[i]
@@ -164,6 +148,7 @@ class AutoNodeClassifier(BaseClassifier):
 
             trainer.num_features = num_features
             trainer.num_classes = num_classes
+            trainer.from_dataset(dataset)
             trainer.loss = loss
             trainer.feval = feval
             trainer.to(device)
@@ -171,28 +156,14 @@ class AutoNodeClassifier(BaseClassifier):
 
         return self
 
-    def _init_nas_module(self, num_features, num_classes, feval, device, loss):
-        for algo, space, estimator in zip(
-            self.nas_algorithms, self.nas_spaces, self.nas_estimators
-        ):
-            estimator: BaseEstimator
-            algo.to(device)
-            space.instantiate(input_dim=num_features, output_dim=num_classes)
-            estimator.setEvaluation(feval)
-            estimator.setLossFunction(loss)
-
     # pylint: disable=arguments-differ
     def fit(
         self,
         dataset,
         time_limit=-1,
-        inplace=False,
-        train_split=None,
-        val_split=None,
-        balanced=True,
         evaluation_method="infer",
         seed=None,
-    ) -> "AutoNodeClassifier":
+    ) -> "AutoHeteroNodeClassifier":
         """
         Fit current solver on given dataset.
 
@@ -208,21 +179,6 @@ class AutoNodeClassifier(BaseClassifier):
         inplace: bool
             Whether we process the given dataset in inplace manner. Default ``False``.
             Set it to True if you want to save memory by modifying the given dataset directly.
-
-        train_split: float or int (Optional)
-            The train ratio (in ``float``) or number (in ``int``) of dataset. If you want to
-            use default train/val/test split in dataset, please set this to ``None``.
-            Default ``None``.
-
-        val_split: float or int (Optional)
-            The validation ratio (in ``float``) or number (in ``int``) of dataset. If you want
-            to use default train/val/test split in dataset, please set this to ``None``.
-            Default ``None``.
-
-        balanced: bool
-            Wether to create the train/valid/test split in a balanced way.
-            If set to ``True``, the train/valid will have the same number of different classes.
-            Default ``True``.
 
         evaluation_method: (list of) str or autogl.module.train.evaluation
             A (list of) evaluation method for current solver. If ``infer``, will automatically
@@ -243,8 +199,9 @@ class AutoNodeClassifier(BaseClassifier):
             time_limit = 3600 * 24
         time_begin = time.time()
 
-        graph_data = get_graph_from_dataset(dataset, 0)
-        all_labels = get_graph_labels(graph_data)
+        graph_data = dataset[0]
+        field = dataset.schema["target_node_type"]
+        all_labels = graph_data.nodes[field].data['label']
         num_classes = all_labels.max().item() + 1
 
         # initialize leaderboard
@@ -265,44 +222,17 @@ class AutoNodeClassifier(BaseClassifier):
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
 
-
         # set up the dataset
-        if train_split is not None and val_split is not None:
-            size = get_graph_node_number(graph_data)
-            if balanced:
-                train_split = (
-                    train_split if train_split > 1 else int(train_split * size)
-                )
-                val_split = val_split if val_split > 1 else int(val_split * size)
-                utils.random_splits_mask_class(
-                    dataset,
-                    num_train_per_class=train_split // num_classes,
-                    num_val_per_class=val_split // num_classes,
-                    seed=seed,
-                )
-            else:
-                train_split = train_split if train_split < 1 else train_split / size
-                val_split = val_split if val_split < 1 else val_split / size
-                utils.random_splits_mask(
-                    dataset, train_ratio=train_split, val_ratio=val_split
-                )
-        else:
-            assert get_graph_masks(graph_data, 'train') is not None and get_graph_masks(graph_data, 'val') is not None, (
-                "The dataset has no default train/val split! Please manually pass "
-                "train and val ratio."
-            )
-            LOGGER.info("Use the default train/val/test ratio in given dataset")
-
-        # feature engineering
-        if self.feature_module is not None:
-            dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
+        assert ("train_mask" in graph_data.nodes[field].data 
+            and "val_mask" in graph_data.nodes[field].data), ("Currently only support"
+            " Dataset with default train/val/test split")
 
         self.dataset = dataset
 
         # check whether the dataset has features.
-        # currently we only support graph classification with features.
+        # currently we only support hetero graph classification with features.
 
-        feat = get_graph_node_features(graph_data)
+        feat = graph_data.nodes[field].data['feat']
         assert feat is not None, (
             "Does not support fit on non node-feature dataset!"
             " Please add node features to dataset or specify feature engineers that generate"
@@ -319,75 +249,23 @@ class AutoNodeClassifier(BaseClassifier):
             feval=evaluator_list,
             device=self.runtime_device,
             loss="nll_loss" if not hasattr(dataset, "loss") else self.dataset.loss,
+            dataset=dataset
         )
-
-        if self.nas_algorithms is not None:
-            # perform neural architecture search
-            self._init_nas_module(
-                num_features=num_features,
-                num_classes=num_classes,
-                feval=evaluator_list,
-                device=self.runtime_device,
-                loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
-            )
-
-            assert not isinstance(self._default_trainer, list) or len(
-                self.nas_algorithms
-            ) == len(self._default_trainer) - len(
-                self.graph_model_list
-            ), "length of default trainer should match total graph models and nas models passed"
-
-            # perform nas and add them to model list
-            idx_trainer = len(self.graph_model_list)
-            for algo, space, estimator in zip(
-                self.nas_algorithms, self.nas_spaces, self.nas_estimators
-            ):
-                model = algo.search(space, convert_dataset(self.dataset), estimator)
-                # insert model into default trainer
-                if isinstance(self._default_trainer, list):
-                    train_name = self._default_trainer[idx_trainer]
-                    idx_trainer += 1
-                else:
-                    train_name = self._default_trainer
-                if isinstance(train_name, str):
-                    trainer = TRAINER_DICT[train_name](
-                        model=model,
-                        num_features=num_features,
-                        num_classes=num_classes,
-                        loss="nll_loss"
-                        if not hasattr(dataset, "loss")
-                        else dataset.loss,
-                        feval=evaluator_list,
-                        device=self.runtime_device,
-                        init=False,
-                    )
-                elif isinstance(train_name, BaseNodeClassificationTrainer):
-                    trainer = train_name
-                    trainer.encoder = model
-                    trainer.num_features = num_features
-                    trainer.num_classes = num_classes
-                    trainer.loss = "nll_loss" if not hasattr(dataset, "loss") else dataset.loss
-                    trainer.feval = evaluator_list
-                    trainer.to(self.runtime_device)
-                else:
-                    raise ValueError()
-                self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
         result_valid = []
         names = []
         for idx, model in enumerate(self.graph_model_list):
-            model: BaseNodeClassificationTrainer
             time_for_each_model = (time_limit - time.time() + time_begin) / (
                 len(self.graph_model_list) - idx
             )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(convert_dataset(self.dataset), True)
+                model.train(dataset, True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=convert_dataset(self.dataset), time_limit=time_for_each_model
+                    trainer=model, dataset=dataset, time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
@@ -410,7 +288,7 @@ class AutoNodeClassifier(BaseClassifier):
         if self.ensemble_module is not None:
             performance = self.ensemble_module.fit(
                 result_valid,
-                all_labels[get_graph_masks(graph_data, 'val')].cpu().numpy(),
+                all_labels[graph_data.nodes[field].data["val_mask"]].cpu().numpy(),
                 names,
                 evaluator_list,
                 n_classes=num_classes,
@@ -426,10 +304,6 @@ class AutoNodeClassifier(BaseClassifier):
         self,
         dataset,
         time_limit=-1,
-        inplace=False,
-        train_split=None,
-        val_split=None,
-        balanced=True,
         evaluation_method="infer",
         use_ensemble=True,
         use_best=True,
@@ -492,16 +366,10 @@ class AutoNodeClassifier(BaseClassifier):
         self.fit(
             dataset=dataset,
             time_limit=time_limit,
-            inplace=inplace,
-            train_split=train_split,
-            val_split=val_split,
-            balanced=balanced,
             evaluation_method=evaluation_method,
         )
         return self.predict(
             dataset=dataset,
-            inplaced=inplace,
-            inplace=inplace,
             use_ensemble=use_ensemble,
             use_best=use_best,
             name=name,
@@ -510,8 +378,6 @@ class AutoNodeClassifier(BaseClassifier):
     def predict_proba(
         self,
         dataset=None,
-        inplaced=False,
-        inplace=False,
         use_ensemble=True,
         use_best=True,
         name=None,
@@ -561,8 +427,6 @@ class AutoNodeClassifier(BaseClassifier):
             assert dataset is not None, (
                 "Please execute fit() first before" " predicting on remembered dataset"
             )
-        elif not inplaced and self.feature_module is not None:
-            dataset = self.feature_module.transform(dataset, inplace=inplace)
 
         if use_ensemble:
             LOGGER.info("Ensemble argument on, will try using ensemble model.")
@@ -610,7 +474,7 @@ class AutoNodeClassifier(BaseClassifier):
     def _predict_proba_by_name(self, dataset, name, mask="test"):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
-            self.trained_models[name].predict_proba(convert_dataset(dataset), mask=mask).cpu().numpy()
+            self.trained_models[name].predict_proba(dataset, mask=mask).cpu().numpy()
         )
         self.trained_models[name].to(torch.device("cpu"))
         return predicted
@@ -618,8 +482,6 @@ class AutoNodeClassifier(BaseClassifier):
     def predict(
         self,
         dataset=None,
-        inplaced=False,
-        inplace=False,
         use_ensemble=True,
         use_best=True,
         name=None,
@@ -665,13 +527,12 @@ class AutoNodeClassifier(BaseClassifier):
             The prediction on given dataset.
         """
         proba = self.predict_proba(
-            dataset, inplaced, inplace, use_ensemble, use_best, name, mask
+            dataset, use_ensemble, use_best, name, mask
         )
         return np.argmax(proba, axis=1)
 
+
     def evaluate(self, dataset=None,
-        inplaced=False,
-        inplace=False,
         use_ensemble=True,
         use_best=True,
         name=None,
@@ -679,18 +540,21 @@ class AutoNodeClassifier(BaseClassifier):
         label=None,
         metric="acc"
     ):
-        predicted = self.predict_proba(dataset, inplaced, inplace, use_ensemble, use_best, name, mask)
+        predicted = self.predict_proba(dataset, use_ensemble, use_best, name, mask)
         if dataset is None:
             dataset = self.dataset
         if label is None:
-            label = get_graph_labels(dataset[0])[get_graph_masks(dataset[0], mask)].cpu().numpy()
+            graph_nodes = dataset[0].nodes[dataset.schema["target_node_type"]].data
+            if mask in ["train", "val", "test"]:
+                mask = graph_nodes[f"{mask}_mask"]
+            label = graph_nodes["label"][mask].cpu().numpy()
         evaluator = get_feval(metric)
         if isinstance(evaluator, Sequence):
             return [evals.evaluate(predicted, label) for evals in evaluator]
         return evaluator.evaluate(predicted, label)
 
     @classmethod
-    def from_config(cls, path_or_dict, filetype="auto") -> "AutoNodeClassifier":
+    def from_config(cls, path_or_dict, filetype="auto") -> "AutoHeteroNodeClassifier":
         """
         Load solver from config file.
 
@@ -741,17 +605,8 @@ class AutoNodeClassifier(BaseClassifier):
 
         path_or_dict = deepcopy(path_or_dict)
         solver = cls(None, [], None, None)
-        fe_list = path_or_dict.pop("feature", None)
-        if fe_list is not None:
-            fe_list_ele = []
-            for feature_engineer in fe_list:
-                name = feature_engineer.pop("name")
-                if name is not None:
-                    fe_list_ele.append(FEATURE_DICT[name](**feature_engineer))
-            if fe_list_ele != []:
-                solver.set_feature_module(fe_list_ele)
-
-        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}, {"name": "sage"}, {"name": "gin"}])
+        
+        models = path_or_dict.pop("models", [{"name": "hgt"}, {"name": "han"}])
         # models should be a list of model
         # with each element in two cases
         # * a dict describing a certain model
@@ -764,11 +619,11 @@ class AutoNodeClassifier(BaseClassifier):
         ]
 
         trainer = path_or_dict.pop("trainer", None)
-        default_trainer = "NodeClassificationFull"
+        default_trainer = "NodeClassificationHet"
         trainer_space = None
         if isinstance(trainer, dict):
             # global default
-            default_trainer = trainer.pop("name", "NodeClassificationFull")
+            default_trainer = trainer.pop("name", "NodeClassificationHet")
             trainer_space = _parse_hp_space(trainer.pop("hp_space", None))
             default_kwargs = {"num_features": None, "num_classes": None}
             default_kwargs.update(trainer)
@@ -787,7 +642,7 @@ class AutoNodeClassifier(BaseClassifier):
             trainer_space = []
             for i in range(len(model_list)):
                 train, model = trainer[i], model_list[i]
-                default_trainer = train.pop("name", "NodeClassificationFull")
+                default_trainer = train.pop("name", "NodeClassificationHet")
                 trainer_space.append(_parse_hp_space(train.pop("hp_space", None)))
                 default_kwargs = {"num_features": None, "num_classes": None}
                 default_kwargs.update(train)
@@ -810,29 +665,5 @@ class AutoNodeClassifier(BaseClassifier):
         if ensemble_dict is not None:
             name = ensemble_dict.pop("name")
             solver.set_ensemble_module(name, **ensemble_dict)
-
-        nas_dict = path_or_dict.pop("nas", None)
-        if nas_dict is not None:
-            keys: set = set(nas_dict.keys())
-            needed = {"space", "algorithm", "estimator"}
-            if keys != needed:
-                LOGGER.error("Key mismatch, we need %s, you give %s", needed, keys)
-                raise KeyError("Key mismatch, we need %s, you give %s" % (needed, keys))
-
-            spaces, algorithms, estimators = [], [], []
-
-            for container, indexer, k in zip(
-                [spaces, algorithms, estimators],
-                [NAS_SPACE_DICT, NAS_ALGO_DICT, NAS_ESTIMATOR_DICT],
-                ["space", "algorithm", "estimator"],
-            ):
-                configs = nas_dict[k]
-                if isinstance(configs, list):
-                    for item in configs:
-                        container.append(indexer[item.pop("name")](**item))
-                else:
-                    container.append(indexer[configs.pop("name")](**configs))
-
-            solver.set_nas_module(algorithms, spaces, estimators)
 
         return solver

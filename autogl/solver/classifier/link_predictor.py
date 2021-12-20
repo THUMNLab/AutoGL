@@ -12,7 +12,6 @@ import torch
 import numpy as np
 import yaml
 
-from ...data import Data
 from .base import BaseClassifier
 from ..base import _parse_hp_space, _initialize_single_model, _parse_model_hp
 from ...module.feature import FEATURE_DICT

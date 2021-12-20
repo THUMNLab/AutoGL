@@ -10,7 +10,7 @@ from .. import _dataset_registry
 def get_binary_mask(total_size, indices):
     mask = torch.zeros(total_size)
     mask[indices] = 1
-    return mask.byte()
+    return mask.bool()
 
 
 @_dataset_registry.DatasetUniversalRegistry.register_dataset("hetero-acm-han")

@@ -269,3 +269,10 @@ def set_seed(seed=None):
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
+def get_graph_labels_hetero(graph, target_node_type):
+    if isinstance(graph, GeneralStaticGraph):
+        if 'label' in graph.nodes[target_node_type].data and BACKEND == 'dgl':
+            return graph.nodes[target_node_type].data['label']
+        return None
+    if BACKEND == 'dgl' and 'label' in graph.ndata[target_node_type]: return graph.ndata[target_node_type]['label']

@@ -64,9 +64,9 @@ def main(args):
     num_classes = labels.max().item() + 1
 
     labels = labels.to(args['device'])
-    train_mask = g.nodes[node_type].data['train_mask'].to(args['device']).bool()
-    val_mask = g.nodes[node_type].data['val_mask'].to(args['device']).bool()
-    test_mask = g.nodes[node_type].data['test_mask'].to(args['device']).bool()
+    train_mask = g.nodes[node_type].data['train_mask'].to(args['device'])
+    val_mask = g.nodes[node_type].data['val_mask'].to(args['device'])
+    test_mask = g.nodes[node_type].data['test_mask'].to(args['device'])
 
     model = AutoHAN(
         dataset=dataset,

@@ -30,7 +30,7 @@ def main(args):
     num_features = 256
     labels = G.nodes[field].data['label'].to(args.device)
     num_classes = labels.max().item()+1
-    test_mask = G.nodes[field].data['test_mask'].bool().to(args.device)
+    test_mask = G.nodes[field].data['test_mask'].to(args.device)
     accs = []
 
     for seed in tqdm(range(args.repeat)):

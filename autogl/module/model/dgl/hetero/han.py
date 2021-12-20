@@ -133,7 +133,7 @@ class HAN(nn.Module):
         self.layers.append(HANLayer(self.args["meta_paths"], self.args["num_features"], self.args["hidden"][0], self.args["heads"][0], self.args["dropout"], act))
         for l in range(1, len(self.args["heads"])):
             self.layers.append(HANLayer(self.args["meta_paths"], self.args["hidden"][l-1] * self.args["heads"][l-1],
-                                        self.args["hidden"], self.args["heads"][l], self.args["dropout"], act))
+                                        self.args["hidden"][l], self.args["heads"][l], self.args["dropout"], act))
         self.predict = nn.Linear(self.args["hidden"][-1] * self.args["heads"][-1], self.args["num_class"])
 
     def forward(self, g):
@@ -206,7 +206,10 @@ class AutoHAN(BaseHeteroModelMaintainer):
                 "parameterName": "heads",
                 "type": "NUMERICAL_LIST",
                 "numericalType": "INTEGER",
-                "feasiblePoints": "[8]",
+                "scalingType": "LOG",
+                "length": 3,
+                "minValue": [1, 1, 1],
+                "maxValue": [16, 16, 16],
                 "cutPara": ("num_layers",),
                 "cutFunc": lambda x: x[0] - 1,
             },
