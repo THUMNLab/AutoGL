@@ -35,3 +35,31 @@ class EarlyStopping(object):
     def load_checkpoint(self, model):
         """Load the latest checkpoint."""
         model.load_state_dict(pickle.loads(self.model))
+
+def get_encoder_decoder_hp(model='han'):
+    if model == "han":
+        return {
+            "num_layers": 2,
+            "hidden": [256], ##
+            "heads": [8], ##
+            "dropout": 0.2,
+            "act": "gelu",
+        }, None
+    if model == "hgt":
+        return {
+            "num_layers": 2,
+            "hidden": [256,256,256],
+            "heads": 4,
+            "dropout": 0.2,
+            "act": "gelu",
+            "use_norm": True,
+        }, None
+    if model == "HeteroRGCN":
+        return {
+            "num_layers": 2,
+            "hidden": [256],
+            "heads": 4,
+            "dropout": 0.2,
+            "act": "leaky_relu",
+        }, None
+    return {}, None

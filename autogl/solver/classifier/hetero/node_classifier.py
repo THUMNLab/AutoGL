@@ -5,6 +5,7 @@ import time
 import json
 
 from copy import deepcopy
+from typing import Sequence
 
 import torch
 import numpy as np
@@ -534,6 +535,28 @@ class AutoHeteroNodeClassifier(BaseClassifier):
             dataset, use_ensemble, use_best, name, mask
         )
         return np.argmax(proba, axis=1)
+
+
+    def evaluate(self, dataset=None,
+        use_ensemble=True,
+        use_best=True,
+        name=None,
+        mask="test",
+        label=None,
+        metric="acc"
+    ):
+        predicted = self.predict_proba(dataset, use_ensemble, use_best, name, mask)
+        if dataset is None:
+            dataset = self.dataset
+        if label is None:
+            graph_nodes = dataset[0].nodes[dataset.schema["target_node_type"]].data
+            if mask in ["train", "val", "test"]:
+                mask = graph_nodes[f"{mask}_mask"]
+            label = graph_nodes["label"][mask].cpu().numpy()
+        evaluator = get_feval(metric)
+        if isinstance(evaluator, Sequence):
+            return [evals.evaluate(predicted, label) for evals in evaluator]
+        return evaluator.evaluate(predicted, label)
 
     @classmethod
     def from_config(cls, path_or_dict, filetype="auto") -> "AutoHeteroNodeClassifier":

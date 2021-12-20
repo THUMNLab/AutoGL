@@ -343,7 +343,7 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
     
     def _get_mask(self, dataset, mask):
         if mask in ["train", "val", "test"]:
-            return dataset[0].nodes[dataset.schema["target_node_type"]].data[f"{mask}_mask"].bool()
+            return dataset[0].nodes[dataset.schema["target_node_type"]].data[f"{mask}_mask"]
         return mask
 
     def evaluate(self, dataset, mask='val', feval = None):

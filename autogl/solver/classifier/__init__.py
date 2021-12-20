@@ -6,7 +6,11 @@ from .base import BaseClassifier
 from .graph_classifier import AutoGraphClassifier
 from .node_classifier import AutoNodeClassifier
 from .link_predictor import AutoLinkPredictor
-from .hetero import AutoHeteroNodeClassifier
+from autogl.backend import DependentBackend
+if DependentBackend.is_dgl():
+    from .hetero import AutoHeteroNodeClassifier
+else:
+    AutoHeteroNodeClassifier = None
 
 __all__ = [
     "BaseClassifier",
