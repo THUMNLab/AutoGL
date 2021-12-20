@@ -13,14 +13,9 @@ import yaml
 
 from ..base import BaseClassifier
 from ...base import _parse_hp_space, _initialize_single_model, _parse_model_hp
-from ....module.feature import FEATURE_DICT
 from ....module.train import TRAINER_DICT, BaseNodeClassificationHetTrainer
 from ....module.train import get_feval
-from ....module.nas.space import NAS_SPACE_DICT
-from ....module.nas.algorithm import NAS_ALGO_DICT
-from ....module.nas.estimator import NAS_ESTIMATOR_DICT
 from ...utils import LeaderBoard, set_seed
-from ....datasets import utils
 from ....utils import get_logger
 
 LOGGER = get_logger("HeteroNodeClassifier")
