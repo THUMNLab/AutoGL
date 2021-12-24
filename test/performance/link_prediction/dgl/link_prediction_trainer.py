@@ -112,7 +112,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--dataset",
-        default="Cora",
+        default="PubMed",
         type=str,
         help="dataset to use",
         choices=[
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model",
-        default="sage",
+        default="gat",
         type=str,
         help="model to use",
         choices=[
@@ -204,5 +204,15 @@ if __name__ == "__main__":
 
 
 """
-AUC 0.8151564430268863
+
+TITAN Xp
+python link_prediction_trainer.py --dataset Cora --model gcn 0.8875760203050247 0.013279281507369504 2.16s/it
+python link_prediction_trainer.py --dataset Cora --model gat 0.8584999887693447 0.013470043913565362 2.72s/it
+
+python link_prediction_trainer.py --dataset CiteSeer --model gcn 0.9129768940481175 0.008838462286332496 2.63s/it
+python link_prediction_trainer.py --dataset CiteSeer --model gat 0.8678692929169353 0.016241030723029192 2.95s/it
+
+python link_prediction_trainer.py --dataset PubMed --model gcn 0.9294665873927042 0.004114885229033712 11.20s/it
+python link_prediction_trainer.py --dataset PubMed --model gat 0.8471598194258746 0.006279302239912244 12.62s/it
+
 """

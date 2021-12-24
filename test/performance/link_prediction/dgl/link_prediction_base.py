@@ -83,8 +83,8 @@ class GCN(nn.Module):
 class GAT(nn.Module):
     def __init__(self, in_feats, h_feats):
         super(GAT, self).__init__()
-        self.conv1 = GATConv(in_feats, h_feats // 4, 4)
-        self.conv2 = GATConv(h_feats, h_feats// 4, 4)
+        self.conv1 = GATConv(in_feats, h_feats // 8, 8)
+        self.conv2 = GATConv(h_feats, h_feats// 8, 8)
 
     def forward(self, data):
         g = data
@@ -149,7 +149,7 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
     if args.model == 'gcn':
         model = GCN(train_g.ndata['feat'].shape[1], 16).to(device)
     elif args.model == 'gat':
-        model = GAT(train_g.ndata['feat'].shape[1], 16).to(device)
+        model = GAT(train_g.ndata['feat'].shape[1], 64).to(device)
     elif args.model == 'sage':
         model = GraphSAGE(train_g.ndata['feat'].shape[1], 16).to(device)
     else:
@@ -189,7 +189,21 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
 
 print(np.mean(res), np.std(res))
 
+"""
 
+TITAN Xp
+--dataset Cora --model gcn 0.8804158487006131 0.01907439098669424 1.55s/it
+--dataset Cora --model gat 0.8658864805372746 0.020797416228114048 2.21s/it
+
+--dataset CiteSeer --model gcn 0.8523585316274627 0.01878065312796426 1.58s/it
+--dataset CiteSeer --model gat 0.8150998607196465 0.03673578423319804 2.20s/it
+
+--dataset PubMed --model gcn 0.9179868485386965 0.01045745124447434 9.66s/it
+--dataset PubMed --model gat 0.8636613646637267 0.01971909605054366 10.43s/it
+
+
+
+"""
 
 
 
