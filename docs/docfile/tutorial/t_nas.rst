@@ -4,7 +4,25 @@ Neural Architecture Search
 ============================
 
 We support different neural architecture search algorithm in variant search space.
-To be more flexible, we modulize NAS process with three part: algorithm, space and estimator.
+Neural architecture search is usually constructed by three modules: search space, search strategy and estimation strategy.
+
+The search space describes all possible architectures to be searched. There are mainly two parts of the space formulated, the operations(e.g. GCNconv, GATconv) and the input-ouput realations.
+A large space may have better optimal architecture but demands more effect to explore.
+Human knowledge can help to design a reasonable search space to reduce the efforts of search strategy.
+
+The search strategy controls how to explore the search sapce. 
+It encompasses the classical exploration-exploitation trade-off since.
+On the one hand, it is desirable to find well-performing architectures quickly, 
+while on the other hand, premature convergence to a region of suboptimal architectures should be avoided.
+
+The estimation strategy gives the performance of certain architectures when it is explored.
+The simplest option is to perform a standard training and validation of the architecture on data.
+Since there are lots of architectures need estimating in the whole searching process, estimation strategy is desired to be very efficient to save computational resources.
+
+.. image:: ../resources/nas.svg
+   :align: center
+
+To be more flexible, we modulize NAS process with three part: algorithm, space and estimator, corresponding to the three module search space, search strategy and estimation strategy.
 Different models in different parts can be composed in some certain constrains.
 If you want to design your own NAS process, you can change any of those parts according to your demand.
 
