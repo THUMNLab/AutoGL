@@ -1,7 +1,7 @@
 ensemble:
   name: null
 feature:
-- name: PYGNormalizeFeatures
+- name: NormalizeFeatures
 hpo:
   max_evals: 10
   name: random
@@ -34,7 +34,7 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: gcn
+  name: gcn-model
 trainer:
   hp_space:
   - maxValue: 300

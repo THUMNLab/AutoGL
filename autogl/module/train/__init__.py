@@ -1,3 +1,5 @@
+from ...backend import DependentBackend
+
 TRAINER_DICT = {}
 from .base import (
     BaseTrainer,
@@ -5,6 +7,7 @@ from .base import (
     BaseNodeClassificationTrainer,
     BaseGraphClassificationTrainer,
     BaseLinkPredictionTrainer,
+    BaseNodeClassificationHetTrainer
 )
 
 
@@ -24,7 +27,8 @@ def register_trainer(name):
 
 from .graph_classification_full import GraphClassificationFullTrainer
 from .node_classification_full import NodeClassificationFullTrainer
-from .link_prediction import LinkPredictionTrainer
+from .link_prediction_full import LinkPredictionTrainer
+from .node_classification_het import NodeClassificationHetTrainer
 from .node_classification_trainer import *
 from .evaluation import get_feval, Acc, Auc, Logloss, Mrr, MicroF1
 
@@ -33,9 +37,11 @@ __all__ = [
     "Evaluation",
     "BaseGraphClassificationTrainer",
     "BaseNodeClassificationTrainer",
+    "BaseNodeClassificationHetTrainer",
     "BaseLinkPredictionTrainer",
     "GraphClassificationFullTrainer",
     "NodeClassificationFullTrainer",
+    "NodeClassificationHetTrainer",
     "NodeClassificationGraphSAINTTrainer",
     "NodeClassificationLayerDependentImportanceSamplingTrainer",
     "NodeClassificationNeighborSamplingTrainer",

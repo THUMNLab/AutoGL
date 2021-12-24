@@ -4,12 +4,11 @@ from nni.nas.pytorch import mutables
 from nni.nas.pytorch.fixed import FixedArchitecture
 import json
 from copy import deepcopy
-import typing as _typ
 import torch
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from ....utils import get_logger
+from ..utils import get_hardware_aware_metric
 
-from ...model import AutoGCN
 
 
 class OrderedMutable:
@@ -85,7 +84,7 @@ def map_nn(names):
     return [StrModule(x) for x in names]
 
 
-class BoxModel(BaseModel):
+class BoxModel(BaseAutoModel):
     """
     The box wrapping a space, can be passed to later procedure or trainer
 
@@ -100,7 +99,7 @@ class BoxModel(BaseModel):
     _logger = get_logger("space model")
 
     def __init__(self, space_model, device=torch.device("cuda")):
-        super().__init__(init=True)
+        super().__init__(None, None, device)
         self.init = True
         self.space = []
         self.hyperparams = {}
@@ -110,6 +109,9 @@ class BoxModel(BaseModel):
         self.params = {"num_class": self.num_classes, "features_num": self.num_features}
         self.device = device
         self.selection = None
+
+    def _initialize(self):
+        return True
 
     def fix(self, selection):
         """
@@ -125,11 +127,6 @@ class BoxModel(BaseModel):
         apply_fixed_architecture(self._model, selection, verbose=False)
         return self
 
-    def to(self, device):
-        if isinstance(device, (str, torch.device)):
-            self.device = device
-        return super().to(device)
-
     def forward(self, *args, **kwargs):
         return self._model(*args, **kwargs)
 
@@ -142,13 +139,11 @@ class BoxModel(BaseModel):
         ret_self._model.instantiate()
         if ret_self.selection:
             apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
-        ret_self.to(self.device)
+        ret_self.to_device(self.device)
         return ret_self
 
-    @property
-    def model(self):
-        return self._model
-
+    def __repr__(self) -> str:
+        return str({'parameter': get_hardware_aware_metric(self.model, 'parameter')})
 
 class BaseSpace(nn.Module):
     """
@@ -182,7 +177,7 @@ class BaseSpace(nn.Module):
         raise NotImplementedError()
 
     @abstractmethod
-    def parse_model(self, selection: dict, device) -> BaseModel:
+    def parse_model(self, selection: dict, device) -> BaseAutoModel:
         """
         Export the searched model from space.
 

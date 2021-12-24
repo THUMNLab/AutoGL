@@ -1,7 +1,7 @@
 """
 Base class for algorithm
 """
-from ...model import BaseModel
+from ...model import BaseAutoModel
 import torch
 from abc import abstractmethod
 from ....utils import get_device
@@ -31,7 +31,7 @@ class BaseNAS:
         self.device = get_device(device)
 
     @abstractmethod
-    def search(self, space, dataset, estimator) -> BaseModel:
+    def search(self, space, dataset, estimator) -> BaseAutoModel:
         """
         The search process of NAS.
 

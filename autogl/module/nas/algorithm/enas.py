@@ -142,14 +142,14 @@ class Enas(BaseNAS):
         # train
         with tqdm(range(self.num_epochs), disable=self.disable_progress) as bar:
             for i in bar:
-                try:
-                    l1 = self._train_model(i)
-                    l2 = self._train_controller(i)
-                except Exception as e:
+                #try:
+                l1 = self._train_model(i)
+                l2 = self._train_controller(i)
+                """except Exception as e:
                     print(e)
                     nm = self.nas_modules
                     for i in range(len(nm)):
-                        print(nm[i][1].sampled)
+                        print(nm[i][1].sampled)"""
                 bar.set_postfix(loss_model=l1, reward_controller=l2)
 
         selection = self.export()
@@ -178,7 +178,7 @@ class Enas(BaseNAS):
             self._resample()
             with torch.no_grad():
                 metric, loss = self._infer(mask="val")
-            reward = metric
+                reward = metric
             rewards.append(reward)
             if self.entropy_weight:
                 reward += self.entropy_weight * self.controller.sample_entropy.item()

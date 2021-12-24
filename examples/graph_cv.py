@@ -14,6 +14,11 @@ sys.path.append("../")
 from autogl.datasets import build_dataset_from_name, utils
 from autogl.solver import AutoGraphClassifier
 from autogl.module import Acc
+from autogl.backend import DependentBackend
+if DependentBackend.is_pyg():
+    from autogl.datasets.utils.conversion import to_pyg_dataset as convert_dataset
+else:
+    from autogl.datasets.utils.conversion import to_dgl_dataset as convert_dataset
 
 if __name__ == "__main__":
     parser = ArgumentParser(
@@ -48,27 +53,32 @@ if __name__ == "__main__":
 
     print("begin processing dataset", args.dataset, "into", args.folds, "folds.")
     dataset = build_dataset_from_name(args.dataset)
+    _converted_dataset = convert_dataset(dataset)
     if args.dataset.startswith("imdb"):
-        from autogl.module.feature.generators import PYGOneHotDegree
+        from autogl.module.feature import OneHotDegreeGenerator
 
-        # get max degree
-        from torch_geometric.utils import degree
-
-        max_degree = 0
-        for data in dataset:
-            deg_max = int(degree(data.edge_index[0], data.num_nodes).max().item())
-            max_degree = max(max_degree, deg_max)
-        dataset = PYGOneHotDegree(max_degree).fit_transform(dataset, inplace=False)
+        if DependentBackend.is_pyg():
+            from torch_geometric.utils import degree
+            max_degree = 0
+            for data in _converted_dataset:
+                deg_max = int(degree(data.edge_index[0], data.num_nodes).max().item())
+                max_degree = max(max_degree, deg_max)
+        else:
+            max_degree = 0
+            for data, _ in _converted_dataset:
+                deg_max = data.in_degrees().max().item()
+                max_degree = max(max_degree, deg_max)
+        dataset = OneHotDegreeGenerator(max_degree).fit_transform(dataset, inplace=False)
     elif args.dataset == "collab":
-        from autogl.module.feature.auto_feature import Onlyconst
+        from autogl.module.feature._auto_feature import OnlyConstFeature
 
-        dataset = Onlyconst().fit_transform(dataset, inplace=False)
+        dataset = OnlyConstFeature().fit_transform(dataset, inplace=False)
     utils.graph_cross_validation(dataset, args.folds, random_seed=args.seed)
 
     accs = []
     for fold in range(args.folds):
         print("evaluating on fold number:", fold)
-        utils.graph_set_fold_id(dataset, fold)
+        utils.set_fold(dataset, fold)
         train_dataset = utils.graph_get_split(dataset, "train", False)
         autoClassifier = AutoGraphClassifier.from_config(args.configs)
 
@@ -79,18 +89,7 @@ if __name__ == "__main__":
             seed=args.seed,
             evaluation_method=[Acc],
         )
-        predict_result = autoClassifier.predict_proba(dataset, mask="val")
-        acc = Acc.evaluate(
-            predict_result, dataset.data.y[dataset.val_index].cpu().detach().numpy()
-        )
-        print(
-            "test acc %.4f"
-            % (
-                Acc.evaluate(
-                    predict_result,
-                    dataset.data.y[dataset.val_index].cpu().detach().numpy(),
-                )
-            )
-        )
+        acc = autoClassifier.evaluate(dataset, mask="val", metric="acc")
+        print("test acc fold {:d}: {:.4f}".format(fold, acc))
         accs.append(acc)
     print("Average acc on", args.dataset, ":", np.mean(accs), "~", np.std(accs))

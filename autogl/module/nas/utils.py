@@ -4,12 +4,164 @@
 import logging
 from collections import OrderedDict
 
+import time
 import numpy as np
 import torch
 import nni.retiarii.nn.pytorch as nn
 from nni.nas.pytorch.mutables import Mutable, InputChoice, LayerChoice
 
 _logger = logging.getLogger(__name__)
+
+class PathSamplingLayerChoice(nn.Module):
+    """
+    Mixed module, in which fprop is decided by exactly one or multiple (sampled) module.
+    If multiple module is selected, the result will be sumed and returned.
+
+    Attributes
+    ----------
+    sampled : int or list of int
+        Sampled module indices.
+    mask : tensor
+        A multi-hot bool 1D-tensor representing the sampled mask.
+    """
+
+    def __init__(self, layer_choice):
+        super(PathSamplingLayerChoice, self).__init__()
+        self.op_names = []
+        for name, module in layer_choice.named_children():
+            self.add_module(name, module)
+            self.op_names.append(name)
+        assert self.op_names, "There has to be at least one op to choose from."
+        self.sampled = None  # sampled can be either a list of indices or an index
+
+    def forward(self, *args, **kwargs):
+        assert (
+            self.sampled is not None
+        ), "At least one path needs to be sampled before fprop."
+        if isinstance(self.sampled, list):
+            return sum(
+                [getattr(self, self.op_names[i])(*args, **kwargs) for i in self.sampled]
+            )  # pylint: disable=not-an-iterable
+        else:
+            return getattr(self, self.op_names[self.sampled])(
+                *args, **kwargs
+            )  # pylint: disable=invalid-sequence-index
+
+    def sampled_choices(self):
+        if self.sampled is None:
+            return []
+        elif isinstance(self.sampled, list):
+            return [getattr(self, self.op_names[i]) for i in self.sampled]  # pylint: disable=not-an-iterable
+        else:
+            return [getattr(self, self.op_names[self.sampled])]  # pylint: disable=invalid-sequence-index
+
+    def __len__(self):
+        return len(self.op_names)
+
+    @property
+    def mask(self):
+        return _get_mask(self.sampled, len(self))
+
+    def __repr__(self):
+        return f"PathSamplingLayerChoice(chosen={self.sampled},{super().__repr__()})"
+
+
+class PathSamplingInputChoice(nn.Module):
+    """
+    Mixed input. Take a list of tensor as input, select some of them and return the sum.
+
+    Attributes
+    ----------
+    sampled : int or list of int
+        Sampled module indices.
+    mask : tensor
+        A multi-hot bool 1D-tensor representing the sampled mask.
+    """
+
+    def __init__(self, input_choice):
+        super(PathSamplingInputChoice, self).__init__()
+        self.n_candidates = input_choice.n_candidates
+        self.n_chosen = input_choice.n_chosen
+        self.sampled = None
+
+    def forward(self, input_tensors):
+        if isinstance(self.sampled, list):
+            return sum(
+                [input_tensors[t] for t in self.sampled]
+            )  # pylint: disable=not-an-iterable
+        else:
+            return input_tensors[self.sampled]
+
+    def __len__(self):
+        return self.n_candidates
+
+    @property
+    def mask(self):
+        return _get_mask(self.sampled, len(self))
+
+    def __repr__(self):
+        return f"PathSamplingInputChoice(n_candidates={self.n_candidates}, chosen={self.sampled})"
+
+
+def get_hardware_aware_metric(model, hardware_metric):
+    if hardware_metric == 'parameter':
+        return count_parameters(model)
+    elif hardware_metric == 'latency':
+        return measure_latency(model, 20, warmup_iters=5)
+    else:
+        raise ValueError('Unsupported hardware-aware metric')
+
+
+def count_parameters(module, only_trainable=False):
+    s = sum(p.numel()
+            for p in module.parameters(recurse=False) if not only_trainable or p.requires_grad)
+    if isinstance(module, PathSamplingLayerChoice):
+        s += sum(count_parameters(m) for m in module.sampled_choices())
+    else:
+        s += sum(count_parameters(m) for m in module.children())
+    return s
+
+
+def measure_latency(model, num_iters=200, *, warmup_iters=50):
+    device = next(model.parameters()).device
+    num_feat = model.input_dim
+    model.eval()
+    latencys = []
+    data = _build_random_data(device, num_feat)
+    with torch.no_grad():
+        try:
+            for i in range(warmup_iters + num_iters):
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+                start = time.time()
+                model(data)
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+                dt = time.time() - start
+                if i >= warmup_iters:
+                    latencys.append(dt)
+        except RuntimeError as e:
+            if "cuda" in str(e) or "CUDA" in str(e):
+                INF = 100
+                return INF
+            else:
+                raise e
+
+    return np.mean(latencys)
+
+
+def _build_random_data(device, num_feat):
+    node_nums = 3000
+    edge_nums = 10000
+
+    class Data:
+        pass
+
+    data = Data()
+    data.x = torch.randn((node_nums, num_feat)).to(device)
+    data.edge_index = torch.randint(0, node_nums, (2, edge_nums)).to(device)
+    data.num_features = num_feat
+    return data
 
 
 def to_device(obj, device):
