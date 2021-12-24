@@ -38,7 +38,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # seed = 100
-    dataset = build_dataset_from_name('cora')
+    dataset = build_dataset_from_name(args.dataset.lower())
     label = dataset[0].nodes.data['y'][dataset[0].nodes.data['test_mask']].numpy()
     accs = []
 

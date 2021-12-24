@@ -29,7 +29,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser('pyg solver')
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--dataset', type=str, choices=[x.lower() for x in ['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI', 'NCI1', 'PROTEINS', 'PTC', 'REDDITBINARY', 'REDDITMULTI5K']], default='mutag')
+    parser.add_argument('--dataset', type=str, choices=['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI', 'NCI1', 'PROTEINS', 'PTC', 'REDDITBINARY', 'REDDITMULTI5K'], default='MUTAG')
     parser.add_argument('--dataset_seed', type=int, default=2021)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--repeat', type=int, default=50)
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # seed = 100
-    dataset = build_dataset_from_name(args.dataset)
+    dataset = build_dataset_from_name(args.dataset.lower())
     
     # 1. split dataset [fix split]
     dataids = list(range(len(dataset)))

@@ -268,8 +268,15 @@ def eval_net(net, dataloader, device):
 
 def main():
 
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--repeat", type=int, default=10)
+    parser.add_argument('--dataset', type=str, choices=['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI', 'NCI1', 'PROTEINS', 'PTC', 'REDDITBINARY', 'REDDITMULTI5K'], default='MUTAG')
+
+    args = parser.parse_args()
+
     device = torch.device('cuda')
-    dataset_ = GINDataset('MUTAG', False)
+    dataset_ = GINDataset(args.dataset, False)
     dataset = DatasetAbstraction([g[0] for g in dataset_], [g[1] for g in dataset_])
     
     # 1. split dataset [fix split]
@@ -287,7 +294,7 @@ def main():
     testloader = GraphDataLoader(test_dataset, batch_size=32, shuffle=False)
 
     accs = []
-    for seed in tqdm(range(10)):
+    for seed in tqdm(range(args.repeat)):
         # set up seeds, args.seed supported
         torch.manual_seed(seed=seed)
         np.random.seed(seed=seed)
