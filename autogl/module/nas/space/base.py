@@ -98,7 +98,7 @@ class BoxModel(BaseModel):
 
     _logger = get_logger("space model")
 
-    def __init__(self, space_model, device=torch.device("cuda")):
+    def __init__(self, space_model, device=torch.device("auto")):
         super().__init__(init=True)
         self.init = True
         self.space = []
@@ -247,7 +247,7 @@ class BaseSpace(nn.Module):
         )
         return layer
 
-    def wrap(self, device="cuda"):
+    def wrap(self, device="auto"):
         """
         Return a BoxModel which wrap self as a model
         Used to pass to trainer

@@ -79,7 +79,7 @@ class Enas(BaseNAS):
         model_lr=5e-3,
         model_wd=5e-4,
         disable_progress=True,
-        device="cuda",
+        device="auto",
     ):
         super().__init__(device)
         self.device = device

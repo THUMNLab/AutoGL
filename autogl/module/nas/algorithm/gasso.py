@@ -34,7 +34,7 @@ class Gasso(BaseNAS):
         arch_lr = 0.03,
         stru_lr = 0.04,
         lamb = 0.6,
-        device="cuda",
+        device="auto",
     ):
         super().__init__(device=device)
         self.device = device

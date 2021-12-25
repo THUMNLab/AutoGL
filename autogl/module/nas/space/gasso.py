@@ -256,12 +256,17 @@ class GassoSpace(BaseSpace):
     def keep_prediction(self):
         self.prediction = self.current_pred
 
+    def to(self, *args, **kwargs):
+        super().to(args, kwargs)
+        device = next(self.parameters()).device
+        self.alphas_normal = self.alphas_normal.to(device)
+
     def initialize_alphas(self):
         num_ops = len(self.ops)
 
         self.alphas_normal = []
         for i in range(self.steps):
-            self.alphas_normal.append(Variable(1e-3 * torch.randn(num_ops).cuda(), requires_grad=True))
+            self.alphas_normal.append(Variable(1e-3 * torch.randn(num_ops), requires_grad=True))
 
         self._arch_parameters = [
             self.alphas_normal

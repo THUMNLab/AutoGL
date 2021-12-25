@@ -103,7 +103,7 @@ class Darts(BaseNAS):
         model_wd=5e-4,
         arch_lr=3e-4,
         arch_wd=1e-3,
-        device="cuda",
+        device="auto",
     ):
         super().__init__(device=device)
         self.num_epochs = num_epochs
