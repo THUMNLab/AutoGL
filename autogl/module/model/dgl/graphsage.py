@@ -91,6 +91,7 @@ class GraphSAGE(torch.nn.Module):
             print("no x")
             pass
 
+        x = F.dropout(x, p=self.args["dropout"], training=self.training)
         for i in range(self.num_layer):
             x = self.convs[i](data, x)
             if i != self.num_layer - 1:

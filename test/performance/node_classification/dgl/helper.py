@@ -30,7 +30,7 @@ def get_encoder_decoder_hp(model='gin', decoder=None):
             "hidden": [64],
             "dropout": 0.5,
             "act": "relu",
-            "agg": "mean",
+            "agg": "gcn",
         }
     elif model == 'topk':
         model_hp = {
