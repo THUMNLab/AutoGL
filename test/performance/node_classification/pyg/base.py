@@ -5,6 +5,7 @@ import os
 import random
 import numpy as np
 from tqdm import tqdm
+import pickle
 
 import torch
 import torch.nn.functional as F
@@ -89,9 +90,9 @@ def train(model, data, args):
         val_acc = test(model, data, data.val_mask)
         if val_acc > best_acc:
             best_acc = val_acc
-            parameters = model.state_dict()
-    
-    model.load_state_dict(parameters)
+            parameters = pickle.dumps(model.state_dict())
+            
+    model.load_state_dict(pickle.loads(parameters))
     return model
 
 if __name__ == '__main__':

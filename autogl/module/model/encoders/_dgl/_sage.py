@@ -30,6 +30,7 @@ class _SAGE(torch.nn.Module):
 
     def forward(self, graph: dgl.DGLGraph, *args, **kwargs):
         x: torch.Tensor = graph.ndata['feat']
+        x = torch.nn.functional.dropout(x, self._dropout, self.training)
         results: _typing.MutableSequence[torch.Tensor] = []
         for _layer in range(len(self.__convolution_layers)):
             x = self.__convolution_layers[_layer](graph, x)
