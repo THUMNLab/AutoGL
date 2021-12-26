@@ -15,7 +15,7 @@ def get_encoder_decoder_hp(model='gin', decoder=None):
             "hidden": [8],
             "heads": 8,
             "dropout": 0.6,
-            "act": "elu",
+            "act": "relu",
         }
     elif model == 'gcn':
         model_hp = {
