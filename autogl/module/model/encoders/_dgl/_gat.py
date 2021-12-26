@@ -52,8 +52,6 @@ class GAT(torch.nn.Module):
     def forward(
             self, graph: dgl.DGLGraph, *__args, **__kwargs
     ) -> _typing.Iterable[torch.Tensor]:
-        graph = dgl.remove_self_loop(graph)
-        graph = dgl.add_self_loop(graph)
         num_layers = len(self.__convolutions)
         x: torch.Tensor = graph.ndata['feat']
         results = [x]
