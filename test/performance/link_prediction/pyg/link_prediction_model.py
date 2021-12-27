@@ -49,8 +49,8 @@ args = parser.parse_args()
 args.device = torch.device('cuda:0')
 device = torch.device('cuda:0')
 
-# args.dataset = 'Cora'
-# args.model = 'gat'
+args.dataset = 'Cora'
+args.model = 'gcn'
 print(args.dataset)
 print(args.model)
 # load the dataset
@@ -66,7 +66,7 @@ elif args.dataset == 'PubMed':
 else:
     assert False
 
-def train():
+def train(data):
     model.train()
 
     neg_edge_index = negative_sampling(
@@ -120,7 +120,6 @@ def test(train_data):
 res = []
 for seed in tqdm(range(1234, 1234+args.repeat)):
     setup_seed(seed)
-    g = dataset[0].to(device)
     data = dataset[0].to(device)
     # use train_test_split_edges to create neg and positive edges
     data.train_mask = data.val_mask = data.test_mask = data.y = None
@@ -177,7 +176,7 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
 
     best_val_perf = test_perf = 0
     for epoch in range(100):
-        train_loss, train_data = train()
+        train_loss, train_data = train(data)
         val_perf, tmp_test_perf = test(train_data)
         if val_perf > best_val_perf:
             best_val_perf = val_perf

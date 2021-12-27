@@ -152,9 +152,9 @@ def train():
     optimizer.zero_grad()
     z = model.encode(data) #encode
 
-    print(data)
-    print("trainen_shape",data.x.shape, data.train_pos_edge_index.shape)
-    print("trainde_shape",z.shape, data.train_pos_edge_index.shape,neg_edge_index.shape)
+    # print(data)
+    # print("trainen_shape",data.x.shape, data.train_pos_edge_index.shape)
+    # print("trainde_shape",z.shape, data.train_pos_edge_index.shape,neg_edge_index.shape)
     # trainen_shape torch.Size([2708, 1433]) torch.Size([2, 8976])
     # trainde_shape torch.Size([2708, 64]) torch.Size([2, 8976]) torch.Size([2, 8976])   
  
