@@ -10,13 +10,13 @@ Creating a Heterogeneous Graph
 AutoGL supports datasets created in DGL. We provide two datasets named "hetero-acm-han" and "hetero-acm-hgt" for HAN and HGT models, respectively.
 The following code snippet is an example for loading a heterogeneous graph. 
 
-.. code-block:: python
+.. code-block :: python
     from autogl.datasets import build_dataset_from_name
     dataset = build_dataset_from_name("hetero-acm-han")
 
 You can also access to data stored in the dataset object for more details:
 
-.. code-block:: python
+.. code-block :: python
     g = dataset[0]
 
     node_type = dataset.schema["target_node_type"]
@@ -34,7 +34,7 @@ Building Heterogeneous GNN Modules
 -------------------
 AutoGL integrates commonly used heterogeneous graph neural network models such as HeteroRGCN (Schlichtkrull et al., 2018), HAN (Wang et al., 2019) and HGT (Hu et al., 2020).
 
-.. code-block:: python
+.. code-block :: python
     from autogl.module.model.dgl import AutoHAN
     model = AutoHAN(
         dataset=dataset,
@@ -45,7 +45,7 @@ AutoGL integrates commonly used heterogeneous graph neural network models such a
     ).model
 
 Then you can train the model for 100 epochs.
-.. code-block:: python
+.. code-block :: python
     # Define the loss function.
     loss_fcn = torch.nn.CrossEntropyLoss()
     # Define the loss optimizer.
@@ -65,7 +65,7 @@ Then you can train the model for 100 epochs.
         val_loss, val_acc, _, _ = evaluate(model, g, labels, val_mask, loss_fcn)
 
 Finally, evaluate the model.
-.. code-block:: python
+.. code-block :: python
     _, test_acc, _, _ = evaluate(model, g, labels, test_mask, loss_fcn)
 
 You can also define your own heterogeneous graph neural network models by adding files in the location AutoGL/autogl/module/model/dgl/hetero.
@@ -77,7 +77,7 @@ In this part, we will show you how to use AutoHeteroNodeClassifier to automatica
 
 Firstly, we get the pre-defined model hyperparameter. 
 
-.. code-block:: python
+.. code-block :: python
 from helper import get_encoder_decoder_hp
 model_hp, _ = get_encoder_decoder_hp(args.model)
 
@@ -94,7 +94,7 @@ model_hp = {
 
 Secondly, use AutoHeteroNodeClassifier directly to bulid automatic heterogeneous GNN models in the following example:
 
-.. code-block:: python
+.. code-block :: python
     from autogl.solver import AutoHeteroNodeClassifier
     solver = AutoHeteroNodeClassifier(
                 graph_models=["han"],
@@ -112,6 +112,6 @@ Secondly, use AutoHeteroNodeClassifier directly to bulid automatic heterogeneous
             )
 
 Finally, fit and evlauate the model.
-.. code-block:: python
+.. code-block :: python
     solver.fit(dataset)
     acc = solver.evaluate()
