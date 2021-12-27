@@ -7,10 +7,11 @@ This tutorial introduces how to use AutoGL to automate the learning of heterogen
 
 Creating a Heterogeneous Graph
 -------------------
-AutoGL supports datasets created in DGL. We provide two datasets named "hetero-acm-han" and "hetero-acm-hgt" for HAN and HGT models, respectively.
+AutoGL supports datasets created in DGL. We provide two datasets named "hetero-acm-han" and "hetero-acm-hgt" for HAN and HGT models, respectively [1].
 The following code snippet is an example for loading a heterogeneous graph. 
 
 .. code-block:: python
+
     from autogl.datasets import build_dataset_from_name
     dataset = build_dataset_from_name("hetero-acm-han")
 
@@ -33,7 +34,7 @@ You can also build your own dataset and do feature engineering by adding files i
 
 Building Heterogeneous GNN Modules
 -------------------
-AutoGL integrates commonly used heterogeneous graph neural network models such as HeteroRGCN (Schlichtkrull et al., 2018), HAN (Wang et al., 2019) and HGT (Hu et al., 2020).
+AutoGL integrates commonly used heterogeneous graph neural network models such as HeteroRGCN (Schlichtkrull et al., 2018) [2], HAN (Wang et al., 2019) [3] and HGT (Hu et al., 2029) [4].
 
 .. code-block:: python
 
@@ -47,6 +48,7 @@ AutoGL integrates commonly used heterogeneous graph neural network models such a
     ).model
 
 Then you can train the model for 100 epochs.
+
 .. code-block:: python
 
     # Define the loss function.
@@ -68,7 +70,9 @@ Then you can train the model for 100 epochs.
         val_loss, val_acc, _, _ = evaluate(model, g, labels, val_mask, loss_fcn)
 
 Finally, evaluate the model.
+
 .. code-block:: python
+
     _, test_acc, _, _ = evaluate(model, g, labels, test_mask, loss_fcn)
 
 You can also define your own heterogeneous graph neural network models by adding files in the location AutoGL/autogl/module/model/dgl/hetero.
@@ -81,6 +85,7 @@ In this part, we will show you how to use AutoHeteroNodeClassifier to automatica
 Firstly, we get the pre-defined model hyperparameter. 
 
 .. code-block:: python
+
     from helper import get_encoder_decoder_hp
     model_hp, _ = get_encoder_decoder_hp(args.model)
 
@@ -99,6 +104,7 @@ You can also define your own model hyperparameters in a dict:
 Secondly, use AutoHeteroNodeClassifier directly to bulid automatic heterogeneous GNN models in the following example:
 
 .. code-block:: python
+
     from autogl.solver import AutoHeteroNodeClassifier
     solver = AutoHeteroNodeClassifier(
                 graph_models=["han"],
@@ -116,6 +122,18 @@ Secondly, use AutoHeteroNodeClassifier directly to bulid automatic heterogeneous
             )
 
 Finally, fit and evlauate the model.
+
 .. code-block:: python
+
     solver.fit(dataset)
     acc = solver.evaluate()
+
+References:
+
+[1] https://data.dgl.ai/dataset/ACM.mat
+
+[2] Schlichtkrull, Michael, et al. "Modeling relational data with graph convolutional networks." European semantic web conference. Springer, Cham, 2018.
+
+[3] Wang, Xiao, et al. "Heterogeneous graph attention network." The World Wide Web Conference. 2019.
+
+[4] Yun, Seongjun, et al. "Graph transformer networks." Advances in Neural Information Processing Systems 32 (2019): 11983-11993.
