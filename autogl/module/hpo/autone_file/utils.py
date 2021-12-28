@@ -330,6 +330,7 @@ class Params(object):
         # len = len(config)
         self.arg_name = []
         self.arg_len = []
+        self.arg_typ = []
         # len = sum(arg_len)
         self.type_ = []
         self.bound = []
@@ -340,11 +341,13 @@ class Params(object):
             if para["type"] == "DOUBLE":
                 self.arg_name.append(para["parameterName"])
                 self.arg_len.append(1)
+                self.arg_typ.append("value")
                 self.type_.append(float)
                 self.bound.append((para["minValue"], para["maxValue"]))
             elif para["type"] == "INTEGER":
                 self.arg_name.append(para["parameterName"])
                 self.arg_len.append(1)
+                self.arg_typ.append("value")
                 self.type_.append(int)
                 self.bound.append((para["minValue"], para["maxValue"]))
             elif para["type"] == "DISCRETE" or para["type"] == "CATEGORICAL":
@@ -358,6 +361,7 @@ class Params(object):
 
                 self.arg_name.append(para["parameterName"])
                 self.arg_len.append(cate_len)
+                self.arg_typ.append("argmax")
                 self.type_.extend([float for i in range(cate_len)])
                 self.bound.extend([(0, 1) for i in range(cate_len)])
 
@@ -379,8 +383,8 @@ class Params(object):
         X = np.clip(X, bound[:, 0], bound[:, 1])
         para = {}
         ind = 0
-        for name, length in zip(self.arg_name, self.arg_len):
-            if length == 1:
+        for name, length, arg_typ in zip(self.arg_name, self.arg_len, self.arg_typ):
+            if arg_typ == "value":
                 if types[ind] == int:
                     para[name] = round(X[ind])
                 elif types[ind] == float:
@@ -403,8 +407,8 @@ class Params(object):
 
         X_fin = []
         ind = 0
-        for name, length in zip(self.arg_name, self.arg_len):
-            if length == 1 and types[ind] == float:
+        for name, length, arg_typ in zip(self.arg_name, self.arg_len, self.arg_typ):
+            if arg_typ == "value":
                 X_fin.append(para[name])
             else:
                 max_ind = self.id2cate[name][para[name]]

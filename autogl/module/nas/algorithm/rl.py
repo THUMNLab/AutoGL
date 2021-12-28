@@ -12,6 +12,8 @@ from ..utils import (
     replace_input_choice,
     get_module_order,
     sort_replaced_module,
+    PathSamplingInputChoice,
+    PathSamplingLayerChoice,
 )
 from nni.nas.pytorch.fixed import apply_fixed_architecture
 from tqdm import tqdm
@@ -19,7 +21,7 @@ from datetime import datetime
 import numpy as np
 from ....utils import get_logger
 
-LOGGER = get_logger("random_search_NAS")
+LOGGER = get_logger("RL_NAS")
 
 
 def _get_mask(sampled, total):
@@ -28,87 +30,6 @@ def _get_mask(sampled, total):
         for i in range(total)
     ]
     return torch.tensor(multihot, dtype=torch.bool)  # pylint: disable=not-callable
-
-
-class PathSamplingLayerChoice(nn.Module):
-    """
-    Mixed module, in which fprop is decided by exactly one or multiple (sampled) module.
-    If multiple module is selected, the result will be sumed and returned.
-
-    Attributes
-    ----------
-    sampled : int or list of int
-        Sampled module indices.
-    mask : tensor
-        A multi-hot bool 1D-tensor representing the sampled mask.
-    """
-
-    def __init__(self, layer_choice):
-        super(PathSamplingLayerChoice, self).__init__()
-        self.op_names = []
-        for name, module in layer_choice.named_children():
-            self.add_module(name, module)
-            self.op_names.append(name)
-        assert self.op_names, "There has to be at least one op to choose from."
-        self.sampled = None  # sampled can be either a list of indices or an index
-
-    def forward(self, *args, **kwargs):
-        assert (
-            self.sampled is not None
-        ), "At least one path needs to be sampled before fprop."
-        if isinstance(self.sampled, list):
-            return sum(
-                [getattr(self, self.op_names[i])(*args, **kwargs) for i in self.sampled]
-            )  # pylint: disable=not-an-iterable
-        else:
-            return getattr(self, self.op_names[self.sampled])(
-                *args, **kwargs
-            )  # pylint: disable=invalid-sequence-index
-
-    def __len__(self):
-        return len(self.op_names)
-
-    @property
-    def mask(self):
-        return _get_mask(self.sampled, len(self))
-
-
-class PathSamplingInputChoice(nn.Module):
-    """
-    Mixed input. Take a list of tensor as input, select some of them and return the sum.
-
-    Attributes
-    ----------
-    sampled : int or list of int
-        Sampled module indices.
-    mask : tensor
-        A multi-hot bool 1D-tensor representing the sampled mask.
-    """
-
-    def __init__(self, input_choice):
-        super(PathSamplingInputChoice, self).__init__()
-        self.n_candidates = input_choice.n_candidates
-        self.n_chosen = input_choice.n_chosen
-        self.sampled = None
-
-    def forward(self, input_tensors):
-        if isinstance(self.sampled, list):
-            return sum(
-                [input_tensors[t] for t in self.sampled]
-            )  # pylint: disable=not-an-iterable
-        else:
-            return input_tensors[self.sampled]
-
-    def __len__(self):
-        return self.n_candidates
-
-    @property
-    def mask(self):
-        return _get_mask(self.sampled, len(self))
-
-    def __repr__(self):
-        return f"PathSamplingInputChoice(n_candidates={self.n_candidates}, chosen={self.sampled})"
-
 
 class StackedLSTMCell(nn.Module):
     def __init__(self, layers, size, bias):
@@ -287,7 +208,6 @@ class ReinforceController(nn.Module):
             sampled = sampled[0]
         return sampled
 
-
 @register_nas_algo("rl")
 class RL(BaseNAS):
     """
@@ -330,7 +250,7 @@ class RL(BaseNAS):
     def __init__(
         self,
         num_epochs=5,
-        device="cuda",
+        device="auto",
         log_frequency=None,
         grad_clip=5.0,
         entropy_weight=0.0001,
@@ -342,7 +262,7 @@ class RL(BaseNAS):
         n_warmup=100,
         model_lr=5e-3,
         model_wd=5e-4,
-        disable_progress=True,
+        disable_progress=False,
     ):
         super().__init__(device)
         self.device = device
@@ -412,9 +332,9 @@ class RL(BaseNAS):
             for ctrl_step in bar:
                 self._resample()
                 metric, loss = self._infer(mask="val")
-                bar.set_postfix(acc=metric, loss=loss.item())
-                LOGGER.info(f"{self.arch}\n{self.selection}\n{metric},{loss}")
                 reward = metric
+                bar.set_postfix(acc=metric, loss=loss.item())
+                LOGGER.debug(f"{self.arch}\n{self.selection}\n{metric},{loss}")
                 rewards.append(reward)
                 if self.entropy_weight:
                     reward += (
@@ -441,7 +361,7 @@ class RL(BaseNAS):
                     self.log_frequency is not None
                     and ctrl_step % self.log_frequency == 0
                 ):
-                    LOGGER.info(
+                    LOGGER.debug(
                         "RL Epoch [%d/%d] Step [%d/%d]  %s",
                         epoch + 1,
                         self.num_epochs,
@@ -463,6 +383,7 @@ class RL(BaseNAS):
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
         return metric[0], loss
+
 
 
 @register_nas_algo("graphnas")
@@ -508,7 +429,7 @@ class GraphNasRL(BaseNAS):
 
     def __init__(
         self,
-        device="cuda",
+        device="auto",
         num_epochs=10,
         log_frequency=None,
         grad_clip=5.0,
@@ -522,7 +443,8 @@ class GraphNasRL(BaseNAS):
         model_lr=5e-3,
         model_wd=5e-4,
         topk=5,
-        disable_progress=True,
+        disable_progress=False,
+        hardware_metric_limit=None,
     ):
         super().__init__(device)
         self.device = device
@@ -541,6 +463,7 @@ class GraphNasRL(BaseNAS):
         self.hist = []
         self.topk = topk
         self.disable_progress = disable_progress
+        self.hardware_metric_limit = hardware_metric_limit
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -598,7 +521,7 @@ class GraphNasRL(BaseNAS):
             accs = []
             for i in tqdm(range(20), disable=self.disable_progress):
                 self.arch = self.model.parse_model(selection, device=self.device)
-                metric, loss = self._infer(mask="val")
+                metric, loss, _ = self._infer(mask="val")
                 accs.append(metric)
             result = np.mean(accs)
             LOGGER.info(
@@ -622,16 +545,20 @@ class GraphNasRL(BaseNAS):
         ) as bar:
             for ctrl_step in bar:
                 self._resample()
-                metric, loss = self._infer(mask="val")
+                metric, loss, hardware_metric = self._infer(mask="val")
+                reward = metric
 
                 # bar.set_postfix(acc=metric,loss=loss.item())
                 LOGGER.debug(f"{self.arch}\n{self.selection}\n{metric},{loss}")
                 # diff: not do reward shaping as in graphnas code
-                reward = metric
-                self.hist.append([-metric, self.selection])
-                if len(self.hist) > self.topk:
-                    self.hist.sort(key=lambda x: x[0])
-                    self.hist.pop()
+                if (
+                    self.hardware_metric_limit is None
+                    or hardware_metric[0] < self.hardware_metric_limit
+                ):
+                    self.hist.append([-metric, self.selection])
+                    if len(self.hist) > self.topk:
+                        self.hist.sort(key=lambda x: x[0])
+                        self.hist.pop()
                 rewards.append(reward)
 
                 if self.entropy_weight:
@@ -667,4 +594,4 @@ class GraphNasRL(BaseNAS):
 
     def _infer(self, mask="train"):
         metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
-        return metric[0], loss
+        return metric[0], loss, metric[1:]

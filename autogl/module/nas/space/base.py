@@ -4,12 +4,11 @@ from nni.nas.pytorch import mutables
 from nni.nas.pytorch.fixed import FixedArchitecture
 import json
 from copy import deepcopy
-import typing as _typ
 import torch
 from ...model import BaseModel
 from ....utils import get_logger
+from ..utils import get_hardware_aware_metric
 
-from ...model import AutoGCN
 
 
 class OrderedMutable:
@@ -99,7 +98,7 @@ class BoxModel(BaseModel):
 
     _logger = get_logger("space model")
 
-    def __init__(self, space_model, device=torch.device("cuda")):
+    def __init__(self, space_model, device=torch.device("auto")):
         super().__init__(init=True)
         self.init = True
         self.space = []
@@ -144,6 +143,9 @@ class BoxModel(BaseModel):
             apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
         ret_self.to(self.device)
         return ret_self
+
+    def __repr__(self) -> str:
+        return str({'parameter': get_hardware_aware_metric(self.model, 'parameter')})
 
     @property
     def model(self):
@@ -245,7 +247,7 @@ class BaseSpace(nn.Module):
         )
         return layer
 
-    def wrap(self, device="cuda"):
+    def wrap(self, device="auto"):
         """
         Return a BoxModel which wrap self as a model
         Used to pass to trainer
