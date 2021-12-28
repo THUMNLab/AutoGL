@@ -34,26 +34,50 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     Parameters
     ----------
-    model: ``BaseModel`` or ``str``
-        The (name of) model used to train and predict.
+    model:
+        Models can be ``str``, ``autogl.module.model.BaseAutoModel``, 
+        ``autogl.module.model.encoders.BaseEncoderMaintainer`` or a tuple of (encoder, decoder) 
+        if need to specify both encoder and decoder. Encoder can be ``str`` or
+        ``autogl.module.model.encoders.BaseEncoderMaintainer``, and decoder can be ``str``
+        or ``autogl.module.model.decoders.BaseDecoderMaintainer``.
+        If only encoder is specified, decoder will be default to "logsoftmax"
+
+    num_features: int (Optional)
+        The number of features in dataset. default None
+    
+    num_classes: int (Optional)
+        The number of classes. default None
 
     optimizer: ``Optimizer`` of ``str``
-        The (name of) optimizer used to train and predict.
+        The (name of) optimizer used to train and predict. default torch.optim.Adam
 
     lr: ``float``
-        The learning rate of node classification task.
+        The learning rate of node classification task. default 1e-4
 
     max_epoch: ``int``
-        The max number of epochs in training.
+        The max number of epochs in training. default 100
 
     early_stopping_round: ``int``
-        The round of early stop.
+        The round of early stop. default 100
+
+    weight_decay: ``float``
+        weight decay ratio, default 1e-4
 
     device: ``torch.device`` or ``str``
         The device where model will be running on.
 
     init: ``bool``
         If True(False), the model will (not) be initialized.
+
+    feval: (Sequence of) ``Evaluation`` or ``str``
+        The evaluation functions, default ``[LogLoss]``
+    
+    loss: ``str``
+        The loss used. Default ``nll_loss``.
+
+    lr_scheduler_type: ``str`` (Optional)
+        The lr scheduler type used. Default None.
+
     """
 
     def __init__(
@@ -161,6 +185,9 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
 
     @classmethod
     def get_task_name(cls):
+        """
+        Derive the task name. (NodeClassification)
+        """
         return "NodeClassification"
 
     def __train_only(self, data, train_mask=None):
@@ -435,16 +462,22 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             return res[0]
         return res
 
-    def duplicate_from_hyper_parameter(self, hp: dict, encoder="same", decoder="same", restricted=True):
+    def duplicate_from_hyper_parameter(self, hp: dict, model=None, restricted=True):
         """
         The function of duplicating a new instance from the given hyperparameter.
 
         Parameters
         ----------
         hp: ``dict``.
-            The hyperparameter used in the new instance.
+            The hyperparameter used in the new instance. Should contain 3 keys "trainer", "encoder"
+            "decoder", with corresponding hyperparameters as values.
 
-        model: The model used in the new instance of trainer.
+        model:
+            Models can be ``str``, ``autogl.module.model.BaseAutoModel``, 
+            ``autogl.module.model.encoders.BaseEncoderMaintainer`` or a tuple of (encoder, decoder) 
+            if need to specify both encoder and decoder. Encoder can be ``str`` or
+            ``autogl.module.model.encoders.BaseEncoderMaintainer``, and decoder can be ``str``
+            or ``autogl.module.model.decoders.BaseDecoderMaintainer``.
 
         restricted: ``bool``.
             If False(True), the hyperparameter should (not) be updated from origin hyperparameter.
@@ -455,6 +488,17 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             A new instance of trainer.
 
         """
+        if isinstance(model, Tuple):
+            encoder, decoder = model
+        elif isinstance(model, BaseAutoModel):
+            encoder, decoder = model, None
+        elif isinstance(model, BaseEncoderMaintainer):
+            encoder, decoder = model, self.decoder
+        elif model is None:
+            encoder, decoder = self.encoder, self.decoder
+        else:
+            raise TypeError("Cannot parse model with type", type(model))
+        
         hp_trainer = hp.get("trainer", {})
         hp_encoder = hp.get("encoder", {})
         hp_decoder = hp.get("decoder", {})
@@ -464,8 +508,6 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
             hp = origin_hp
         else:
             hp = hp_trainer
-        encoder = encoder if encoder != "same" else self.encoder
-        decoder = decoder if decoder != "same" else self.decoder
         encoder = encoder.from_hyper_parameter(hp_encoder)
         if isinstance(encoder, BaseEncoderMaintainer) and isinstance(decoder, BaseDecoderMaintainer):
             decoder = decoder.from_hyper_parameter_and_encoder(hp_decoder, encoder)
