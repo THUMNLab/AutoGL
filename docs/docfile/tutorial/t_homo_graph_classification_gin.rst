@@ -174,7 +174,7 @@ Hyperparameters in GIN:
 
 - eps: `str` - whether to train parameter :math:`epsilon` in the GIN layer.
 
-- mlp_layers: `int` - number of MLP layers for classification after pooling.
+- mlp_layers: `int` - number of MLP layers in the GIN layer.
 
 - neighbor_pooling_type: `str` - pooling type in the  GIN layer.
 
