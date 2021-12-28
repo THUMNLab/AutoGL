@@ -32,6 +32,7 @@ from .rl import RL, GraphNasRL
 from ..backend import *
 if not is_dgl():
     from .gasso import Gasso
+from .spos import Spos
 
 def build_nas_algo_from_name(name: str) -> BaseNAS:
     """
@@ -54,7 +55,6 @@ def build_nas_algo_from_name(name: str) -> BaseNAS:
     return NAS_ALGO_DICT[name]()
 
 
-__all__ = ["BaseNAS", "Darts", "Enas", "RandomSearch", "RL", "GraphNasRL"]
-
+__all__ = ["BaseNAS", "Darts", "Enas", "RandomSearch", "RL", "GraphNasRL","Spos"]
 if not is_dgl():
     __all__.append("Gasso")

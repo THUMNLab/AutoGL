@@ -1,13 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Linear, ReLU, Sequential, LeakyReLU, Tanh, ELU
 from dgl.nn.pytorch.conv import GraphConv
 from dgl.nn.pytorch.glob import SortPooling
-from torch.nn import BatchNorm1d
 from . import register_model
-from .base import BaseModel, activate_func
-from copy import deepcopy
+from .base import BaseAutoModel
 from ....utils import get_logger
 
 LOGGER = get_logger("TopkModel")
@@ -174,13 +171,12 @@ class Topkpool(torch.nn.Module):
 
     #def forward(self, g, h):
     def forward(self, data):
-        g, _ = data
-        h = g.ndata.pop('feat')
+        h = data.ndata.pop('feat')
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 
         for i in range(self.num_layers - 1):
-            h = self.gcnlayers[i](g, h)
+            h = self.gcnlayers[i](data, h)
             h = self.batch_norms[i](h)
             h = F.relu(h)
             hidden_rep.append(h)
@@ -189,15 +185,15 @@ class Topkpool(torch.nn.Module):
 
         # perform pooling over all nodes in each graph in every layer
         for i, h in enumerate(hidden_rep):
-            pooled_h = self.pool(g, h)
+            pooled_h = self.pool(data, h)
             #import pdb; pdb.set_trace()
             score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
 
         return score_over_layer
 
 
-@register_model("topkpool")
-class AutoTopkpool(BaseModel):
+@register_model("topkpool-model")
+class AutoTopkpool(BaseAutoModel):
     r"""
     AutoTopkpool. The model used in this automodel is from https://arxiv.org/abs/1905.05178, https://arxiv.org/abs/1905.02850
     Parameters
@@ -217,39 +213,28 @@ class AutoTopkpool(BaseModel):
         num_features=None,
         num_classes=None,
         device=None,
-        init=False,
-        num_graph_features=None,
+        num_graph_features=0,
         **args
     ):
-        super(AutoTopkpool, self).__init__()
-        LOGGER.debug(
-            "topkpool __init__ get params num_graph_features {}".format(
-                num_graph_features
-            )
-        )
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.num_graph_features = (
-            int(num_graph_features) if num_graph_features is not None else 0
-        )
-        self.device = device if device is not None else "cpu"
+        super().__init__(num_features, num_classes, device, num_graph_features=num_graph_features)
+        self.num_graph_features = num_graph_features
 
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-            "num_graph_features": self.num_graph_features,
-        }
-        self.space = [
+        self.hyper_parameter_space = [
+            {
+                "parameterName": "num_layers",
+                "type": "DISCRETE",
+                "feasiblePoints": "4,5,6",
+            },
             {
                 "parameterName": "hidden",
                 "type": "NUMERICAL_LIST",
                 "numericalType": "INTEGER",
-                "length": 1,
-                "minValue": [128],
-                "maxValue": [32],
+                "length": 5,
+                "minValue": [8, 8, 8, 8, 8],
+                "maxValue": [64, 64, 64, 64, 64],
                 "scalingType": "LOG",
-                "cutPara": (),
-                "cutFunc": lambda:1,
+                "cutPara": ("num_layers",),
+                "cutFunc": lambda x: x[0] - 1,
             },
             {
                 "parameterName": "dropout",
@@ -265,22 +250,29 @@ class AutoTopkpool(BaseModel):
                 "maxValue": 2,
                 "scalingType": "LINEAR"
             },
+            {
+                "parameterName": "mlp_layers",
+                "type": "DISCRETE",
+                "feasiblePoints": "2,3,4",
+            },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 5,
-            "hidden": [64],
-            "dropout": 0.5
+            "hidden": [64,64,64,64],
+            "dropout": 0.5,
+            "act": "relu",
+            "mlp_layers": 2
         }
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
+    def from_hyper_parameter(self, hp, **kwargs):
+        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features, **kwargs)
 
-    def initialize(self):
-        if self.initialized:
-            return
-        self.initialized = True
-        LOGGER.debug("topkpool initialize with parameters {}".format(self.params))
-        self.model = Topkpool({**self.params, **self.hyperparams}).to(self.device)
+    def _initialize(self):
+        self._model = Topkpool({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            "num_graph_features": self.num_graph_features,
+            **self.hyper_parameters
+        }).to(self.device)
 

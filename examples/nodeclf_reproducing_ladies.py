@@ -58,7 +58,5 @@ if __name__ == '__main__':
     autoClassifier.fit(dataset, time_limit=24 * 3600, evaluation_method=[MicroF1])
     autoClassifier.get_leaderboard().show()
     predict_result = autoClassifier.predict_proba()
-    print(
-        "test micro-f1: %.4f"
-        % (MicroF1.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy()))
-    )
+    res = autoClassifier.evaluate(metric=[MicroF1, 'acc'])
+    print("Final Micro F1 {:.4f} Acc {:.4f}".format(res[0], res[1]))

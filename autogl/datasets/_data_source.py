@@ -39,12 +39,7 @@ class OnlineDataSource:
 
     @classmethod
     def __make_directory(cls, path):
-        import errno
-        try:
-            os.makedirs(os.path.expanduser(os.path.normpath(path)))
-        except OSError as e:
-            if e.errno != errno.EEXIST and os.path.isdir(path):
-                raise e
+        os.makedirs(os.path.expanduser(os.path.normpath(path)), exist_ok=True)
 
     def _fetch(self):
         raise NotImplementedError
@@ -68,13 +63,7 @@ class OnlineDataSource:
     def __len__(self) -> int:
         raise NotImplementedError
 
-    def __init__(
-            self, path: str,
-            # transform: _typing.Optional[_typing.Callable[[_typing.Any], _typing.Any]] = ...
-    ):
+    def __init__(self, path: str):
         self.__path: str = os.path.expanduser(os.path.normpath(path))
-        # self.__transform: _typing.Optional[_typing.Callable[[_typing.Any], _typing.Any]] = (
-        #     transform if transform not in (Ellipsis, None) and callable(transform) else None
-        # )
         self.__fetch()
         self.__preprocess()

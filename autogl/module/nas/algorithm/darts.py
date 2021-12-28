@@ -12,7 +12,6 @@ from .base import BaseNAS
 from ..estimator.base import BaseEstimator
 from ..space import BaseSpace
 from ..utils import replace_layer_choice, replace_input_choice
-from ...model.base import BaseModel
 # from nni.retiarii.oneshot.pytorch.darts import DartsLayerChoice, DartsInputChoice
 
 _logger = logging.getLogger(__name__)

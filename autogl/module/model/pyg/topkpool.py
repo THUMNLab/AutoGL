@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GraphConv, TopKPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from . import register_model
-from .base import BaseModel, activate_func
+from .base import BaseAutoModel, activate_func
 from ....utils import get_logger
 
 LOGGER = get_logger("TopkModel")
@@ -84,8 +84,8 @@ class Topkpool(torch.nn.Module):
         return x
 
 
-@register_model("topkpool")
-class AutoTopkpool(BaseModel):
+@register_model("topkpool-model")
+class AutoTopkpool(BaseAutoModel):
     r"""
     AutoTopkpool. The model used in this automodel is from https://arxiv.org/abs/1905.05178, https://arxiv.org/abs/1905.02850
 
@@ -111,28 +111,12 @@ class AutoTopkpool(BaseModel):
         num_classes=None,
         device=None,
         init=False,
-        num_graph_features=None,
+        num_graph_features=0,
         **args
     ):
-        super(AutoTopkpool, self).__init__()
-        LOGGER.debug(
-            "topkpool __init__ get params num_graph_features {}".format(
-                num_graph_features
-            )
-        )
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.num_graph_features = (
-            int(num_graph_features) if num_graph_features is not None else 0
-        )
-        self.device = device if device is not None else "cpu"
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-            "num_graph_features": self.num_graph_features,
-        }
-        self.space = [
+        super().__init__(num_features, num_classes, device, num_graph_features=num_graph_features, **args)
+        self.num_graph_features = num_graph_features
+        self.hyper_parameter_space = [
             {
                 "parameterName": "ratio",
                 "type": "DOUBLE",
@@ -154,15 +138,16 @@ class AutoTopkpool(BaseModel):
             },
         ]
 
-        self.hyperparams = {"ratio": 0.8, "dropout": 0.5, "act": "relu"}
+        self.hyper_parameters = {"ratio": 0.8, "dropout": 0.5, "act": "relu"}
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
 
-    def initialize(self):
-        if self.initialized:
-            return
-        self.initialized = True
-        LOGGER.debug("topkpool initialize with parameters {}".format(self.params))
-        self.model = Topkpool({**self.params, **self.hyperparams}).to(self.device)
+    def from_hyper_parameter(self, hp, **kwargs):
+        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features, **kwargs)
+
+    def _initialize(self):
+        self._model = Topkpool({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            "num_graph_features": self.num_graph_features,
+            **self.hyper_parameters
+        }).to(self.device)

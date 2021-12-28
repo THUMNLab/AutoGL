@@ -9,6 +9,7 @@ import typing as _typing
 import torch
 import torch.nn.functional as F
 from copy import deepcopy
+from autogl.module.hpo.auto_module import AutoModule
 
 base_approach_logger: logging.Logger = logging.getLogger("BaseModel")
 
@@ -26,70 +27,56 @@ def activate_func(x, func):
     return x
 
 
-class BaseModel:
-    def __init__(self, init=False, *args, **kwargs):
-        super(BaseModel, self).__init__()
-
-    def get_hyper_parameter(self):
-        return deepcopy(self.hyperparams)
-
-    @property
-    def hyper_parameter_space(self):
-        return self.space
-
-    @hyper_parameter_space.setter
-    def hyper_parameter_space(self, space):
-        self.space = space
-
-    def initialize(self):
-        pass
-
-    def forward(self):
-        pass
+class BaseAutoModel(AutoModule):
+    def __init__(self, input_dimension, output_dimension, device, **kwargs):
+        self._input_dimension = input_dimension
+        self._output_dimension = output_dimension
+        self._model = None
+        self._kwargs = kwargs
+        super(BaseAutoModel, self).__init__(device)
 
     def to(self, device):
-        if isinstance(device, (str, torch.device)):
-            self.device = device
-        if (
-            hasattr(self, "model")
-            and self.model is not None
-            and isinstance(self.model, torch.nn.Module)
-        ):
-            self.model.to(self.device)
-        return self
+        return self.to_device(device)
 
-    def from_hyper_parameter(self, hp):
+    def to_device(self, device):
+        self.device = device
+        if self.model is not None:
+            self.model.to(self.device)
+
+    @property
+    def model(self):
+        return self._model
+
+    def from_hyper_parameter(self, hp, **kwargs):
+        kw = deepcopy(self._kwargs)
+        kw.update(kwargs)
         ret_self = self.__class__(
-            num_features=self.num_features,
-            num_classes=self.num_classes,
-            device=self.device,
-            init=False,
+            self.input_dimension,
+            self.output_dimension,
+            self.device,
+            **kw
         )
-        ret_self.hyperparams.update(hp)
-        ret_self.params.update(self.params)
+        hp_now = dict(self.hyper_parameters)
+        hp_now.update(hp)
+        ret_self.hyper_parameters = hp_now
         ret_self.initialize()
         return ret_self
 
-    def get_num_classes(self):
-        return self.num_classes
+    @property
+    def input_dimension(self):
+        return self._input_dimension
+    
+    @input_dimension.setter
+    def input_dimension(self, input_dimension):
+        self._input_dimension = input_dimension
 
-    def set_num_classes(self, num_classes):
-        self.num_classes = num_classes
-        self.params["num_class"] = num_classes
-
-    def get_num_features(self):
-        return self.num_features
-
-    def set_num_features(self, num_features):
-        self.num_features = num_features
-        self.params["features_num"] = self.num_features
-
-    def set_num_graph_features(self, num_graph_features):
-        assert hasattr(
-            self, "num_graph_features"
-        ), "Cannot set graph features for tasks other than graph classification"
-        self.num_graph_features = num_graph_features
-        self.params["num_graph_features"] = num_graph_features
+    @property
+    def output_dimension(self):
+        return self._output_dimension
+    
+    @output_dimension.setter
+    def output_dimension(self, output_dimension):
+        self._output_dimension = output_dimension
 
 
 class _BaseBaseModel:
@@ -188,7 +175,7 @@ class _BaseBaseModel:
             self.initialize()
 
 
-class _BaseModel(_BaseBaseModel, BaseModel):
+class _BaseModel(_BaseBaseModel, BaseAutoModel):
     """
     The upcoming root base class for Model, i.e. BaseModel
     --  Designed by ZiXin Sun

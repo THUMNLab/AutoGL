@@ -3,12 +3,47 @@ import typing as _typing
 
 import torch
 import pickle
-from ..model import BaseModel, ModelUniversalRegistry
+
+from autogl.module.model.encoders.base_encoder import AutoHomogeneousEncoderMaintainer
+
+from ..model import (
+    EncoderUniversalRegistry,
+    DecoderUniversalRegistry,
+    BaseEncoderMaintainer,
+    BaseDecoderMaintainer,
+    BaseAutoModel,
+    ModelUniversalRegistry
+)
+from ..hpo import AutoModule
+import logging
 from .evaluation import Evaluation, get_feval, Acc
 from ...utils import get_logger
 
 LOGGER_ES = get_logger("early-stopping")
 
+class _DummyModel(torch.nn.Module):
+    def __init__(self, encoder: _typing.Union[BaseEncoderMaintainer, BaseAutoModel], decoder: _typing.Optional[BaseDecoderMaintainer]):
+        super().__init__()
+        if isinstance(encoder, BaseAutoModel):
+            self.encoder = encoder.model
+            self.decoder = None
+        else:
+            self.encoder = encoder.encoder
+            self.decoder = None if decoder is None else decoder.decoder
+
+    def __str__(self, ):
+        return "DummyModel(encoder={}, decoder={})".format(self.encoder, self.decoder)
+
+    def encode(self, *args, **kwargs):
+        return self.encoder(*args, **kwargs)
+    
+    def decode(self, *args, **kwargs):
+        if self.decoder is None: return args[0]
+        return self.decoder(*args, **kwargs)
+    
+    def forward(self, *args, **kwargs):
+        res = self.encode(*args, **kwargs)
+        return self.decode(res, *args, **kwargs)
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
@@ -50,7 +85,7 @@ class EarlyStopping:
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(val_loss, model)
-        elif score < self.best_score + self.delta:
+        elif score <= self.best_score + self.delta:
             self.counter += 1
             if self.verbose is True:
                 self.trace_func(
@@ -81,12 +116,12 @@ class EarlyStopping:
             LOGGER_ES.warn("try to load checkpoint while no checkpoint is saved")
 
 
-class BaseTrainer:
+class BaseTrainer(AutoModule):
     def __init__(
         self,
-        model: BaseModel,
+        encoder: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, None],
+        decoder: _typing.Union[BaseDecoderMaintainer, None],
         device: _typing.Union[torch.device, str],
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
@@ -94,49 +129,27 @@ class BaseTrainer:
     ):
         """
         The basic trainer.
-
         Used to automatically train the problems, e.g., node classification, graph classification, etc.
-
         Parameters
         ----------
         model: `BaseModel` or `str`
             The (name of) model used to train and predict.
-
         init: `bool`
             If True(False), the model will (not) be initialized.
         """
-        super().__init__()
-        self.model: BaseModel = model
-        if type(device) == torch.device or (
-            type(device) == str and device.lower() != "auto"
-        ):
-            self.__device: torch.device = torch.device(device)
-        else:
-            self.__device: torch.device = torch.device(
-                "cuda"
-                if torch.cuda.is_available() and torch.cuda.device_count() > 0
-                else "cpu"
-            )
-        self.init: bool = init
-        self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(feval)
-        self.loss: str = loss
+        super().__init__(device)
+        self.encoder = encoder
+        self.decoder = None if isinstance(encoder, BaseAutoModel) else decoder
+        self.feval = feval
+        self.loss = loss
 
-    @property
-    def device(self) -> torch.device:
-        return self.__device
+    def _compose_model(self):
+        return _DummyModel(self.encoder, self.decoder).to(self.device)
 
-    @device.setter
-    def device(self, __device: _typing.Union[torch.device, str]):
-        if type(__device) == torch.device or (
-            type(__device) == str and __device.lower() != "auto"
-        ):
-            self.__device: torch.device = torch.device(__device)
-        else:
-            self.__device: torch.device = torch.device(
-                "cuda"
-                if torch.cuda.is_available() and torch.cuda.device_count() > 0
-                else "cpu"
-            )
+    def _initialize(self):
+        self.encoder.initialize()
+        if self.decoder is not None:
+            self.decoder.initialize(self.encoder)
 
     @property
     def feval(self) -> _typing.Sequence[_typing.Type[Evaluation]]:
@@ -151,24 +164,29 @@ class BaseTrainer:
     ):
         self.__feval: _typing.Sequence[_typing.Type[Evaluation]] = get_feval(_feval)
 
-    def to(self, device: torch.device):
+    @property
+    def model(self):
+        # compatible with v0.2
+        return self.encoder
+    
+    @model.setter
+    def model(self, model):
+        # compatible with v0.2
+        self.encoder = model
+
+    def to(self, device: _typing.Union[str, torch.device]):
         """
         Transfer the trainer to another device
-
         Parameters
         ----------
         device: `str` or `torch.device`
             The device this trainer will use
         """
-        self.device = torch.device(device)
-
-    def initialize(self):
-        """Initialize the auto model in trainer."""
-        pass
-
-    def get_model(self):
-        """Get auto model used in trainer."""
-        raise NotImplementedError()
+        self.device = device
+        if self.encoder is not None:
+            self.encoder.to_device(self.device)
+        if self.decoder is not None:
+            self.decoder.to_device(self.device)
 
     def get_feval(
         self, return_major: bool = False
@@ -180,7 +198,6 @@ class BaseTrainer:
         ----------
         return_major: ``bool``
             Wether to return the major ``feval``. Default ``False``.
-
         Returns
         -------
         ``evaluation`` or list of ``evaluation``:
@@ -205,50 +222,31 @@ class BaseTrainer:
             instance = pickle.load(inputs)
             return instance
 
-    @property
-    def hyper_parameter_space(self):
-        """Get the space of hyperparameter."""
-        raise NotImplementedError()
-
-    @hyper_parameter_space.setter
-    def hyper_parameter_space(self, space):
-        """Set the space of hyperparameter."""
-        pass
-
-    def duplicate_from_hyper_parameter(
-        self, hp, model: _typing.Optional[BaseModel] = ...
-    ) -> "BaseTrainer":
+    def duplicate_from_hyper_parameter(self, *args, **kwargs) -> "BaseTrainer":
         """Create a new trainer with the given hyper parameter."""
         raise NotImplementedError()
 
     def train(self, dataset, keep_valid_result):
         """
         Train on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in training.
-
         keep_valid_result: `bool`
             If True(False), save the validation result after training.
-
         Returns
         -------
-
         """
         raise NotImplementedError()
 
     def predict(self, dataset, mask=None):
         """
         Predict on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in predicting.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         Returns
         -------
         prediction result
@@ -258,17 +256,13 @@ class BaseTrainer:
     def predict_proba(self, dataset, mask=None, in_log_format=False):
         """
         Predict the probability on the given dataset.
-
         Parameters
         ----------
         dataset: The dataset used in predicting.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         in_log_format: `bool`.
             If True(False), the probability will (not) be log format.
-
         Returns
         -------
         The prediction result.
@@ -292,16 +286,12 @@ class BaseTrainer:
 
     def evaluate(self, dataset, mask=None, feval=None):
         """
-
         Parameters
         ----------
         dataset: The dataset used in evaluation.
-
         mask: `train`, `val`, or `test`.
             The dataset mask.
-
         feval: The evaluation methods.
-
         Returns
         -------
         The evaluation result.
@@ -322,101 +312,365 @@ class BaseTrainer:
             else:
                 raise KeyError("Cannot set parameter", k, "for trainer", self.__class__)
 
+    def combined_hyper_parameter_space(self):
+        return {
+            "trainer": self.hyper_parameter_space,
+            "encoder": self.encoder.hyper_parameter_space,
+            "decoder": [] if self.decoder is None else self.decoder.hyper_parameter_space
+        }
+
 
 class _BaseClassificationTrainer(BaseTrainer):
     """ Base class of trainer for classification tasks """
 
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
+        encoder: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, str, None],
+        decoder: _typing.Union[BaseDecoderMaintainer, str, None],
         num_features: int,
         num_classes: int,
+        last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = "auto",
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
         loss: str = "nll_loss",
     ):
-        self.num_features: int = num_features
-        self.num_classes: int = num_classes
-        if type(device) == torch.device or (
-            type(device) == str and device.lower() != "auto"
-        ):
-            __device: torch.device = torch.device(device)
-        else:
-            __device: torch.device = torch.device(
-                "cuda"
-                if torch.cuda.is_available() and torch.cuda.device_count() > 0
-                else "cpu"
-            )
-        if type(model) == str:
-            _model: BaseModel = ModelUniversalRegistry.get_model(model)(
-                num_features, num_classes, __device, init=init
-            )
-        elif isinstance(model, BaseModel):
-            _model: BaseModel = model
-        elif model is None:
-            _model = None
-        else:
-            raise TypeError(
-                f"Model argument only support str or BaseModel, got {model}."
-            )
+        self._encoder = None
+        self._decoder = None
+        self.num_features = num_features
+        self.num_classes = num_classes
+        self.last_dim: _typing.Union[int, str] = last_dim
         super(_BaseClassificationTrainer, self).__init__(
-            _model, __device, init, feval, loss
+            encoder, decoder, device, feval, loss
         )
+    
+    @property
+    def encoder(self):
+        return self._encoder
+    
+    @encoder.setter
+    def encoder(self, enc: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, str, None]):
+        if isinstance(enc, str):
+            if enc in EncoderUniversalRegistry:
+                self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
+                    self.num_features, last_dim=self.last_dim, device=self.device, init=self.initialized
+                )
+            else:
+                self._encoder = ModelUniversalRegistry.get_model(enc)(
+                    self.num_features, last_dim=self.last_dim, device=self.device
+                )
+                
+        elif isinstance(enc, BaseEncoderMaintainer):
+            self._encoder = enc
+        elif isinstance(enc, BaseAutoModel):
+            self._encoder = enc
+            if self.decoder is not None:
+                logging.warn("will disable decoder since a whole model is passed")
+                self.decoder = None
+        elif enc is None:
+            self._encoder = None
+        else:
+            raise ValueError("Enc {} is not supported!".format(enc))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
 
+    @property
+    def decoder(self):
+        return self._decoder
+    
+    @decoder.setter
+    def decoder(self, dec: _typing.Union[BaseDecoderMaintainer, str, None]):
+        if isinstance(self.encoder, BaseAutoModel):
+            logging.warn("Ignore passed dec since enc is a whole model")
+            self._decoder = None
+            return
+        if isinstance(dec, str):
+            self._decoder = DecoderUniversalRegistry.get_decoder(dec)(
+                self.num_classes, input_dim=self.last_dim, device=self.device, init=self.initialized
+            )
+        elif isinstance(dec, BaseDecoderMaintainer):
+            self._decoder = dec
+        elif dec is None:
+            self._decoder = None
+        else:
+            raise ValueError("Dec {} is not supported!".format(dec))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
+    
+    @property
+    def num_classes(self):
+        return self.__num_classes
+
+    @num_classes.setter
+    def num_classes(self, num_classes):
+        self.__num_classes = num_classes
+        if isinstance(self.encoder, BaseAutoModel):
+            self.encoder.output_dimension = num_classes
+        elif isinstance(self.decoder, BaseDecoderMaintainer):
+            self.decoder.output_dimension = num_classes
+
+    @property
+    def last_dim(self):
+        return self._last_dim
+    
+    @last_dim.setter
+    def last_dim(self, dim):
+        self._last_dim = dim
+        if isinstance(self.encoder, AutoHomogeneousEncoderMaintainer):
+            self.encoder.final_dimension = self._last_dim
+
+    @property
+    def num_features(self):
+        return self._num_features
+    
+    @num_features.setter
+    def num_features(self, num_features):
+        self._num_features = num_features
+        if self.encoder is not None:
+            self.encoder.input_dimension = num_features
 
 class BaseNodeClassificationTrainer(_BaseClassificationTrainer):
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
+        encoder: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, str, None],
+        decoder: _typing.Union[BaseDecoderMaintainer, str, None],
         num_features: int,
         num_classes: int,
         device: _typing.Union[torch.device, str, None] = None,
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
         loss: str = "nll_loss",
     ):
         super(BaseNodeClassificationTrainer, self).__init__(
-            model, num_features, num_classes, device, init, feval, loss
+            encoder, decoder, num_features, num_classes, num_classes, device, feval, loss
         )
+    
+    # override num_classes property to support last_dim setting
+    @property
+    def num_classes(self):
+        return self.__num_classes
+    
+    @num_classes.setter
+    def num_classes(self, num_classes):
+        self.__num_classes = num_classes
+        if isinstance(self.encoder, BaseAutoModel):
+            self.encoder.output_dimension = num_classes
+        elif isinstance(self.decoder, BaseDecoderMaintainer):
+            self.decoder.output_dimension = num_classes
+        self.last_dim = num_classes
 
 
 class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
-        num_features: int,
-        num_classes: int,
+        encoder: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, str, None] = None,
+        decoder: _typing.Union[BaseDecoderMaintainer, str, None] = None,
+        num_features: _typing.Optional[int] = None,
+        num_classes: _typing.Optional[int] = None,
         num_graph_features: int = 0,
+        last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = None,
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
         loss: str = "nll_loss",
     ):
+        self._encoder = None
+        self._decoder = None
         self.num_graph_features: int = num_graph_features
         super(BaseGraphClassificationTrainer, self).__init__(
-            model, num_features, num_classes, device, init, feval, loss
+            encoder, decoder, num_features, num_classes, last_dim, device, feval, loss
         )
 
+    # override encoder and decoder to depend on graph level features
+    @property
+    def encoder(self):
+        return self._encoder
+    
+    @encoder.setter
+    def encoder(self, enc: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, str, None]):
+        if isinstance(enc, str):
+            if enc in EncoderUniversalRegistry:
+                self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
+                    self.num_features,
+                    last_dim=self.last_dim,
+                    num_graph_features=self.num_graph_features,
+                    device=self.device,
+                    init=self.initialized
+                )
+            else:
+                self._encoder = ModelUniversalRegistry.get_model(enc)(
+                    self.num_features,
+                    self.last_dim,
+                    device=self.device,
+                    num_graph_features=self.num_graph_features,
+                )
 
+        elif isinstance(enc, (BaseAutoModel, BaseEncoderMaintainer)):
+            self._encoder = enc
+            if isinstance(enc, BaseAutoModel) and self.decoder is not None:
+                logging.warn("will disable decoder since a whole model is passed")
+                self.decoder = None
+        elif enc is None:
+            self._encoder = None
+        else:
+            raise ValueError("Enc {} is not supported!".format(enc))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
+        self.num_graph_features = self.num_graph_features
+
+
+    @property
+    def decoder(self):
+        if isinstance(self.encoder, BaseAutoModel): return None
+        return self._decoder
+    
+    @decoder.setter
+    def decoder(self, dec: _typing.Union[BaseDecoderMaintainer, str, None]):
+        if isinstance(self.encoder, BaseAutoModel):
+            logging.warn("Ignore passed dec since enc is a whole model")
+            self._decoder = None
+            return
+        if isinstance(dec, str):
+            self._decoder = DecoderUniversalRegistry.get_decoder(dec)(
+                self.num_classes,
+                input_dim=self.last_dim,
+                num_graph_features=self.num_graph_features,
+                device=self.device,
+                init=self.initialized
+            )
+        elif isinstance(dec, (BaseDecoderMaintainer, None)):
+            self._decoder = dec
+        else:
+            raise ValueError("Invalid decoder setting")
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
+
+    # override num_classes property to support last_dim setting
+    @property
+    def num_classes(self):
+        return self.__num_classes
+    
+    @num_classes.setter
+    def num_classes(self, num_classes):
+        self.__num_classes = num_classes
+        if isinstance(self.encoder, BaseAutoModel):
+            self.encoder.output_dimension = num_classes
+        elif isinstance(self.decoder, BaseDecoderMaintainer):
+            self.decoder.output_dimension = num_classes
+        self.last_dim = num_classes
+    
+    @property
+    def num_graph_features(self):
+        return self._num_graph_features
+    
+    @num_graph_features.setter
+    def num_graph_features(self, num_graph_features):
+        self._num_graph_features = num_graph_features
+        if self.encoder is not None: self.encoder.num_graph_features = self._num_graph_features
+        if self.decoder is not None: self.decoder.num_graph_features = self._num_graph_features
+
+
+# TODO: according to discussion, link prediction may not belong to classification tasks
 class BaseLinkPredictionTrainer(_BaseClassificationTrainer):
     def __init__(
         self,
-        model: _typing.Union[BaseModel, str],
-        num_features: int,
+        encoder: _typing.Union[BaseAutoModel, BaseEncoderMaintainer, str, None] = None,
+        decoder: _typing.Union[BaseDecoderMaintainer, str, None] = None,
+        num_features: _typing.Optional[int] = None,
+        last_dim: _typing.Union[int, str] = "auto",
         device: _typing.Union[torch.device, str, None] = None,
-        init: bool = True,
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
         loss: str = "nll_loss",
     ):
         super(BaseLinkPredictionTrainer, self).__init__(
-            model, num_features, 2, device, init, feval, loss
+            encoder, decoder, num_features, 2, last_dim, device, feval, loss
         )
+
+    # override decoder since no num_classes is needed
+    @property
+    def decoder(self):
+        if isinstance(self.encoder, BaseAutoModel): return None
+        return self._decoder
+    
+    @decoder.setter
+    def decoder(self, dec: _typing.Union[BaseDecoderMaintainer, str, None]):
+        if isinstance(self.encoder, BaseAutoModel):
+            logging.warn("Ignore passed dec since enc is a whole model")
+            self._decoder = None
+            return
+        if isinstance(dec, str):
+            self._decoder = DecoderUniversalRegistry.get_decoder(dec)(
+                input_dim=self.last_dim,
+                device=self.device,
+                init=self.initialized
+            )
+        elif isinstance(dec, BaseDecoderMaintainer):
+            self._decoder = dec
+        elif dec is None:
+            self._decoder = None
+        else:
+            raise ValueError("Invalid decoder setting")
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        self.last_dim = self.last_dim
+
+
+# ============== Het =================
+class BaseNodeClassificationHetTrainer(BaseNodeClassificationTrainer):
+    """ Base class of trainer for classification tasks """
+
+    def __init__(
+        self,
+        model: _typing.Union[BaseAutoModel, str],
+        dataset: None,
+        num_features: int,
+        num_classes: int,
+        device: _typing.Union[torch.device, str, None] = "auto",
+        feval: _typing.Union[
+            _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
+        ] = (Acc,),
+        loss: str = "nll_loss",
+    ):
+        self._dataset = dataset
+        super(BaseNodeClassificationHetTrainer, self).__init__(
+            model, None, num_features, num_classes, device, feval, loss
+        )
+        self.from_dataset(dataset)
+    
+    def from_dataset(self, dataset):
+        self._dataset = dataset
+        if self.encoder is not None:
+            self.encoder.from_dataset(self._dataset)
+
+    @property
+    def encoder(self):
+        return self._encoder
+
+    @encoder.setter
+    def encoder(self, enc: _typing.Union[BaseAutoModel, str, None]):
+        if isinstance(enc, str):
+            self._encoder = ModelUniversalRegistry.get_model(enc)(
+                self.num_features, self.num_classes, device=self.device
+            )
+        elif isinstance(enc, BaseAutoModel):
+            self._encoder = enc
+            if self.decoder is not None:
+                logging.warn("will disable decoder since a whole model is passed")
+                self.decoder = None
+        elif enc is None:
+            self._encoder = None
+        else:
+            raise ValueError("Enc {} is not supported!".format(enc))
+        self.num_features = self.num_features
+        self.num_classes = self.num_classes
+        if self._dataset is not None:
+            self.from_dataset(self._dataset)
