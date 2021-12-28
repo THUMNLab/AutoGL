@@ -17,12 +17,14 @@ Graph Isomorphism Network (GIN) is one graph classification model from `"How Pow
 The layer is
 
 .. math::
+
     \mathbf{x}^{\prime}_i = h_{\mathbf{\Theta}} \left( (1 + \epsilon) \cdot
     \mathbf{x}_i + \sum_{j \in \mathcal{N}(i)} \mathbf{x}_j \right)
 
 or
 
 .. math::
+
     \mathbf{X}^{\prime} = h_{\mathbf{\Theta}} \left( \left( \mathbf{A} +
     (1 + \epsilon) \cdot \mathbf{I} \right) \cdot \mathbf{X} \right),
 
