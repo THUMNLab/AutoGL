@@ -101,7 +101,6 @@ class Enas(BaseNAS):
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset  # .to(self.device)
-        print(dir(dset))
         self.estimator = estimator
         # replace choice
         self.nas_modules = []

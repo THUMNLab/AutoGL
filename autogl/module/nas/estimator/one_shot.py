@@ -14,7 +14,7 @@ class OneShotEstimator(BaseEstimator):
     One shot estimator.
 
     Use model directly to get estimations.
-    
+
     Parameters
     ----------
     loss_f : str
@@ -37,8 +37,8 @@ class OneShotEstimator(BaseEstimator):
         y = label[mask]
 
         loss = getattr(F, self.loss_f)(pred, y)
-        #probs = F.softmax(pred, dim=1).detach().cpu().numpy()
-        probs = pred.detach().cpu().numpy()
+        probs = F.softmax(pred, dim=1).detach().cpu().numpy()
+        
         y = y.cpu()
         metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
         return metrics, loss

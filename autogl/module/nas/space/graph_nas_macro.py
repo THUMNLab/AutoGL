@@ -183,7 +183,7 @@ class GraphNasMacroNodeClassificationSpace(BaseSpace):
             multi_label=False,
             batch_normal=False,
             layers=self.layer_number,
-        ).wrap(device)
+        ).wrap()
         return model
 
 

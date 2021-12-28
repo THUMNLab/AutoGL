@@ -98,16 +98,15 @@ class BoxModel(BaseAutoModel):
 
     _logger = get_logger("space model")
 
-    def __init__(self, space_model, device=torch.device("auto")):
+    def __init__(self, space_model, device):
         super().__init__(None, None, device)
         self.init = True
         self.space = []
         self.hyperparams = {}
-        self._model = space_model.to(device)
+        self._model = space_model
         self.num_features = self._model.input_dim
         self.num_classes = self._model.output_dim
         self.params = {"num_class": self.num_classes, "features_num": self.num_features}
-        self.device = device
         self.selection = None
 
     def _initialize(self):
@@ -139,7 +138,6 @@ class BoxModel(BaseAutoModel):
         ret_self._model.instantiate()
         if ret_self.selection:
             apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
-        ret_self.to_device(self.device)
         return ret_self
 
     def __repr__(self) -> str:
@@ -240,12 +238,13 @@ class BaseSpace(nn.Module):
         )
         return layer
 
-    def wrap(self, device="auto"):
+    def wrap(self):
         """
         Return a BoxModel which wrap self as a model
         Used to pass to trainer
         To use this function, must contain `input_dim` and `output_dim`
         """
+        device = next(self.parameters()).device
         return BoxModel(self, device)
 
 

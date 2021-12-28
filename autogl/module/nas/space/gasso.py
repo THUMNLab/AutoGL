@@ -69,7 +69,7 @@ def gnn_map(gnn_name, in_dim, out_dim, concat=False, bias=True) -> Module:
     elif gnn_name == "zero":
         return ZeroConv(in_dim, out_dim, bias=bias)
     else:
-        print(gnn_name)
+        raise ValueError("No such GNN name") 
 
 def Get_edges(adjs, ):
     edges = []
@@ -277,4 +277,4 @@ class GassoSpace(BaseSpace):
 
     def parse_model(self, selection, device) -> BaseModel:
         self.use_forward = False
-        return self.wrap(device)
+        return self.wrap()

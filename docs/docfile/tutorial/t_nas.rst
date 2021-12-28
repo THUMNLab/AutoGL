@@ -117,7 +117,7 @@ Here is an example.
 
         # For one-shot fashion, you can directly use following scheme in ``parse_model``
         def parse_model(self, selection, device) -> BaseModel:
-            return self.wrap(device).fix(selection)
+            return self.wrap().fix(selection)
 
 Also, you can use the way which does not support one shot fashion.
 In this way, you can directly copy you model with few changes.
@@ -153,7 +153,7 @@ But you can only use sample-based search strategy.
         # For non-one-shot fashion, you can directly return your model based on the choices
         # ``YourModel`` must inherit BaseSpace.
         def parse_model(self, selection, device) -> BaseModel:
-            model = YourModel(selection, self.input_dim, self.output_dim).wrap(device)
+            model = YourModel(selection, self.input_dim, self.output_dim).wrap()
             return model
 
     # YourModel can be defined as follows

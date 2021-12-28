@@ -26,7 +26,7 @@ _logger = logging.getLogger(__name__)
 @register_nas_algo("gasso")
 class Gasso(BaseNAS):
     """
-    DARTS trainer.
+    GASSO trainer.
 
     Parameters
     ----------
