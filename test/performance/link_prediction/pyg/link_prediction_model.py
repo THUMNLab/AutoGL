@@ -49,22 +49,7 @@ args = parser.parse_args()
 args.device = torch.device('cuda:0')
 device = torch.device('cuda:0')
 
-args.dataset = 'Cora'
-args.model = 'gcn'
-print(args.dataset)
-print(args.model)
-# load the dataset
-
-# path = osp.join('.', 'data', args.dataset)
-path = osp.join('data', args.dataset)
-if args.dataset == 'Cora':
-    dataset = Planetoid(path, name='Cora',transform=T.NormalizeFeatures())
-elif args.dataset == 'CiteSeer':
-    dataset = Planetoid(path, name='CiteSeer',transform=T.NormalizeFeatures())
-elif args.dataset == 'PubMed':
-    dataset = Planetoid(path, name='PubMed',transform=T.NormalizeFeatures())
-else:
-    assert False
+dataset = Planetoid(osp.expanduser('~/.cache-autogl'), args.dataset, transform=T.NormalizeFeatures())
 
 def train(data):
     model.train()
@@ -125,7 +110,7 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
     data.train_mask = data.val_mask = data.test_mask = data.y = None
     data = train_test_split_edges(data).to(device)
     if args.model == 'gcn':
-        model = AutoGCN(dataset=dataset,
+        model = AutoGCN(
                 num_features=dataset.num_features,
                 num_classes=2, # num_class对linkpre任务似乎没有用？
                 device=args.device,
@@ -134,10 +119,7 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
                 'num_layers': 3,
                 'hidden': [128,64],
                 'dropout': 0.0,
-                'act': 'relu', # 对linkpre任务似乎没有用？
-                'agg': 'mean',
-                'add_self_loops': 'False',
-                'normalize': 'False',
+                'act': ''
             }).model
     elif args.model == 'gat':
         model = AutoGAT(dataset=dataset,
@@ -149,10 +131,7 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
                 'num_layers': 3,
                 'hidden': [128,64],
                 'dropout': 0.0,
-                'act': 'relu',
-                'agg': 'mean',
-                'add_self_loops': 'False',
-                'normalize': 'False',
+                'act': 'relu'
             }).model
     elif args.model == 'sage':
         model = AutoSAGE(dataset=dataset,
