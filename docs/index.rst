@@ -31,9 +31,17 @@ Please make sure you meet the following requirements before installing AutoGL.
 
     see `PyTorch <https://pytorch.org/>`_ for installation.
 
+If you want to use Pytorch Geometric backend, you need to install:
+
 3. PyTorch Geometric (>=1.7.0)
 
     see `PyTorch Geometric <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html>`_ for installation.
+
+If you want to use Deep Graph Library backend, you need to install:
+
+3. Deep Graph Library (>=0.7)
+
+    see `Deep Graph Library <https://docs.dgl.ai/install/index.html>`_ for installation.
 
 Installation
 ~~~~~~~~~~~~
@@ -86,6 +94,7 @@ In AutoGL, the tasks are solved by corresponding solvers, which in general do th
    :caption: Tutorial
 
    docfile/tutorial/t_quickstart
+   docfile/tutorial/t_backend
    docfile/tutorial/t_dataset
    docfile/tutorial/t_fe
    docfile/tutorial/t_model
