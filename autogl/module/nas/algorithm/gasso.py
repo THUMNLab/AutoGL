@@ -25,6 +25,30 @@ _logger = logging.getLogger(__name__)
 
 @register_nas_algo("gasso")
 class Gasso(BaseNAS):
+    """
+    DARTS trainer.
+
+    Parameters
+    ----------
+    num_epochs : int
+        Number of epochs planned for training.
+    warmup_epochs : int
+        Number of epochs planned for warming up.
+    workers : int
+        Workers for data loading.
+    model_lr : float
+        Learning rate to optimize the model.
+    model_wd : float
+        Weight decay to optimize the model.
+    arch_lr : float
+        Learning rate to optimize the architecture.
+    stru_lr : float
+        Learning rate to optimize the structure.
+    lamb : float
+        The parameter to control the influence of hidden feature smoothness
+    device : str or torch.device
+        The device of the whole process
+    """
     def __init__(
         self,
         num_epochs=250,
