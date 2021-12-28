@@ -40,11 +40,9 @@ if __name__ == '__main__':
 
     accs = []
 
-    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model, decoupled=True)
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
-
-        model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
         trainer = NodeClassificationFullTrainer(
             model=args.model,
