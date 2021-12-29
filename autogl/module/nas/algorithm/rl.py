@@ -580,6 +580,8 @@ class GraphNasRL(BaseNAS):
                 self.ctrl_optim.step()
 
                 bar.set_postfix(acc=metric, max_acc=max(rewards))
+        
+        LOGGER.info(f"epoch:{}, mean rewards:{}".format(epoch, sum(rewards) / len(rewards)))
         return sum(rewards) / len(rewards)
 
     def _resample(self):

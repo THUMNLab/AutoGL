@@ -256,10 +256,11 @@ class GassoSpace(BaseSpace):
     def keep_prediction(self):
         self.prediction = self.current_pred
 
-    def to(self, *args, **kwargs):
-        super().to(*args, **kwargs)
-        device = next(self.parameters()).device
-        self.alphas_normal = self.alphas_normal.to(device)
+    '''def to(self, *args, **kwargs):
+        fin = super().to(*args, **kwargs)
+        device = next(fin.parameters()).device
+        fin.alphas_normal = [i.to(device) for i in self.alphas_normal]
+        return fin'''
 
     def initialize_alphas(self):
         num_ops = len(self.ops)
