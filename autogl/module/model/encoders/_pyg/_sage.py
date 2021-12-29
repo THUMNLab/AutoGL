@@ -29,7 +29,7 @@ class _SAGE(torch.nn.Module):
     ) -> _typing.Sequence[torch.Tensor]:
         x: torch.Tensor = data.x
         edge_index: torch.LongTensor = data.edge_index
-        results: _typing.MutableSequence[torch.Tensor] = []
+        results: _typing.MutableSequence[torch.Tensor] = [x]
         for layer, convolution_layer in enumerate(self.__convolution_layers):
             x = convolution_layer(x, edge_index)
             if layer < len(self.__convolution_layers) - 1:

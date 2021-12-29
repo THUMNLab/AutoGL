@@ -12,16 +12,16 @@ if DependentBackend.is_pyg():
 else:
     from ._dgl import (
         LogSoftmaxDecoderMaintainer,
-        AddPoolMLPDecoderMaintainer,
+        JKSumPoolDecoderMaintainer,
         TopKDecoderMaintainer,
-        DotProductLinkPredictonDecoderMaintainer
+        DotProductLinkPredictionDecoderMaintainer
     )
 
 __all__ = [
     "BaseDecoderMaintainer",
     "DecoderUniversalRegistry",
     "LogSoftmaxDecoderMaintainer",
-    "AddPoolMLPDecoderMaintainer",
+    "JKSumPoolDecoderMaintainer",
     "TopKDecoderMaintainer",
     "DiffPoolDecoderMaintainer",
     "DotProductLinkPredictonDecoderMaintainer"
