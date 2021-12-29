@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from torch.nn import Sequential, Linear, ReLU
 import torch_geometric
 from torch_geometric.datasets import TUDataset
-if int(torch_geometric.__version__.split(",")[0]) >= 2:
+if int(torch_geometric.__version__.split(".")[0]) >= 2:
     from torch_geometric.loader import DataLoader
 else:
     from torch_geometric.data import DataLoader
