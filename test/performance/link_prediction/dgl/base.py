@@ -11,8 +11,6 @@ import numpy as np
 import scipy.sparse as sp
 import random
 from dgl.data import CoraGraphDataset, PubmedGraphDataset, CiteseerGraphDataset
-
-from autogl.module.model.dgl.graphsage import GraphSAGE
 import dgl.data
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from tqdm import tqdm
