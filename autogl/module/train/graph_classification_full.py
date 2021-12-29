@@ -82,7 +82,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         elif isinstance(model, BaseAutoModel):
             encoder, decoder = model, None
         else:
-            encoder, decoder = model, "addpoolmlp"
+            encoder, decoder = model, "sumpoolmlp"
 
         super().__init__(
             encoder=encoder,
@@ -90,7 +90,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
             num_features=num_features,
             num_classes=num_classes,
             num_graph_features=num_graph_features,
-            last_dim=num_classes,
+            last_dim="auto",
             device=device,
             feval=feval,
             loss=loss,

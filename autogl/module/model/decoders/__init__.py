@@ -5,7 +5,7 @@ from autogl.backend import DependentBackend
 if DependentBackend.is_pyg():
     from ._pyg import (
         LogSoftmaxDecoderMaintainer,
-        AddPoolMLPDecoderMaintainer,
+        SumPoolMLPDecoderMaintainer,
         DiffPoolDecoderMaintainer,
         DotProductLinkPredictonDecoderMaintainer
     )
