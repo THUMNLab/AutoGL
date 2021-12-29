@@ -31,26 +31,53 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
     Parameters
     ----------
-    model: ``BaseAutoModel`` or ``str``
-        The (name of) model used to train and predict.
+    model:
+        Models can be ``str``, ``autogl.module.model.BaseAutoModel``, 
+        ``autogl.module.model.encoders.BaseEncoderMaintainer`` or a tuple of (encoder, decoder) 
+        if need to specify both encoder and decoder. Encoder can be ``str`` or
+        ``autogl.module.model.encoders.BaseEncoderMaintainer``, and decoder can be ``str``
+        or ``autogl.module.model.decoders.BaseDecoderMaintainer``.
+        If only encoder is specified, decoder will be default to "logsoftmax"
+
+    num_features: int (Optional)
+        The number of features in dataset. default None
+    
+    num_classes: int (Optional)
+        The number of classes. default None
+    
+    num_graph_features: int (Optional)
+        The number of graph level features. default 0.
 
     optimizer: ``Optimizer`` of ``str``
-        The (name of) optimizer used to train and predict.
+        The (name of) optimizer used to train and predict. default torch.optim.Adam
 
     lr: ``float``
-        The learning rate of graph classification task.
+        The learning rate of node classification task. default 1e-4
 
     max_epoch: ``int``
-        The max number of epochs in training.
+        The max number of epochs in training. default 100
 
     early_stopping_round: ``int``
-        The round of early stop.
+        The round of early stop. default 100
+
+    weight_decay: ``float``
+        weight decay ratio, default 1e-4
 
     device: ``torch.device`` or ``str``
         The device where model will be running on.
 
     init: ``bool``
         If True(False), the model will (not) be initialized.
+
+    feval: (Sequence of) ``Evaluation`` or ``str``
+        The evaluation functions, default ``[LogLoss]``
+    
+    loss: ``str``
+        The loss used. Default ``nll_loss``.
+
+    lr_scheduler_type: ``str`` (Optional)
+        The lr scheduler type used. Default None.
+
     """
 
     space = None
@@ -516,9 +543,15 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         Parameters
         ----------
         hp: ``dict``.
-            The hyperparameter used in the new instance.
+            The hyperparameter used in the new instance. Should contain 3 keys "trainer", "encoder"
+            "decoder", with corresponding hyperparameters as values.
 
-        model: The model used in the new instance of trainer.
+        model: The new model
+            Models can be ``str``, ``autogl.module.model.BaseAutoModel``, 
+            ``autogl.module.model.encoders.BaseEncoderMaintainer`` or a tuple of (encoder, decoder) 
+            if need to specify both encoder and decoder. Encoder can be ``str`` or
+            ``autogl.module.model.encoders.BaseEncoderMaintainer``, and decoder can be ``str``
+            or ``autogl.module.model.decoders.BaseDecoderMaintainer``.
 
         restricted: ``bool``.
             If False(True), the hyperparameter should (not) be updated from origin hyperparameter.

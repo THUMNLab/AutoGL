@@ -37,8 +37,12 @@ class AutoNodeClassifier(BaseClassifier):
         The (name of) auto feature engineer used to process the given dataset. Default ``deepgl``.
         Disable feature engineer by setting it to ``None``.
 
-    graph_models: list of autogl.module.model.BaseModel or list of str
-        The (name of) models to be optimized as backbone. Default ``['gat', 'gcn']``.
+    graph_models: Sequence of models
+        Models can be ``str``, ``autogl.module.model.BaseAutoModel``, 
+        ``autogl.module.model.encoders.BaseEncoderMaintainer`` or a tuple of (encoder, decoder) 
+        if need to specify both encoder and decoder. Encoder can be ``str`` or
+        ``autogl.module.model.encoders.BaseEncoderMaintainer``, and decoder can be ``str``
+        or ``autogl.module.model.decoders.BaseDecoderMaintainer``.
 
     nas_algorithms: (list of) autogl.module.nas.algorithm.BaseNAS or str (Optional)
         The (name of) nas algorithms used. Default ``None``.
@@ -60,6 +64,9 @@ class AutoNodeClassifier(BaseClassifier):
     max_evals: int (Optional)
         If given, will set the number eval times the hpo module will use.
         Only be effective when hpo_module is ``str``. Default ``None``.
+    
+    default_trainer: str (Optional)
+        The (name of) the trainer used in this solver. Default to ``NodeClassificationFull``.
 
     trainer_hp_space: list of dict (Optional)
         trainer hp space or list of trainer hp spaces configuration.
@@ -71,6 +78,8 @@ class AutoNodeClassifier(BaseClassifier):
     model_hp_spaces: list of list of dict (Optional)
         model hp space configuration.
         If given, will specify every hp space of every passed model. Default ``None``.
+        If the encoder(-decoder) is passed, the space should be a dict containing keys "encoder"
+        and "decoder", specifying the detailed encoder decoder hp spaces.
 
     size: int (Optional)
         The max models ensemble module will use. Default ``None``.
@@ -679,6 +688,53 @@ class AutoNodeClassifier(BaseClassifier):
         label=None,
         metric="acc"
     ):
+        """
+        Evaluate the given dataset.
+
+
+        Parameters
+        ----------
+        dataset: torch_geometric.data.dataset.Dataset or None
+            The dataset needed to predict. If ``None``, will use the processed dataset passed
+            to ``fit()`` instead. Default ``None``.
+
+        inplaced: bool
+            Whether the given dataset is processed. Only be effective when ``dataset``
+            is not ``None``. If you pass the dataset to ``fit()`` with ``inplace=True``, and
+            you pass the dataset again to this method, you should set this argument to ``True``.
+            Otherwise ``False``. Default ``False``.
+
+        inplace: bool
+            Whether we process the given dataset in inplace manner. Default ``False``. Set it to
+            True if you want to save memory by modifying the given dataset directly.
+
+        use_ensemble: bool
+            Whether to use ensemble to do the predict. Default ``True``.
+
+        use_best: bool
+            Whether to use the best single model to do the predict. Will only be effective when
+            ``use_ensemble`` is ``False``. Default ``True``.
+
+        name: str or None
+            The name of model used to predict. Will only be effective when ``use_ensemble`` and
+            ``use_best`` both are ``False``. Default ``None``.
+
+        mask: str
+            The data split to give prediction on. Default ``test``.
+
+        label: torch.Tensor (Optional)
+            The groud truth label of the given predicted dataset split. If not passed, will extract
+            labels from the input dataset.
+        
+        metric: str
+            The metric to be used for evaluating the model. Default ``acc``.
+
+        Returns
+        -------
+        score(s): (list of) evaluation scores
+            the evaluation results according to the evaluator passed.
+
+        """
         predicted = self.predict_proba(dataset, inplaced, inplace, use_ensemble, use_best, name, mask)
         if dataset is None:
             dataset = self.dataset
