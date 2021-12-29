@@ -10,7 +10,6 @@ from ....utils import get_logger
 from ..utils import get_hardware_aware_metric
 
 
-
 class OrderedMutable:
     """
     An abstract class with order, enabling to sort mutables with a certain rank.
@@ -30,7 +29,8 @@ class OrderedLayerChoice(OrderedMutable, mutables.LayerChoice):
         self, order, op_candidates, reduction="sum", return_mask=False, key=None
     ):
         OrderedMutable.__init__(self, order)
-        mutables.LayerChoice.__init__(self, op_candidates, reduction, return_mask, key)
+        mutables.LayerChoice.__init__(
+            self, op_candidates, reduction, return_mask, key)
 
 
 class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
@@ -141,7 +141,11 @@ class BoxModel(BaseAutoModel):
         return ret_self
 
     def __repr__(self) -> str:
-        return str({'parameter': get_hardware_aware_metric(self.model, 'parameter')})
+        return str(
+            {'parameter': get_hardware_aware_metric(self.model, 'parameter'),
+             'model': self.model,
+             'selection': self.selection
+             })
 
 class BaseSpace(nn.Module):
     """
@@ -212,7 +216,8 @@ class BaseSpace(nn.Module):
             key = f"default_key_{self._default_key}"
             self._default_key += 1
             orikey = key
-        layer = OrderedLayerChoice(order, op_candidates, reduction, return_mask, orikey)
+        layer = OrderedLayerChoice(
+            order, op_candidates, reduction, return_mask, orikey)
         return layer
 
     def setInputChoice(
@@ -303,6 +308,7 @@ class CleanFixedArchitecture(FixedArchitecture):
         prefix : str
             Module name under global namespace.
         """
+        
         if module is None:
             module = self.model
         for name, mutable in module.named_children():

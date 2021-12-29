@@ -63,8 +63,7 @@ class PathSamplingLayerChoice(nn.Module):
         return _get_mask(self.sampled, len(self))
 
     def __repr__(self):
-        return f"PathSamplingLayerChoice(chosen={self.sampled},{super().__repr__()})"
-
+        return f"PathSamplingLayerChoice(op_names={self.op_names}, chosen={self.sampled})"
 
 class PathSamplingInputChoice(nn.Module):
     """
