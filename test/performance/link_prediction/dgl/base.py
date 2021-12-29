@@ -92,7 +92,7 @@ class GAT(nn.Module):
         in_feat = data.ndata['feat']
         h = self.conv1(g, in_feat).flatten(1)
         h = F.relu(h)
-        h = self.conv2(g, h).mean(1)
+        h = self.conv2(g, h).flatten(1)
         return h
 
 
@@ -210,29 +210,3 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
     res.append(evaluate(model, splitted, "test"))
 
 print("{:.2f} ~ {:.2f}".format(np.mean(res) * 100, np.std(res) * 100))
-
-"""
-
-TITAN Xp
---dataset Cora --model gcn 0.8804158487006131 0.01907439098669424 1.55s/it
---dataset Cora --model gat 0.8658864805372746 0.020797416228114048 2.21s/it
-
---dataset CiteSeer --model gcn 0.8523585316274627 0.01878065312796426 1.58s/it
---dataset CiteSeer --model gat 0.8150998607196465 0.03673578423319804 2.20s/it
-
---dataset PubMed --model gcn 0.9179868485386965 0.01045745124447434 9.66s/it
---dataset PubMed --model gat 0.8636613646637267 0.01971909605054366 10.43s/it
-
-
-
-"""
-
-
-
-
-
-
-
-
-
-

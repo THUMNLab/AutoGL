@@ -89,7 +89,7 @@ if __name__ == "__main__":
                 "weight_decay": 0.0,
             }),
             model_hp_spaces=[{"encoder": fixed(**model_hp), "decoder": fixed(**decoder_hp)}],
-            device="cpu"
+            device=args.device
         )
         autoClassifier.fit(
             [gs],

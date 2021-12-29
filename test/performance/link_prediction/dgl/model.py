@@ -12,6 +12,7 @@ from autogl.module.model.dgl import AutoSAGE, AutoGCN, AutoGAT
 import dgl.data
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from tqdm import tqdm
+from helper import get_encoder_decoder_hp
 
 from sklearn.metrics import roc_auc_score
 
@@ -130,6 +131,9 @@ def evaluate(model, data, mask):
     return result
 
 res = []
+
+model_hp, _ = get_encoder_decoder_hp(args.model, decoupled=False)
+
 for seed in tqdm(range(1234, 1234+args.repeat)):
     setup_seed(seed)
     g = dataset[0]
@@ -145,39 +149,22 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
             input_dimension=splitted[0].ndata['feat'].shape[1],
             output_dimension=2,
             device=args.device,
-        ).from_hyper_parameter({
-            "num_layers": 3,
-            "hidden": [16, 16],
-            "dropout": 0.,
-            "act": "relu",
-        }).model
+        ).from_hyper_parameter(model_hp).model
     elif args.model == 'gat':
         model = AutoGAT(
             input_dimension=splitted[0].ndata['feat'].shape[1],
             output_dimension=2,
             device=args.device,
-        ).from_hyper_parameter({
-            "num_layers": 3,
-            "hidden": [8],
-            "heads": 8,
-            "dropout": 0.0,
-            "act": "relu"
-        })
+        ).from_hyper_parameter(model_hp).model
     elif args.model == 'sage':
         model = AutoSAGE(
             num_features=splitted[0].ndata['feat'].shape[1],
             num_classes=2,
             device=args.device
-        ).from_hyper_parameter({
-            'num_layers': 3,
-            'hidden': [16, 16],
-            'dropout': 0.0,
-            'act': 'relu',
-            'agg': 'mean'
-        }).model
+        ).from_hyper_parameter(model_hp).model
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    
+
     best_auc = 0.
     for epoch in range(100):
         model.train()

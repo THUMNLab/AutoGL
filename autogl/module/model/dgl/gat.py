@@ -94,7 +94,7 @@ class GAT(torch.nn.Module):
     def lp_encode(self, data):
         x = data.ndata['feat']
         for i in range(self.num_layer - 1):
-            x = self.convs[i](data).flatten(1)
+            x = self.convs[i](data, x).flatten(1)
             if i != self.num_layer - 2:
                 x = activate_func(x, self.args["act"])
                 

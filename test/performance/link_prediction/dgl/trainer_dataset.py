@@ -118,7 +118,3 @@ if __name__ == "__main__":
         res.append(result)
 
     print("{:.2f} ~ {:.2f}".format(np.mean(res) * 100, np.std(res) * 100))
-
-"""
-AUC 0.8151564430268863
-"""
