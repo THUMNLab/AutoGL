@@ -1,4 +1,4 @@
-# codes in this file are reproduced from https://github.com/GraphNAS/GraphNAS with some changes.
+# codes in this file are reproduced from AutoAttend with some changes.
 from nni.nas.pytorch.mutables import Mutable
 import typing as _typ
 import torch
@@ -24,10 +24,26 @@ OPS = [OPS1, OPS2]
 
 @register_nas_space("autoattend")
 class AutoAttendNodeClassificationSpace(BaseSpace):
+    """
+    AutoAttend Search Space , please refer to http://proceedings.mlr.press/v139/guan21a.html for details.
+    The current implementation is nc (no context weight sharing), 
+    we will in future add other types of partial weight sharing proposed in the paper.
+
+    Parameters
+    ----------
+    ops_type : int 
+        0 or 1 , choosing from two sets of ops with index ops_type
+    gnn_ops : list of str
+        op names for searching, which descripts the compostion of operation pool
+    act_op : str
+        determine used activation function 
+    agg_ops : list of str
+        agg op names for searching. Only ['add','attn'] are options, as mentioned in the paper.
+    """
     def __init__(
         self,
         hidden_dim: _typ.Optional[int] = 64,
-        layer_number: _typ.Optional[int] = 5,
+        layer_number: _typ.Optional[int] = 2,
         dropout: _typ.Optional[float] = 0.9,
         input_dim: _typ.Optional[int] = None,
         output_dim: _typ.Optional[int] = None,
