@@ -23,4 +23,13 @@ or
     
     ...
 
-Users can use the backend as they wish to quickly conduct their automation experiments.
+
+If no backend is specified, AutoGL will use the backend in your environment. If you have both
+Deep Graph Library and PyTorch Geometric installed, the default backend will be Deep Graph Library.
+
+You can also get current backend in the code by:
+
+.. code-block :: python
+
+    from autogl.backend import DependentBackend
+    print(DependentBackend.get_backend_name())
