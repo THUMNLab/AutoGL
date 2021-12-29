@@ -260,7 +260,7 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         else:
             scheduler = None
 
-        for epoch in range(1, self.max_epoch):
+        for epoch in range(1, self.max_epoch + 1):
             model.train()
 
             optimizer.zero_grad()

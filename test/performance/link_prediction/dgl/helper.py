@@ -19,18 +19,18 @@ def get_encoder_decoder_hp(model='gin', decoder=None):
         }
     elif model == 'gcn':
         model_hp = {
-            "num_layers": 2,
-            "hidden": [16],
-            "dropout": 0.0,
-            "act": "relu"
+            "num_layers": 3,
+            "hidden": [16, 16],
+            "dropout": 0.,
+            "act": "relu",
         }
     elif model == 'sage':
         model_hp = {
-            "num_layers": 2,
-            "hidden": [64],
-            "dropout": 0.0,
-            "act": "relu",
-            "agg": "mean",
+            'num_layers': 3,
+            'hidden': [16, 16],
+            'dropout': 0.0,
+            'act': 'relu',
+            'agg': 'mean'
         }
     elif model == 'topk':
         model_hp = {
