@@ -6,7 +6,8 @@ Borrowed from DGL official examples: https://github.com/dmlc/dgl/tree/master/exa
 TopkPool is not supported currently
 """
 
-from dgl.dataloading.pytorch.dataloader import GraphDataLoader
+# from dgl.dataloading.pytorch.dataloader import GraphDataLoader
+from dgl.dataloading import GraphDataLoader
 import numpy as np
 from tqdm import tqdm
 
@@ -221,6 +222,7 @@ def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
         
         gt = []
         pr = []
@@ -302,6 +304,10 @@ def main():
         model = GIN(
             5, 2, dataset_.dim_nfeats, 64, dataset_.gclasses, 0.5, False,
             "sum", "sum").to(device)
+
+        # for pname, p in model.named_parameters():
+        #     print(pname)
+        # assert False
 
         criterion = nn.CrossEntropyLoss()  # defaul reduce is true
         optimizer = optim.Adam(model.parameters(), lr=0.0001)

@@ -111,6 +111,7 @@ if __name__ == '__main__':
 
     model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
+
     from tqdm import tqdm
     for seed in tqdm(range(10)):
         set_seed(seed)
@@ -135,7 +136,7 @@ if __name__ == '__main__':
             "encoder": model_hp,
             "decoder": decoder_hp
         })
-
+        print('trainer:',trainer)
         trainer.train(dataset, False)
         out = trainer.predict(dataset, 'test').detach().cpu().numpy()
         acc = (out == labels).astype('float').mean()

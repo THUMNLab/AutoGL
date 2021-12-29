@@ -1,12 +1,12 @@
 def get_encoder_decoder_hp(model='gin', decoder=None):
     if model == 'gin':
-        model_hp = {
+        model_hp =  {
             "num_layers": 5,
-            "hidden": [64],
+            "hidden": [64,64,64,64],
             "act": "relu",
             "eps": "False",
             "mlp_layers": 2,
-            "neighbor_pooling_type": "sum"
+            "neighbor_pooling_type": "sum",
         }
     elif model == 'gat':
         model_hp = {
