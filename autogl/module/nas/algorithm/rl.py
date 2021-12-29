@@ -250,7 +250,7 @@ class RL(BaseNAS):
     def __init__(
         self,
         num_epochs=5,
-        device="cuda",
+        device="auto",
         log_frequency=None,
         grad_clip=5.0,
         entropy_weight=0.0001,
@@ -429,7 +429,7 @@ class GraphNasRL(BaseNAS):
 
     def __init__(
         self,
-        device="cuda",
+        device="auto",
         num_epochs=10,
         log_frequency=None,
         grad_clip=5.0,
@@ -580,6 +580,8 @@ class GraphNasRL(BaseNAS):
                 self.ctrl_optim.step()
 
                 bar.set_postfix(acc=metric, max_acc=max(rewards))
+        
+        LOGGER.info(f"epoch:{}, mean rewards:{}".format(epoch, sum(rewards) / len(rewards)))
         return sum(rewards) / len(rewards)
 
     def _resample(self):

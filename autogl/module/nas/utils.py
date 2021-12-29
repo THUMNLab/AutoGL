@@ -63,8 +63,7 @@ class PathSamplingLayerChoice(nn.Module):
         return _get_mask(self.sampled, len(self))
 
     def __repr__(self):
-        return f"PathSamplingLayerChoice(chosen={self.sampled},{super().__repr__()})"
-
+        return f"PathSamplingLayerChoice(op_names={self.op_names}, chosen={self.sampled})"
 
 class PathSamplingInputChoice(nn.Module):
     """
@@ -104,6 +103,17 @@ class PathSamplingInputChoice(nn.Module):
 
 
 def get_hardware_aware_metric(model, hardware_metric):
+    """
+    Get architectures' hardware-aware metrics
+
+    Attributes
+    ----------
+    model : BaseSpace
+        The architecture to be evaluated
+    hardware_metric : str
+        The name of hardware-aware metric. Can be 'parameter' or 'latency'
+    """
+
     if hardware_metric == 'parameter':
         return count_parameters(model)
     elif hardware_metric == 'latency':
