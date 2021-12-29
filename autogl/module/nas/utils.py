@@ -103,6 +103,17 @@ class PathSamplingInputChoice(nn.Module):
 
 
 def get_hardware_aware_metric(model, hardware_metric):
+    """
+    Get architectures' hardware-aware metrics
+
+    Attributes
+    ----------
+    model : BaseSpace
+        The architecture to be evaluated
+    hardware_metric : str
+        The name of hardware-aware metric. Can be 'parameter' or 'latency'
+    """
+
     if hardware_metric == 'parameter':
         return count_parameters(model)
     elif hardware_metric == 'latency':

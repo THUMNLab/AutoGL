@@ -7,7 +7,7 @@ from nni.nas.pytorch import mutables
 
 from . import register_nas_space
 from .base import BaseSpace
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from ..utils import count_parameters, measure_latency
 
 from torch import nn
@@ -206,6 +206,6 @@ class GraphNasNodeClassificationSpace(BaseSpace):
             x = self.classifier2(x)
         return F.log_softmax(x, dim=1)
 
-    def parse_model(self, selection, device) -> BaseModel:
+    def parse_model(self, selection, device) -> BaseAutoModel:
         # return AutoGCN(self.input_dim, self.output_dim, device)
-        return self.wrap(device).fix(selection)
+        return self.wrap().fix(selection)

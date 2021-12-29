@@ -5,7 +5,7 @@ from nni.nas.pytorch.fixed import FixedArchitecture
 import json
 from copy import deepcopy
 import torch
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from ....utils import get_logger
 from ..utils import get_hardware_aware_metric
 
@@ -84,7 +84,7 @@ def map_nn(names):
     return [StrModule(x) for x in names]
 
 
-class BoxModel(BaseModel):
+class BoxModel(BaseAutoModel):
     """
     The box wrapping a space, can be passed to later procedure or trainer
 
@@ -98,18 +98,19 @@ class BoxModel(BaseModel):
 
     _logger = get_logger("space model")
 
-    def __init__(self, space_model, device=torch.device("cuda")):
-        super().__init__(init=True)
+    def __init__(self, space_model, device):
+        super().__init__(None, None, device)
         self.init = True
         self.space = []
         self.hyperparams = {}
-        self._model = space_model.to(device)
+        self._model = space_model
         self.num_features = self._model.input_dim
         self.num_classes = self._model.output_dim
-        self.params = {"num_class": self.num_classes,
-                       "features_num": self.num_features}
-        self.device = device
+        self.params = {"num_class": self.num_classes, "features_num": self.num_features}
         self.selection = None
+
+    def _initialize(self):
+        return True
 
     def fix(self, selection):
         """
@@ -125,11 +126,6 @@ class BoxModel(BaseModel):
         apply_fixed_architecture(self._model, selection, verbose=False)
         return self
 
-    def to(self, device):
-        if isinstance(device, (str, torch.device)):
-            self.device = device
-        return super().to(device)
-
     def forward(self, *args, **kwargs):
         return self._model(*args, **kwargs)
 
@@ -141,9 +137,7 @@ class BoxModel(BaseModel):
         ret_self = deepcopy(self)
         ret_self._model.instantiate()
         if ret_self.selection:
-            apply_fixed_architecture(
-                ret_self._model, ret_self.selection, verbose=False)
-        ret_self.to(self.device)
+            apply_fixed_architecture(ret_self._model, ret_self.selection, verbose=False)
         return ret_self
 
     def __repr__(self) -> str:
@@ -152,11 +146,6 @@ class BoxModel(BaseModel):
              'model': self.model,
              'selection': self.selection
              })
-
-    @property
-    def model(self):
-        return self._model
-
 
 class BaseSpace(nn.Module):
     """
@@ -190,7 +179,7 @@ class BaseSpace(nn.Module):
         raise NotImplementedError()
 
     @abstractmethod
-    def parse_model(self, selection: dict, device) -> BaseModel:
+    def parse_model(self, selection: dict, device) -> BaseAutoModel:
         """
         Export the searched model from space.
 
@@ -254,12 +243,13 @@ class BaseSpace(nn.Module):
         )
         return layer
 
-    def wrap(self, device="cuda"):
+    def wrap(self):
         """
         Return a BoxModel which wrap self as a model
         Used to pass to trainer
         To use this function, must contain `input_dim` and `output_dim`
         """
+        device = next(self.parameters()).device
         return BoxModel(self, device)
 
 

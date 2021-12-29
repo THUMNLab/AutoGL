@@ -8,8 +8,12 @@ from tqdm import tqdm
 import torch
 import torch.nn.functional as F
 from torch.nn import Sequential, Linear, ReLU
+import torch_geometric
 from torch_geometric.datasets import TUDataset
-from torch_geometric.data import DataLoader
+if int(torch_geometric.__version__.split(",")[0]) >= 2:
+    from torch_geometric.loader import DataLoader
+else:
+    from torch_geometric.data import DataLoader
 from torch_geometric.nn import GINConv, global_add_pool, GraphConv, TopKPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 import logging
@@ -46,7 +50,8 @@ class GIN(torch.nn.Module):
         self.fc1 = Linear(dim, dim)
         self.fc2 = Linear(dim, dataset.num_classes)
 
-    def forward(self, x, edge_index, batch):
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
         x = F.relu(self.conv1(x, edge_index))
         x = self.bn1(x)
         x = F.relu(self.conv2(x, edge_index))

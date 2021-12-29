@@ -6,7 +6,7 @@ from dgl.nn.pytorch.conv import GINConv
 from dgl.nn.pytorch.glob import SumPooling, AvgPooling, MaxPooling
 from torch.nn import BatchNorm1d
 from . import register_model
-from .base import BaseModel, activate_func
+from .base import BaseAutoModel, activate_func
 from copy import deepcopy
 from ....utils import get_logger
 
@@ -107,7 +107,7 @@ class GIN(torch.nn.Module):
             The number of classes for prediction
         final_dropout: float
             dropout ratio on the final linear layer
-        learn_eps: boolean
+        eps: boolean
             If True, learn epsilon to distinguish center nodes from neighbors
             If False, aggregate neighbors and center nodes altogether.
         neighbor_pooling_type: str
@@ -137,18 +137,17 @@ class GIN(torch.nn.Module):
         )
         if len(missing_keys) > 0:
             raise Exception("Missing keys: %s." % ",".join(missing_keys))
-        #if not self.num_layer == len(self.args["hidden"]) + 1:
-        #    LOGGER.warn("Warning: layer size does not match the length of hidden units")
-
 
         self.num_graph_features = self.args["num_graph_features"]
         self.num_layers = self.args["num_layers"]
         assert self.num_layers > 2, "Number of layers in GIN should not less than 3"
+        if not self.num_layers == len(self.args["hidden"]) + 1:
+            LOGGER.warn("Warning: layer size does not match the length of hidden units")
 
-        self.learn_eps = self.args["eps"]
+        self.eps = self.args["eps"]
         self.num_mlp_layers = self.args["mlp_layers"]
         input_dim = self.args["features_num"]
-        hidden_dim = self.args["hidden"][0]
+        hidden = self.args["hidden"]
         neighbor_pooling_type = self.args["neighbor_pooling_type"]
         graph_pooling_type = self.args["graph_pooling_type"]
         if self.args["act"] == "leaky_relu":
@@ -161,7 +160,6 @@ class GIN(torch.nn.Module):
             act = Tanh()
         else:
             act = ReLU()
-        learn_eps = True if self.args["eps"] == "True" else False
         final_dropout = self.args["dropout"]
         output_dim = self.args["num_class"]
 
@@ -169,29 +167,38 @@ class GIN(torch.nn.Module):
         self.ginlayers = torch.nn.ModuleList()
         self.batch_norms = torch.nn.ModuleList()
 
-        for layer in range(self.num_layers - 1):
+        for layer in range(self.num_layers - 2):
             if layer == 0:
-                mlp = MLP(self.num_mlp_layers, input_dim, hidden_dim, hidden_dim)
+                mlp = MLP(self.num_mlp_layers, input_dim, hidden[layer], hidden[layer])
             else:
-                mlp = MLP(self.num_mlp_layers, hidden_dim, hidden_dim, hidden_dim)
+                mlp = MLP(self.num_mlp_layers, hidden[layer-1], hidden[layer], hidden[layer])
 
             self.ginlayers.append(
-                GINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, self.learn_eps))
-            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
+                GINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, self.eps))
+            self.batch_norms.append(nn.BatchNorm1d(hidden[layer]))
+
+
+        self.fc1 = Linear(
+            hidden[self.num_layers - 3] + self.num_graph_features,
+            hidden[self.num_layers - 2],
+        )
+        self.fc2 = Linear(
+            hidden[self.num_layers - 2], self.args["num_class"]
+        )
 
         # Linear function for graph poolings of output of each layer
         # which maps the output of different layers into a prediction score
-        self.linears_prediction = torch.nn.ModuleList()
+        # self.linears_prediction = torch.nn.ModuleList()
 
-        for layer in range(self.num_layers):
-            if layer == 0:
-                self.linears_prediction.append(
-                    nn.Linear(input_dim, output_dim))
-            else:
-                self.linears_prediction.append(
-                    nn.Linear(hidden_dim, output_dim))
+        # for layer in range(self.num_layers):
+        #     if layer == 0:
+        #         self.linears_prediction.append(
+        #             nn.Linear(input_dim, output_dim))
+        #     else:
+        #         self.linears_prediction.append(
+        #             nn.Linear(hidden[layer], output_dim))
 
-        self.drop = nn.Dropout(final_dropout)
+        # self.drop = nn.Dropout(final_dropout)
 
         if graph_pooling_type == 'sum':
             self.pool = SumPooling()
@@ -204,29 +211,39 @@ class GIN(torch.nn.Module):
 
     #def forward(self, g, h):
     def forward(self, data):
-        g, _ = data
-        h = g.ndata.pop('feat')
+        x = data.ndata.pop('feat')
+
+        if self.num_graph_features > 0:
+            graph_feature = data.gf
+
         # list of hidden representation at each layer (including input)
-        hidden_rep = [h]
+        # hidden_rep = [h]
 
-        for i in range(self.num_layers - 1):
-            h = self.ginlayers[i](g, h)
-            h = self.batch_norms[i](h)
-            h = F.relu(h)
-            hidden_rep.append(h)
+        for i in range(self.num_layers - 2):
+            x = self.ginlayers[i](data, x)
+            x = activate_func(x, self.args["act"])
+            x = self.batch_norms[i](x)
+            # h = F.relu(h)
+            # hidden_rep.append(h)
+        if self.num_graph_features > 0:
+            x = torch.cat([x, graph_feature], dim=-1)
+        x = self.fc1(x)
+        x = activate_func(x, self.args["act"])
+        x = F.dropout(x, p=self.args["dropout"], training=self.training)
 
-        score_over_layer = 0
-
+        x = self.fc2(x)
+        x = self.pool(data, x)
+        return F.log_softmax(x, dim=1)
+        # score_over_layer = 0
         # perform pooling over all nodes in each graph in every layer
-        for i, h in enumerate(hidden_rep):
-            pooled_h = self.pool(g, h)
-            score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
+        # for i, h in enumerate(hidden_rep):
+        #     pooled_h = self.pool(g, h)
+        #     score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
+        # return score_over_layer
 
-        return score_over_layer
 
-
-@register_model("gin")
-class AutoGIN(BaseModel):
+@register_model("gin-model")
+class AutoGIN(BaseAutoModel):
     r"""
     AutoGIN. The model used in this automodel is GIN, i.e., the graph isomorphism network from the `"How Powerful are
     Graph Neural Networks?" <https://arxiv.org/abs/1810.00826>`_ paper. The layer is
@@ -263,25 +280,14 @@ class AutoGIN(BaseModel):
         num_features=None,
         num_classes=None,
         device=None,
-        init=False,
-        num_graph_features=None,
+        num_graph_features=0,
         **args
     ):
 
-        super(AutoGIN, self).__init__()
-        self.num_features = num_features if num_features is not None else 0
-        self.num_classes = int(num_classes) if num_classes is not None else 0
-        self.num_graph_features = (
-            int(num_graph_features) if num_graph_features is not None else 0
-        )
-        self.device = device if device is not None else "cpu"
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-            "num_graph_features": self.num_graph_features,
-        }
-        self.space = [
+        super().__init__(num_features, num_classes, device, num_graph_features=num_graph_features, **args)
+        self.num_graph_features = num_graph_features
+        
+        self.hyper_parameter_space = [
             {
                 "parameterName": "num_layers",
                 "type": "DISCRETE",
@@ -320,11 +326,21 @@ class AutoGIN(BaseModel):
                 "type": "DISCRETE",
                 "feasiblePoints": "2,3,4",
             },
+            {
+                "parameterName": "neighbor_pooling_type",
+                "type": "CATEGORICAL",
+                "feasiblePoints": ["sum", "mean", "max"],
+            },
+            {
+                "parameterName": "graph_pooling_type",
+                "type": "CATEGORICAL",
+                "feasiblePoints": ["sum", "mean", "max"],
+            },
         ]
 
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 5,
-            "hidden": [64],
+            "hidden": [64,64,64,64],
             "dropout": 0.5,
             "act": "relu",
             "eps": "False",
@@ -332,14 +348,15 @@ class AutoGIN(BaseModel):
             "neighbor_pooling_type": "sum",
             "graph_pooling_type": "sum"
         }
+    
+    def from_hyper_parameter(self, hp, **kwargs):
+        return super().from_hyper_parameter(hp, num_graph_features=self.num_graph_features, **kwargs)
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
-
-    def initialize(self):
+    def _initialize(self):
         # """Initialize model."""
-        if self.initialized:
-            return
-        self.initialized = True
-        self.model = GIN({**self.params, **self.hyperparams}).to(self.device)
+        self._model = GIN({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            "num_graph_features": self.num_graph_features,
+            **self.hyper_parameters
+        }).to(self.device)

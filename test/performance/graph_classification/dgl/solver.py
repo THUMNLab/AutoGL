@@ -12,6 +12,7 @@ from tqdm import tqdm
 from autogl.solver import AutoGraphClassifier
 from autogl.datasets import build_dataset_from_name
 from autogl.solver.utils import set_seed
+from helper import get_encoder_decoder_hp
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -28,18 +29,18 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser('dgl solver')
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--dataset', type=str, choices=[x.lower() for x in ['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI', 'NCI1', 'PROTEINS', 'PTC', 'REDDITBINARY', 'REDDITMULTI5K']], default='mutag')
+    parser.add_argument('--dataset', type=str, choices=['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI', 'NCI1', 'PROTEINS', 'PTC', 'REDDITBINARY', 'REDDITMULTI5K'], default='MUTAG')
     parser.add_argument('--dataset_seed', type=int, default=2021)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--repeat', type=int, default=50)
-    parser.add_argument('--model', type=str, choices=['gin', 'topkpool'], default='gin')
+    parser.add_argument('--model', type=str, choices=['gin', 'gat', 'gcn', 'sage'], default='gin')
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--epoch', type=int, default=100)
 
     args = parser.parse_args()
 
     # seed = 100
-    dataset = build_dataset_from_name(args.dataset)
+    dataset = build_dataset_from_name(args.dataset.lower())
     
     # 1. split dataset [fix split]
     dataids = list(range(len(dataset)))
@@ -52,6 +53,8 @@ if __name__ == '__main__':
     dataset.test_index = dataids[fold * 9: ]
 
     labels = np.array([x.data['label'].item() for x in dataset.test_split])
+
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
     accs = []
     for seed in tqdm(range(args.repeat)):
@@ -70,23 +73,7 @@ if __name__ == '__main__':
                     "lr": 0.0001,
                     "weight_decay": 0,
             }),
-            model_hp_spaces=[
-                fixed(**{
-                    # hp from model
-                    "num_layers": 5,
-                    "hidden": [64],
-                    "dropout": 0.5,
-                    "act": "relu",
-                    "eps": "False",
-                    "mlp_layers": 2,
-                    "neighbor_pooling_type": "sum",
-                    "graph_pooling_type": "sum"
-                }) if args.model == 'gin' else fixed(**{
-                    "num_layers": 5,
-                    "hidden": [64],
-                    "dropout": 0.5
-                }),
-            ]
+            model_hp_spaces=[{"encoder": fixed(**model_hp), "decoder": fixed(**decoder_hp)}]
         )
         solver.fit(dataset, evaluation_method=['acc'])
         out = solver.predict(dataset, mask='test')

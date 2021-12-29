@@ -35,7 +35,7 @@ class RandomSearch(BaseNAS):
         Control whether show the progress bar.
     """
 
-    def __init__(self, device="cuda", num_epochs=400, disable_progress=False, hardware_metric_limit=None):
+    def __init__(self, device="auto", num_epochs=400, disable_progress=False, hardware_metric_limit=None):
         super().__init__(device)
         self.num_epochs = num_epochs
         self.disable_progress = disable_progress

@@ -3,6 +3,7 @@ Performance check of DGL model + trainer + dataset
 """
 import numpy as np
 from tqdm import tqdm
+import pickle
 
 import torch
 import torch.nn.functional as F
@@ -30,7 +31,7 @@ class GAT(torch.nn.Module):
     def __init__(self, num_features, num_classes):
         super(GAT, self).__init__()
         self.conv1 = GATConv(num_features, 8, 8, feat_drop=.6, attn_drop=.6, activation=F.relu)
-        self.conv2 = GATConv(8 * 8, num_classes, 8, feat_drop=.6, attn_drop=.6)
+        self.conv2 = GATConv(8 * 8, num_classes, 1, feat_drop=.6, attn_drop=.6)
 
     def forward(self, graph):
         features = graph.ndata['feat']
@@ -85,9 +86,9 @@ def train(model, graph, args, label, train_mask, val_mask):
         val_acc = test(model, graph, val_mask, label)
         if val_acc > best_acc:
             best_acc = val_acc
-            parameters = model.state_dict()
-    
-    model.load_state_dict(parameters)
+            parameters = pickle.dumps(model.state_dict())
+            
+    model.load_state_dict(pickle.loads(parameters))
     return model
 
 if __name__ == '__main__':

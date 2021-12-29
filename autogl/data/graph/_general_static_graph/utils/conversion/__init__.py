@@ -1,3 +1,4 @@
+from ._general import StaticGraphToGeneralData, static_graph_to_general_data
 from ._nx import (
     HomogeneousStaticGraphToNetworkX
 )

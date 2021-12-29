@@ -3,7 +3,7 @@ import typing as _typ
 from . import register_nas_space
 from .base import apply_fixed_architecture
 from .base import BaseSpace
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from ....utils import get_logger
 
 from ..backend import *
@@ -69,7 +69,7 @@ def gnn_map(gnn_name, in_dim, out_dim, concat=False, bias=True) -> Module:
     elif gnn_name == "zero":
         return ZeroConv(in_dim, out_dim, bias=bias)
     else:
-        print(gnn_name)
+        raise ValueError("No such GNN name") 
 
 def Get_edges(adjs, ):
     edges = []
@@ -256,12 +256,18 @@ class GassoSpace(BaseSpace):
     def keep_prediction(self):
         self.prediction = self.current_pred
 
+    '''def to(self, *args, **kwargs):
+        fin = super().to(*args, **kwargs)
+        device = next(fin.parameters()).device
+        fin.alphas_normal = [i.to(device) for i in self.alphas_normal]
+        return fin'''
+
     def initialize_alphas(self):
         num_ops = len(self.ops)
 
         self.alphas_normal = []
         for i in range(self.steps):
-            self.alphas_normal.append(Variable(1e-3 * torch.randn(num_ops).cuda(), requires_grad=True))
+            self.alphas_normal.append(Variable(1e-3 * torch.randn(num_ops), requires_grad=True))
 
         self._arch_parameters = [
             self.alphas_normal
@@ -270,6 +276,6 @@ class GassoSpace(BaseSpace):
     def arch_parameters(self):
         return self.alphas_normal
 
-    def parse_model(self, selection, device) -> BaseModel:
+    def parse_model(self, selection, device) -> BaseAutoModel:
         self.use_forward = False
-        return self.wrap(device)
+        return self.wrap()

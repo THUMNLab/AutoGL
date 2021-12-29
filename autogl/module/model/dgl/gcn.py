@@ -7,7 +7,7 @@ from dgl.nn.pytorch.conv import GraphConv
 from dgl import remove_self_loop, add_self_loop
 import autogl.data
 from . import register_model
-from .base import BaseModel, activate_func, ClassificationSupportedSequentialModel
+from .base import BaseAutoModel, activate_func, ClassificationSupportedSequentialModel
 from ....utils import get_logger
 
 
@@ -81,15 +81,27 @@ class GCN(torch.nn.Module):
     def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.log_softmax(x, dim=1)
 
+    # def lp_encode(self, data):
+    #     x: torch.Tensor = data.ndata['feat']
+    #     for i in range(len(self.convs) - 2):
+    #         x = self.convs[i](
+    #             autogl.data.Data(x, data.edges())
+    #         )
+    #     x = self.__sequential_encoding_layers[-2](
+    #         autogl.data.Data(x, data.edges()), enable_activation=False
+    #     )
+    #     return x
+
     def lp_encode(self, data):
-        x: torch.Tensor = data.ndata['feat']
-        for i in range(len(self.convs) - 2):
-            x = self.convs[i](
-                autogl.data.Data(x, data.edges())
-            )
-        x = self.__sequential_encoding_layers[-2](
-            autogl.data.Data(x, data.edges()), enable_activation=False
-        )
+        x = data.ndata['feat']
+        for i in range(len(self.convs)):
+            if i!=0:
+                x = F.dropout(x, p=self.args["dropout"], training=self.training)
+            x = self.convs[i](data, x)
+
+            if i != self.num_layer - 1:
+                x = activate_func(x, self.args["act"])
+
         return x
 
     def lp_decode(self, z, pos_edge_index, neg_edge_index):
@@ -102,8 +114,8 @@ class GCN(torch.nn.Module):
         return (prob_adj > 0).nonzero(as_tuple=False).t()
 
 
-@register_model("gcn")
-class AutoGCN(BaseModel):
+@register_model("gcn-model")
+class AutoGCN(BaseAutoModel):
     r"""
     AutoGCN.
     The model used in this automodel is GCN, i.e., the graph convolutional network from the
@@ -136,22 +148,14 @@ class AutoGCN(BaseModel):
 
     def __init__(
         self,
-        num_features: Optional[int] = None,
-        num_classes: Optional[int] = None,
+        input_dimension: Optional[int] = None,
+        output_dimension: Optional[int] = None,
         device: Union[str, torch.device] = 'cpu',
-        init: bool = False,
         **kwargs
     ) -> None:
-        super().__init__()
-        self.num_features = num_features
-        self.num_classes = num_classes
-        self.device = device
-
-        self.params = {
-            "features_num": self.num_features,
-            "num_class": self.num_classes,
-        }
-        self.space = [
+        super().__init__(input_dimension, output_dimension, device, **kwargs)
+        
+        self.hyper_parameter_space = [
             {
                 "parameterName": "add_self_loops",
                 "type": "CATEGORICAL",
@@ -193,19 +197,16 @@ class AutoGCN(BaseModel):
         ]
 
         # initial point of hp search
-        self.hyperparams = {
+        self.hyper_parameters = {
             "num_layers": 3,
             "hidden": [128, 64],
             "dropout": 0.,
             "act": "relu",
         }
 
-        self.initialized = False
-        if init is True:
-            self.initialize()
-
-    def initialize(self):
-        if self.initialized:
-            return
-        self.initialized = True
-        self.model = GCN({**self.params, **self.hyperparams}).to(self.device)
+    def _initialize(self):
+        self._model = GCN({
+            "features_num": self.input_dimension,
+            "num_class": self.output_dimension,
+            **self.hyper_parameters
+        }).to(self.device)

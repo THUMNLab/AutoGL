@@ -1,0 +1,74 @@
+hpo:
+  max_evals: 10
+  name: tpe
+models:
+- encoder:
+    name: gin
+    hp_space:
+      - parameterName: num_layers
+        type: DISCRETE
+        feasiblePoints: '3,4,5'
+
+      - parameterName: hidden
+        type: NUMERICAL_LIST
+        numericalType: INTEGER
+        length: 5
+        minValue: [8, 8, 8, 8, 8]
+        maxValue: [64, 64, 64, 64, 64]
+        scalingType: LOG
+        cutPara: ["num_layers"]
+        cutFunc: "lambda x: x[0] - 1"
+
+      - parameterName: dropout
+        type: DOUBLE
+        maxValue: 0.9
+        minValue: 0.1
+        scalingType: LINEAR
+
+      - parameterName: act
+        type: CATEGORICAL
+        feasiblePoints:
+          - leaky_relu
+          - relu
+          - elu
+          - tanh
+
+      - parameterName: eps
+        type: CATEGORICAL
+        feasiblePoints:
+          - "true"
+          - "false"
+
+      - parameterName: mlp_layers
+        type: DISCRETE
+        feasiblePoints: '2,3,4'
+    
+  decoder:
+    name: topk
+trainer:
+  hp_space:
+  - maxValue: 300
+    minValue: 10
+    parameterName: max_epoch
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 30
+    minValue: 10
+    parameterName: early_stopping_round
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 0.1
+    minValue: 0.0001
+    parameterName: lr
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 0.005
+    minValue: 5.0e-05
+    parameterName: weight_decay
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 128
+    minValue: 48
+    parameterName: batch_size
+    scalingType: LINEAR
+    type: INTEGER

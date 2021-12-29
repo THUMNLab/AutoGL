@@ -12,7 +12,7 @@ from .base import BaseNAS
 from ..estimator.base import BaseEstimator
 from ..space import BaseSpace
 from ..utils import replace_layer_choice, replace_input_choice
-from ...model.base import BaseModel
+from ...model.base import BaseAutoModel
 
 from torch.autograd import Variable
 import numpy as np
@@ -25,6 +25,30 @@ _logger = logging.getLogger(__name__)
 
 @register_nas_algo("gasso")
 class Gasso(BaseNAS):
+    """
+    GASSO trainer.
+
+    Parameters
+    ----------
+    num_epochs : int
+        Number of epochs planned for training.
+    warmup_epochs : int
+        Number of epochs planned for warming up.
+    workers : int
+        Workers for data loading.
+    model_lr : float
+        Learning rate to optimize the model.
+    model_wd : float
+        Weight decay to optimize the model.
+    arch_lr : float
+        Learning rate to optimize the architecture.
+    stru_lr : float
+        Learning rate to optimize the structure.
+    lamb : float
+        The parameter to control the influence of hidden feature smoothness
+    device : str or torch.device
+        The device of the whole process
+    """
     def __init__(
         self,
         num_epochs=250,
@@ -34,7 +58,7 @@ class Gasso(BaseNAS):
         arch_lr = 0.03,
         stru_lr = 0.04,
         lamb = 0.6,
-        device="cuda",
+        device="auto",
     ):
         super().__init__(device=device)
         self.device = device

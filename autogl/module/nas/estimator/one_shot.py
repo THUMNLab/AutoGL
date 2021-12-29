@@ -14,6 +14,13 @@ class OneShotEstimator(BaseEstimator):
     One shot estimator.
 
     Use model directly to get estimations.
+
+    Parameters
+    ----------
+    loss_f : str
+        The name of loss funciton in PyTorch
+    evaluation : list of Evaluation
+        The evaluation metrics in module/train/evaluation
     """
 
     def __init__(self, loss_f="nll_loss", evaluation=[Acc()]):
@@ -30,8 +37,8 @@ class OneShotEstimator(BaseEstimator):
         y = label[mask]
 
         loss = getattr(F, self.loss_f)(pred, y)
-        #probs = F.softmax(pred, dim=1).detach().cpu().numpy()
-        probs = pred.detach().cpu().numpy()
+        probs = F.softmax(pred, dim=1).detach().cpu().numpy()
+        
         y = y.cpu()
         metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
         return metrics, loss
@@ -42,7 +49,18 @@ class OneShotEstimator_HardwareAware(OneShotEstimator):
     """
     One shot hardware-aware estimator.
 
-    Use model directly to get estimations.
+    Use model directly to get estimations with some hardware-aware metrics.
+
+    Parameters
+    ----------
+    loss_f : str
+        The name of loss funciton in PyTorch
+    evaluation : list of Evaluation
+        The evaluation metrics in module/train/evaluation
+    hardware_evaluation : str or runable
+        The hardware-aware metrics. Can be 'parameter' or 'latency'. Or you can define a special metric by a runable function
+    hardware_metric_weight : float
+        The weight of hardware-aware metric, which will be a bias added to metrics
     """
 
     def __init__(

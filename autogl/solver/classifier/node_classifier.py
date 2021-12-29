@@ -5,15 +5,15 @@ import time
 import json
 
 from copy import deepcopy
+from typing import Sequence
 
 import torch
 import numpy as np
 import yaml
 
 from .base import BaseClassifier
-from ..base import _parse_hp_space, _initialize_single_model
+from ..base import _parse_hp_space, _initialize_single_model, _parse_model_hp
 from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT, BaseModel
 from ...module.train import TRAINER_DICT, BaseNodeClassificationTrainer
 from ...module.train import get_feval
 from ...module.nas.space import NAS_SPACE_DICT
@@ -84,14 +84,14 @@ class AutoNodeClassifier(BaseClassifier):
     def __init__(
         self,
         feature_module=None,
-        graph_models=("gat", "gcn"),
+        graph_models=("gat", "gcn"),    # TODO: support a list of model
         nas_algorithms=None,
         nas_spaces=None,
         nas_estimators=None,
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
-        default_trainer=None,
+        default_trainer="NodeClassificationFull",
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -107,7 +107,7 @@ class AutoNodeClassifier(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "NodeClassificationFull",
+            default_trainer=default_trainer,
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -122,91 +122,52 @@ class AutoNodeClassifier(BaseClassifier):
     ) -> "AutoNodeClassifier":
         # load graph network module
         self.graph_model_list = []
-        if isinstance(graph_models, (list, tuple)):
-            for model in graph_models:
-                if isinstance(model, str):
-                    if model in MODEL_DICT:
-                        self.graph_model_list.append(
-                            MODEL_DICT[model](
-                                num_classes=num_classes,
-                                num_features=num_features,
-                                device=device,
-                                init=False,
-                            )
-                        )
-                    else:
-                        raise KeyError("cannot find model %s" % (model))
-                elif isinstance(model, type) and issubclass(model, BaseModel):
-                    self.graph_model_list.append(
-                        model(
-                            num_classes=num_classes,
-                            num_features=num_features,
-                            device=device,
-                            init=False,
-                        )
-                    )
-                elif isinstance(model, BaseModel):
-                    # setup the hp of num_classes and num_features
-                    model.set_num_classes(num_classes)
-                    model.set_num_features(num_features)
-                    self.graph_model_list.append(model.to(device))
-                elif isinstance(model, BaseNodeClassificationTrainer):
-                    # receive a trainer list, put trainer to list
-                    assert (
-                        model.get_model() is not None
-                    ), "Passed trainer should contain a model"
-                    model.model.set_num_classes(num_classes)
-                    model.model.set_num_features(num_features)
-                    model.update_parameters(
-                        num_classes=num_classes,
-                        num_features=num_features,
-                        loss=loss,
-                        feval=feval,
-                        device=device,
-                    )
-                    self.graph_model_list.append(model)
-                else:
-                    raise KeyError("cannot find graph network %s." % (model))
-        else:
-            raise ValueError(
-                "need graph network to be (list of) str or a BaseModel class/instance, get",
-                graph_models,
-                "instead.",
-            )
 
-        # wrap all model_cls with specified trainer
-        for i, model in enumerate(self.graph_model_list):
+        for i, model in enumerate(graph_models):
+            # init the trainer
+            if not isinstance(model, BaseNodeClassificationTrainer):
+                trainer = (
+                    self._default_trainer if not isinstance(self._default_trainer, (tuple, list))
+                    else self._default_trainer[i]
+                )
+                if isinstance(trainer, str):
+                    trainer = TRAINER_DICT[trainer]()
+                if isinstance(model, (tuple, list)):
+                    trainer.encoder = model[0]
+                    trainer.decoder = model[1]
+                else:
+                    trainer.encoder = model
+            else:
+                trainer = model
+
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, BaseNodeClassificationTrainer):
-                        model.model.hyper_parameter_space = self._model_hp_spaces[i]
+                    if isinstance(self._model_hp_spaces[i], dict):
+                        encoder_hp_space = self._model_hp_spaces[i].get('encoder', None)
+                        decoder_hp_space = self._model_hp_spaces[i].get('decoder', None)
                     else:
-                        model.hyper_parameter_space = self._model_hp_spaces[i]
-            # initialize trainer if needed
-            if isinstance(model, BaseModel):
-                name = (
-                    self._default_trainer
-                    if isinstance(self._default_trainer, str)
-                    else self._default_trainer[i]
-                )
-                model = TRAINER_DICT[name](
-                    model=model,
-                    num_features=num_features,
-                    num_classes=num_classes,
-                    loss=loss,
-                    feval=feval,
-                    device=device,
-                    init=False,
-                )
+                        encoder_hp_space = self._model_hp_spaces[i]
+                        decoder_hp_space = None
+                    if encoder_hp_space is not None:
+                        trainer.encoder.hyper_parameter_space = encoder_hp_space
+                    if decoder_hp_space is not None:
+                        trainer.decoder.hyper_parameter_space = decoder_hp_space
+            
             # set trainer hp space
             if self._trainer_hp_space is not None:
                 if isinstance(self._trainer_hp_space[0], list):
                     current_hp_for_trainer = self._trainer_hp_space[i]
                 else:
                     current_hp_for_trainer = self._trainer_hp_space
-                model.hyper_parameter_space = current_hp_for_trainer
-            self.graph_model_list[i] = model
+                trainer.hyper_parameter_space = current_hp_for_trainer
+
+            trainer.num_features = num_features
+            trainer.num_classes = num_classes
+            trainer.loss = loss
+            trainer.feval = feval
+            trainer.to(device)
+            self.graph_model_list.append(trainer)
 
         return self
 
@@ -400,24 +361,23 @@ class AutoNodeClassifier(BaseClassifier):
                         device=self.runtime_device,
                         init=False,
                     )
-                else:
+                elif isinstance(train_name, BaseNodeClassificationTrainer):
                     trainer = train_name
-                    trainer.model = model
-                    trainer.update_parameters(
-                        num_features=num_features,
-                        num_classes=num_classes,
-                        loss="nll_loss"
-                        if not hasattr(dataset, "loss")
-                        else dataset.loss,
-                        feval=evaluator_list,
-                        device=self.runtime_device,
-                    )
+                    trainer.encoder = model
+                    trainer.num_features = num_features
+                    trainer.num_classes = num_classes
+                    trainer.loss = "nll_loss" if not hasattr(dataset, "loss") else dataset.loss
+                    trainer.feval = evaluator_list
+                    trainer.to(self.runtime_device)
+                else:
+                    raise ValueError()
                 self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
         result_valid = []
         names = []
         for idx, model in enumerate(self.graph_model_list):
+            model: BaseNodeClassificationTrainer
             time_for_each_model = (time_limit - time.time() + time_begin) / (
                 len(self.graph_model_list) - idx
             )
@@ -709,6 +669,26 @@ class AutoNodeClassifier(BaseClassifier):
         )
         return np.argmax(proba, axis=1)
 
+    def evaluate(self, dataset=None,
+        inplaced=False,
+        inplace=False,
+        use_ensemble=True,
+        use_best=True,
+        name=None,
+        mask="test",
+        label=None,
+        metric="acc"
+    ):
+        predicted = self.predict_proba(dataset, inplaced, inplace, use_ensemble, use_best, name, mask)
+        if dataset is None:
+            dataset = self.dataset
+        if label is None:
+            label = get_graph_labels(dataset[0])[get_graph_masks(dataset[0], mask)].cpu().numpy()
+        evaluator = get_feval(metric)
+        if isinstance(evaluator, Sequence):
+            return [evals.evaluate(predicted, label) for evals in evaluator]
+        return evaluator.evaluate(predicted, label)
+
     @classmethod
     def from_config(cls, path_or_dict, filetype="auto") -> "AutoNodeClassifier":
         """
@@ -771,12 +751,16 @@ class AutoNodeClassifier(BaseClassifier):
             if fe_list_ele != []:
                 solver.set_feature_module(fe_list_ele)
 
-        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}])
+        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}, {"name": "sage"}, {"name": "gin"}])
+        # models should be a list of model
+        # with each element in two cases
+        # * a dict describing a certain model
+        # * a dict containing {"encoder": encoder, "decoder": decoder}
         model_hp_space = [
-            _parse_hp_space(model.pop("hp_space", None)) for model in models
+            _parse_model_hp(model) for model in models
         ]
         model_list = [
-            _initialize_single_model(model.pop("name"), model) for model in models
+            _initialize_single_model(model) for model in models
         ]
 
         trainer = path_or_dict.pop("trainer", None)

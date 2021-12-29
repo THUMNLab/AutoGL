@@ -79,7 +79,7 @@ class Enas(BaseNAS):
         model_lr=5e-3,
         model_wd=5e-4,
         disable_progress=True,
-        device="cuda",
+        device="auto",
     ):
         super().__init__(device)
         self.device = device
@@ -101,7 +101,6 @@ class Enas(BaseNAS):
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset  # .to(self.device)
-        print(dir(dset))
         self.estimator = estimator
         # replace choice
         self.nas_modules = []

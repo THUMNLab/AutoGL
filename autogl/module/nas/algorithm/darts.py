@@ -12,7 +12,6 @@ from .base import BaseNAS
 from ..estimator.base import BaseEstimator
 from ..space import BaseSpace
 from ..utils import replace_layer_choice, replace_input_choice
-from ...model.base import BaseModel
 # from nni.retiarii.oneshot.pytorch.darts import DartsLayerChoice, DartsInputChoice
 
 _logger = logging.getLogger(__name__)
@@ -103,7 +102,7 @@ class Darts(BaseNAS):
         model_wd=5e-4,
         arch_lr=3e-4,
         arch_wd=1e-3,
-        device="cuda",
+        device="auto",
     ):
         super().__init__(device=device)
         self.num_epochs = num_epochs
