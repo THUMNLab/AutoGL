@@ -57,7 +57,8 @@ def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
 
             labels = labels.to(device)
             graphs = graphs.to(device)
-            outputs = net((graphs, labels))
+            #outputs = net((graphs, labels))
+            outputs = net((graphs))
             # feat = graphs.ndata.pop('attr')
             # outputs = net(graphs, feat)
 
@@ -76,7 +77,8 @@ def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
             gt.append(labels)
             # feat = graphs.ndata.pop('attr')
             # outputs = net(graphs, feat)
-            outputs = net((graphs, labels))
+            outputs = net((graphs))
+            #outputs = net((graphs, labels))
             pr.append(outputs.argmax(1))
         gt = torch.cat(gt, dim=0)
         pr = torch.cat(pr, dim=0)
@@ -102,7 +104,8 @@ def eval_net(net, dataloader, device):
         # feat = graphs.ndata.pop('attr')
         total += len(labels)
         # outputs = net(graphs, feat)
-        outputs = net((graphs, labels))
+        outputs = net((graphs))
+        # outputs = net((graphs, labels))
         _, predicted = torch.max(outputs.data, 1)
 
         total_correct += (predicted == labels.data).sum().item()
@@ -146,7 +149,7 @@ def main(args):
                 device=device,
             ).from_hyper_parameter({
                 "num_layers": 5,
-                "hidden": [64],
+                "hidden": [64,64,64,64],
                 "dropout": 0.5,
                 "act": "relu",
                 "eps": "False",
@@ -161,7 +164,7 @@ def main(args):
                 device=device,
             ).from_hyper_parameter({
                 "num_layers": 5,
-                "hidden": [64],
+                "hidden": [64,64,64,64],
                 "dropout": 0.5
             }).model
 

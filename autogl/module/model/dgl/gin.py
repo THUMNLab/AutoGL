@@ -141,8 +141,9 @@ class GIN(torch.nn.Module):
         self.num_graph_features = self.args["num_graph_features"]
         self.num_layers = self.args["num_layers"]
         assert self.num_layers > 2, "Number of layers in GIN should not less than 3"
-        if not self.num_layers == len(self.args["hidden"]) + 1:
-            LOGGER.warn("Warning: layer size does not match the length of hidden units")
+        #if not self.num_layers == len(self.args["hidden"]) + 1:
+        #    LOGGER.warn("Warning: layer size does not match the length of hidden units")
+        assert self.num_layers == len(self.args["hidden"]) + 1, "Warning: layer size does not match the length of hidden units"
 
         self.eps = self.args["eps"]
         self.num_mlp_layers = self.args["mlp_layers"]

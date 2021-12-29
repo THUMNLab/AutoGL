@@ -131,9 +131,10 @@ class Topkpool(torch.nn.Module):
         self.num_graph_features = self.args["num_graph_features"]
         self.num_layers = self.args["num_layers"]
         assert self.num_layers > 2, "Number of layers in GIN should not less than 3"
+        assert self.num_layers == len(self.args["hidden"]) + 1, "Warning: layer size does not match the length of hidden units"
 
         input_dim = self.args["features_num"]
-        hidden_dim = self.args["hidden"][0]
+        hidden = self.args["hidden"]
         final_dropout = self.args["dropout"]
         output_dim = self.args["num_class"]
 
@@ -143,12 +144,12 @@ class Topkpool(torch.nn.Module):
 
         for layer in range(self.num_layers - 1):
             if layer == 0:
-                self.gcnlayers.append(GraphConv(input_dim, hidden_dim))
+                self.gcnlayers.append(GraphConv(input_dim, hidden[layer]))
             else:
-                self.gcnlayers.append(GraphConv(hidden_dim, hidden_dim))
+                self.gcnlayers.append(GraphConv(hidden[layer-1], hidden[layer]))
 
             #self.gcnlayers.append(GraphConv(input_dim, hidden_dim))
-            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
+            self.batch_norms.append(nn.BatchNorm1d(hidden[layer]))
 
         # Linear function for graph poolings of output of each layer
         # which maps the output of different layers into a prediction score
@@ -164,7 +165,7 @@ class Topkpool(torch.nn.Module):
                     nn.Linear(input_dim * k, output_dim))
             else:
                 self.linears_prediction.append(
-                    nn.Linear(hidden_dim * k, output_dim))
+                    nn.Linear(hidden[layer-1] * k, output_dim))
 
         self.drop = nn.Dropout(final_dropout)
 
