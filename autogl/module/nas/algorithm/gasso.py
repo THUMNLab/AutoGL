@@ -12,7 +12,7 @@ from .base import BaseNAS
 from ..estimator.base import BaseEstimator
 from ..space import BaseSpace
 from ..utils import replace_layer_choice, replace_input_choice
-from ...model.base import BaseModel
+from ...model.base import BaseAutoModel
 
 from torch.autograd import Variable
 import numpy as np

@@ -3,7 +3,7 @@ import typing as _typ
 from . import register_nas_space
 from .base import apply_fixed_architecture
 from .base import BaseSpace
-from ...model import BaseModel
+from ...model import BaseAutoModel
 from ....utils import get_logger
 
 from ..backend import *
@@ -257,7 +257,7 @@ class GassoSpace(BaseSpace):
         self.prediction = self.current_pred
 
     def to(self, *args, **kwargs):
-        super().to(args, kwargs)
+        super().to(*args, **kwargs)
         device = next(self.parameters()).device
         self.alphas_normal = self.alphas_normal.to(device)
 
@@ -275,6 +275,6 @@ class GassoSpace(BaseSpace):
     def arch_parameters(self):
         return self.alphas_normal
 
-    def parse_model(self, selection, device) -> BaseModel:
+    def parse_model(self, selection, device) -> BaseAutoModel:
         self.use_forward = False
         return self.wrap()
