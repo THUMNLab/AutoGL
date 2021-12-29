@@ -1,5 +1,5 @@
 """
-Performance check of AutoGL model + DGL (trainer + dataset)
+Performance check of AutoGL model (decoupled) + DGL (trainer + dataset)
 """
 import numpy as np
 from tqdm import tqdm
@@ -8,11 +8,22 @@ import pickle
 import torch
 import torch.nn.functional as F
 from dgl.data import CoraGraphDataset, PubmedGraphDataset, CiteseerGraphDataset
-from autogl.module.model.dgl import AutoGCN, AutoGAT, AutoSAGE
+from autogl.module.model.encoders import GCNEncoderMaintainer, GATEncoderMaintainer, SAGEEncoderMaintainer
+from autogl.module.model.decoders import LogSoftmaxDecoderMaintainer
 from autogl.solver.utils import set_seed
 import logging
 
 logging.basicConfig(level=logging.ERROR)
+
+class DummyModel(torch.nn.Module):
+    def __init__(self, encoder, decoder):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+    
+    def forward(self, data):
+        out1 = self.encoder(data)
+        return self.decoder(out1, data)
 
 def test(model, graph, mask, label):
     model.eval()
@@ -54,6 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.0)
     parser.add_argument('--epoch', type=int, default=200)
+    parser.add_argument('--debug', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -81,9 +93,9 @@ if __name__ == '__main__':
         set_seed(seed)
 
         if args.model == 'gat':
-            model = AutoGAT(
+            model = GATEncoderMaintainer(
                 input_dimension=num_features,
-                output_dimension=num_classes,
+                final_dimension=num_classes,
                 device=args.device
             ).from_hyper_parameter({
                 # hp from model
@@ -93,22 +105,22 @@ if __name__ == '__main__':
                 "feat_drop": 0.6,
                 "dropout": 0.6,
                 "act": "relu",
-            }).model
+            })
         elif args.model == 'gcn':
-            model = AutoGCN(
+            model = GCNEncoderMaintainer(
                 input_dimension=num_features,
-                output_dimension=num_classes,
+                final_dimension=num_classes,
                 device=args.device
             ).from_hyper_parameter({
                 "num_layers": 2,
                 "hidden": [16],
                 "dropout": 0.5,
                 "act": "relu"
-            }).model
+            })
         elif args.model == 'sage':
-            model = AutoSAGE(
+            model = SAGEEncoderMaintainer(
                 input_dimension=num_features,
-                output_dimension=num_classes,
+                final_dimension=num_classes,
                 device=args.device
             ).from_hyper_parameter({
                 "num_layers": 2,
@@ -116,11 +128,19 @@ if __name__ == '__main__':
                 "dropout": 0.5,
                 "act": "relu",
                 "agg": "gcn",
-            }).model
-        
-        model.to(args.device)
+            })
 
-        train(model, graph, args, label, train_mask, val_mask)
-        acc = test(model, graph, test_mask, label)
+        decoder = LogSoftmaxDecoderMaintainer(output_dimension=num_classes, device=args.device)
+        decoder.initialize(model)
+        fusion = DummyModel(model.encoder, decoder.decoder)
+        fusion.to(args.device)
+
+        if args.debug:
+            print(model.encoder, fusion)
+            import pdb
+            pdb.set_trace()
+
+        train(fusion, graph, args, label, train_mask, val_mask)
+        acc = test(fusion, graph, test_mask, label)
         accs.append(acc)
     print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))

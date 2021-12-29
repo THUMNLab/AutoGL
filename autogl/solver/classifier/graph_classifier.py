@@ -124,6 +124,8 @@ class AutoGraphClassifier(BaseClassifier):
                     else self._default_trainer[i]
                 )
                 if isinstance(trainer, str):
+                    if trainer not in TRAINER_DICT:
+                        raise KeyError(f"Does not support trainer {trainer}")
                     trainer = TRAINER_DICT[trainer]()
                 if isinstance(model, (tuple, list)):
                     trainer.encoder = model[0]

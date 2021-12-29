@@ -1,5 +1,5 @@
 """
-Performance check of AutoGL model + PYG (trainer + dataset)
+Performance check of AutoGL model (decoupled) + PYG (trainer + dataset)
 """
 import os
 import pickle
@@ -12,13 +12,23 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
-from autogl.module.model.pyg import AutoGCN, AutoGAT, AutoSAGE
-from autogl.datasets import utils
+from autogl.module.model.encoders import GCNEncoderMaintainer, GATEncoderMaintainer, SAGEEncoderMaintainer
+from autogl.module.model.decoders import LogSoftmaxDecoderMaintainer
 from autogl.solver.utils import set_seed
 from helper import get_encoder_decoder_hp
 import logging
 
 logging.basicConfig(level=logging.ERROR)
+
+class DummyModel(torch.nn.Module):
+    def __init__(self, encoder, decoder):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+    
+    def forward(self, data):
+        out1 = self.encoder(data)
+        return self.decoder(out1, data)
 
 def test(model, data, mask):
     model.eval()
@@ -55,10 +65,11 @@ def train(model, data, args):
     model.load_state_dict(pickle.loads(parameters))
     return model
 
+
 if __name__ == '__main__':
 
     import argparse
-    parser = argparse.ArgumentParser('pyg model')
+    parser = argparse.ArgumentParser('dgl model')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--dataset', type=str, choices=['Cora', 'CiteSeer', 'PubMed'], default='Cora')
     parser.add_argument('--repeat', type=int, default=50)
@@ -66,6 +77,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.0)
     parser.add_argument('--epoch', type=int, default=200)
+    parser.add_argument('--debug', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -75,36 +87,41 @@ if __name__ == '__main__':
 
     accs = []
 
-    model_hp, _ = get_encoder_decoder_hp(args.model)
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model, decoupled=True)
 
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
 
         if args.model == 'gat':
-            model = AutoGAT(
-                num_features=dataset.num_node_features,
-                num_classes=dataset.num_classes,
-                device=args.device,
-                init=False
-            ).from_hyper_parameter(model_hp).model
+            model = GATEncoderMaintainer(
+                input_dimension=dataset.num_node_features,
+                final_dimension=dataset.num_classes,
+                device=args.device
+            ).from_hyper_parameter(model_hp)
         elif args.model == 'gcn':
-            model = AutoGCN(
-                num_features=dataset.num_node_features,
-                num_classes=dataset.num_classes,
-                device=args.device,
-                init=False
-            ).from_hyper_parameter(model_hp).model
+            model = GCNEncoderMaintainer(
+                input_dimension=dataset.num_node_features,
+                final_dimension=dataset.num_classes,
+                device=args.device
+            ).from_hyper_parameter(model_hp)
         elif args.model == 'sage':
-            model = AutoSAGE(
-                num_features=dataset.num_node_features,
-                num_classes=dataset.num_classes,
-                device=args.device,
-                init=False
-            ).from_hyper_parameter(model_hp).model
-        
-        model.to(args.device)
+            model = SAGEEncoderMaintainer(
+                input_dimension=dataset.num_node_features,
+                final_dimension=dataset.num_classes,
+                device=args.device
+            ).from_hyper_parameter(model_hp)
 
-        train(model, data, args)
-        acc = test(model, data, data.test_mask)
+        decoder = LogSoftmaxDecoderMaintainer(output_dimension=dataset.num_node_features, device=args.device)
+        decoder.initialize(model)
+        fusion = DummyModel(model.encoder, decoder.decoder)
+        fusion.to(args.device)
+
+        if args.debug:
+            print(model.encoder, fusion)
+            import pdb
+            pdb.set_trace()
+
+        train(fusion, data, args)
+        acc = test(fusion, data, data.test_mask)
         accs.append(acc)
-    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
+    print('{:.2f} ~ {:.2f}'.format(np.mean(accs) * 100, np.std(accs) * 100))
