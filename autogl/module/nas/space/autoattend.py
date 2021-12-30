@@ -8,7 +8,6 @@ from nni.nas.pytorch import mutables
 
 from . import register_nas_space
 from .base import BaseSpace
-from ...model import BaseModel
 from ..utils import count_parameters, measure_latency
 
 from torch import nn
@@ -164,7 +163,9 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
 
     def forward(self, data):
         x = bk_feat(data)
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        def drop(x):
+            x=F.dropout(x, p=self.dropout, training=self.training)
+            return x
         prev_ = self.preproc0(x)
 
         side_outs = []
@@ -173,14 +174,14 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         for layer in range(1, self.layer_number + 1):
             # do layer choice for stem
             op = getattr(self, f"stem_{layer}")
-            stem_out = bk_gconv(op, data, input)
+            stem_out = bk_gconv(op, data, drop(input))
             stem_out = self.act(stem_out)  
 
             # do double layer choice for sides
             side_out_list = []
             for i in range(2):
                 op = getattr(self, f'side_{layer}_{i}')
-                side_out = bk_gconv(op, data, input)
+                side_out = bk_gconv(op, data, drop(input))
                 side_out = self.act(side_out)  # torch.Size([2, 2708, 64])
                 side_out_list.append(side_out)
             side_out = torch.stack(side_out_list, dim=0)
@@ -199,5 +200,5 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         x = self.classifier2(input)
         return F.log_softmax(x, dim=1)
 
-    def parse_model(self, selection, device) -> BaseModel:
+    def parse_model(self, selection, device):
         return self.wrap().fix(selection)
