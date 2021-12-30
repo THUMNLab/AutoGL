@@ -17,7 +17,6 @@ def get_binary_mask(total_size, indices):
 class ACMHANDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         data_path: str = os.path.join(path, 'raw', 'ACM.mat')
-        print(os.path.join(path, 'raw', 'ACM.mat'))
         _url: str = "https://data.dgl.ai/dataset/ACM.mat"
         if os.path.exists(data_path) and os.path.isfile(data_path):
             print(f"Using cached file {data_path}")
