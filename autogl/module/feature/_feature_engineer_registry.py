@@ -1,5 +1,5 @@
 import typing as _typing
-
+from autogl.utils import universal_registry
 from ._base_feature_engineer import BaseFeatureEngineer
 
 
@@ -24,39 +24,26 @@ class _FeatureEngineerUniversalRegistryMetaclass(type):
         ] = {}
 
 
-class FeatureEngineerUniversalRegistry(metaclass=_FeatureEngineerUniversalRegistryMetaclass):
+class FeatureEngineerUniversalRegistry(universal_registry.UniversalRegistryBase):
     @classmethod
     def register_feature_engineer(cls, name: str) -> _typing.Callable[
         [_typing.Type[BaseFeatureEngineer]], _typing.Type[BaseFeatureEngineer]
     ]:
-        def register_fe(
-                fe: _typing.Type[BaseFeatureEngineer]
-        ) -> _typing.Type[BaseFeatureEngineer]:
-            if name in cls._feature_engineer_universal_registry:
-                raise ValueError(
-                    f"Feature Engineer with name \"{name}\" already exists!"
-                )
-            elif not issubclass(fe, BaseFeatureEngineer):
+        def register_fe(fe: _typing.Type[BaseFeatureEngineer]) -> _typing.Type[BaseFeatureEngineer]:
+            if not issubclass(fe, BaseFeatureEngineer):
                 raise TypeError
             else:
-                cls._feature_engineer_universal_registry[name] = fe
+                cls[name] = fe
                 return fe
+
         return register_fe
 
     @classmethod
     def get_feature_engineer(cls, name: str) -> _typing.Type[BaseFeatureEngineer]:
-        if name in cls._feature_engineer_universal_registry:
-            return cls._feature_engineer_universal_registry[name]
-        else:
+        if name not in cls:
             raise ValueError(f"cannot find feature engineer {name}")
+        else:
+            return cls[name]
 
 
-class _DeprecatedFeatureDict:
-    def __contains__(self, name: str) -> bool:
-        return name in FeatureEngineerUniversalRegistry._feature_engineer_universal_registry
-
-    def __getitem__(self, name: str) -> _typing.Type[BaseFeatureEngineer]:
-        return FeatureEngineerUniversalRegistry.get_feature_engineer(name)
-
-
-FEATURE_DICT = _DeprecatedFeatureDict()
+FEATURE_DICT = FeatureEngineerUniversalRegistry

@@ -14,8 +14,6 @@ class EncoderUniversalRegistry(universal_registry.UniversalRegistryBase):
         ) -> _typing.Type[base_encoder.BaseEncoderMaintainer]:
             if not issubclass(_encoder, base_encoder.BaseEncoderMaintainer):
                 raise TypeError
-            elif name in cls:
-                raise ValueError
             else:
                 cls[name] = _encoder
                 return _encoder

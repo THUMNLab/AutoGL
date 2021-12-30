@@ -272,6 +272,10 @@ class ENZYMESDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("imdb-b")
+@DatasetUniversalRegistry.register_dataset("imdb-binary")
+@DatasetUniversalRegistry.register_dataset("IMDBb".upper())
+@DatasetUniversalRegistry.register_dataset("IMDBBinary".upper())
+@DatasetUniversalRegistry.register_dataset("IMDBBinary")
 class IMDBBinaryDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         dgl_dataset = dgl.data.GINDataset(
@@ -306,6 +310,10 @@ class IMDBBinaryDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("imdb-m")
+@DatasetUniversalRegistry.register_dataset("imdb-multi")
+@DatasetUniversalRegistry.register_dataset("IMDBm".upper())
+@DatasetUniversalRegistry.register_dataset("IMDBMulti".upper())
+@DatasetUniversalRegistry.register_dataset("IMDBMulti")
 class IMDBMultiDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         dgl_dataset = dgl.data.GINDataset(
@@ -340,6 +348,9 @@ class IMDBMultiDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("reddit-b")
+@DatasetUniversalRegistry.register_dataset("reddit-binary")
+@DatasetUniversalRegistry.register_dataset("RedditB".upper())
+@DatasetUniversalRegistry.register_dataset("RedditBinary".upper())
 class RedditBinaryDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         dgl_dataset = dgl.data.GINDataset(
@@ -374,6 +385,7 @@ class RedditBinaryDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("reddit-multi-5k")
+@DatasetUniversalRegistry.register_dataset("RedditMulti5K".upper())
 class REDDITMulti5KDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         dgl_dataset = dgl.data.GINDataset(
