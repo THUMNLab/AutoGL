@@ -7,8 +7,6 @@ from .evaluation import Auc, EVALUATE_DICT
 from .base import EarlyStopping, BaseLinkPredictionTrainer
 from typing import Union, Tuple
 from copy import deepcopy
-from torch_geometric.utils import negative_sampling
-# from ...datasets.utils import negative_sampling
 from ...utils import get_logger
 
 from ...backend import DependentBackend
@@ -198,6 +196,9 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             try:
                 neg_edge_index = data.train_neg_edge_index
             except:
+                from torch_geometric.utils import negative_sampling
+                # from ...datasets.utils import negative_sampling
+
                 neg_edge_index = negative_sampling(
                     edge_index=data.train_pos_edge_index,
                     num_nodes=data.num_nodes,

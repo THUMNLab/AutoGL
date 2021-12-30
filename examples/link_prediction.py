@@ -1,6 +1,8 @@
 from autogl.datasets import build_dataset_from_name
 from autogl.solver.classifier.link_predictor import AutoLinkPredictor
 from autogl.module.train.evaluation import Auc
+from autogl.datasets.utils import split_edges
+from autogl.backend import DependentBackend
 import yaml
 import random
 import torch
@@ -57,6 +59,17 @@ if __name__ == "__main__":
 
     dataset = build_dataset_from_name(args.dataset)
 
+    # split the edges for dataset
+    dataset = split_edges(dataset, 0.8, 0.05)
+
+    # add self-loop
+    if DependentBackend.is_dgl():
+        import dgl
+        # add self loop to 0
+        data = list(dataset[0])
+        data[0] = dgl.add_self_loop(data[0])
+        dataset = [data]
+
     configs = yaml.load(open(args.configs, "r").read(), Loader=yaml.FullLoader)
     configs["hpo"]["name"] = args.hpo
     configs["hpo"]["max_evals"] = args.max_eval
@@ -67,9 +80,7 @@ if __name__ == "__main__":
         dataset,
         time_limit=3600,
         evaluation_method=[Auc],
-        seed=seed,
-        train_split=0.85,
-        val_split=0.05,
+        seed=seed
     )
     autoClassifier.get_leaderboard().show()
 
