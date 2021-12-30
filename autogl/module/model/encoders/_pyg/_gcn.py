@@ -33,7 +33,7 @@ class _GCN(torch.nn.Module):
             edge_weight: _typing.Optional[torch.Tensor] = data.edge_weight
         else:
             edge_weight: _typing.Optional[torch.Tensor] = None
-        results: _typing.MutableSequence[torch.Tensor] = []
+        results: _typing.MutableSequence[torch.Tensor] = [x]
         for layer, convolution_layer in enumerate(self.__convolution_layers):
             x = convolution_layer(x, edge_index, edge_weight)
             if layer < len(self.__convolution_layers) - 1:

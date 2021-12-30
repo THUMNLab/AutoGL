@@ -67,7 +67,7 @@ class _GIN(torch.nn.Module):
         x: torch.Tensor = data.x
         edge_index: torch.Tensor = data.edge_index
 
-        results: _typing.MutableSequence[torch.Tensor] = []
+        results: _typing.MutableSequence[torch.Tensor] = [x]
         num_layers = len(self.__convolution_layers)
         for layer in range(num_layers):
             x: torch.Tensor = self.__convolution_layers[layer](x, edge_index)

@@ -221,7 +221,7 @@ class AutoGraphClassifier(BaseClassifier):
 
         set_seed(seed)
 
-        num_classes = max(get_dataset_labels(dataset)) + 1
+        num_classes = get_dataset_labels(dataset).max().item() + 1
 
         if time_limit < 0:
             time_limit = 3600 * 24

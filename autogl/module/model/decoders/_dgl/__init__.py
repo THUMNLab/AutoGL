@@ -1,6 +1,7 @@
 from ._dgl_decoders import (
     LogSoftmaxDecoderMaintainer,
-    AddPoolMLPDecoderMaintainer,
+    JKSumPoolDecoderMaintainer,
+    SumPoolMLPDecoderMaintainer,
     TopKDecoderMaintainer,
-    DotProductLinkPredictonDecoderMaintainer
+    DotProductLinkPredictionDecoderMaintainer
 )

@@ -160,11 +160,15 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
                 self.final_dimension > 0
         ):
             temp.append(self.final_dimension)
-        return GATUtils.to_total_hidden_dimensions(
-            temp,
-            self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
-            self.hyper_parameters.get("num_output_heads", 1)
+        output_dimensions = [self.input_dimension]
+        output_dimensions.extend(
+            GATUtils.to_total_hidden_dimensions(
+                temp,
+                self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
+                self.hyper_parameters.get("num_output_heads", 1)
+            )
         )
+        return output_dimensions
 
     def _initialize(self) -> _typing.Optional[bool]:
         dimensions = list(self.hyper_parameters["hidden"])

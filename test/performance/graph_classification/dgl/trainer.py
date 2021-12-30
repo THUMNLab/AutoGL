@@ -55,23 +55,6 @@ class DatasetAbstraction():
             dataset.test_split = test
         return dataset
 
-def graph_get_split(
-    dataset, mask="train", is_loader=True, batch_size=128, num_workers=0
-):
-    assert hasattr(
-        dataset, "%s_split" % (mask)
-    ), "Given dataset do not have %s split" % (mask)
-    if is_loader:
-        return GraphDataLoader(
-            getattr(dataset, "%s_split" % (mask)),
-            batch_size=batch_size,
-            num_workers=num_workers,
-        )
-    else:
-        return getattr(dataset, "%s_split" % (mask))
-
-
-utils.graph_get_split = graph_get_split
 
 if __name__ == '__main__':
 
@@ -109,20 +92,25 @@ if __name__ == '__main__':
 
     accs = []
 
-    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
+    if args.model == "gin":
+        decoder = "JKSumPoolMLP"
+    else:
+        decoder = "sumpoolmlp"
+
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model, decoder=decoder)
 
     from tqdm import tqdm
-    for seed in tqdm(range(10)):
+    for seed in tqdm(range(args.repeat)):
         set_seed(seed)
 
         trainer = GraphClassificationFullTrainer(
-            model=args.model,
+            model=(args.model, decoder),
             device=args.device,
             init=False,
             num_features=dataset.graph[0].ndata['feat'].size(1),
             num_classes=dataset.gclasses,
             loss='cross_entropy',
-            feval = ('acc')
+            feval = ('acc',)
         ).duplicate_from_hyper_parameter({
             "trainer": {
                 # hp from trainer
@@ -140,4 +128,4 @@ if __name__ == '__main__':
         out = trainer.predict(dataset, 'test').detach().cpu().numpy()
         acc = (out == labels).astype('float').mean()
         accs.append(acc)
-    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
+    print('{:.2f} ~ {:.2f}'.format(np.mean(accs) * 100, np.std(accs) * 100))

@@ -54,29 +54,33 @@ if __name__ == '__main__':
 
     labels = np.array([x.data['label'].item() for x in dataset.test_split])
 
-    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
+    if args.model == "gin":
+        decoder = "JKSumPoolMLP"
+    else:
+        decoder = "sumpoolmlp"
+
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model, decoder)
 
     accs = []
     for seed in tqdm(range(args.repeat)):
-        set_seed(seed)
         solver = AutoGraphClassifier(
             feature_module=None,
-            graph_models=[args.model],
+            graph_models=[(args.model, decoder)],
             hpo_module='random',
             ensemble_module=None,
             device=args.device, max_evals=1,
             trainer_hp_space = fixed(**{
                     # hp from trainer
-                    "max_epoch": 100,
-                    "batch_size": 32,
-                    "early_stopping_round": 101,
-                    "lr": 0.0001,
+                    "max_epoch": args.epoch,
+                    "batch_size": args.batch_size,
+                    "early_stopping_round": args.epoch + 1,
+                    "lr": args.lr,
                     "weight_decay": 0,
             }),
             model_hp_spaces=[{"encoder": fixed(**model_hp), "decoder": fixed(**decoder_hp)}]
         )
-        solver.fit(dataset, evaluation_method=['acc'])
+        solver.fit(dataset, evaluation_method=['acc'], seed=seed)
         out = solver.predict(dataset, mask='test')
         acc = (out == labels).astype('float').mean()
         accs.append(acc)
-    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
+    print('{:.2f} ~ {:.2f}'.format(np.mean(accs) * 100, np.std(accs) * 100))

@@ -3,9 +3,11 @@ Performance check of AutoGL model + DGL (dataset + trainer)
 """
 
 import os
+import pickle
 os.environ["AUTOGL_BACKEND"] = "dgl"
 
-from dgl.dataloading.pytorch.dataloader import GraphDataLoader
+# from dgl.dataloading.pytorch.dataloader import GraphDataLoader
+from dgl.dataloading import GraphDataLoader
 import numpy as np
 from tqdm import tqdm
 
@@ -48,18 +50,19 @@ class DatasetAbstraction():
         return DatasetAbstraction([self.graphs[i] for i in idx], [self.labels[i] for i in idx])
 
 def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
-    best_model = net.state_dict()
+    best_model = pickle.dumps(net.state_dict())
     
     best_acc = 0.
     for e in range(epoch):
+        net.train()
         for graphs, labels in trainloader:
-            net.train()
 
             labels = labels.to(device)
             graphs = graphs.to(device)
-            outputs = net((graphs, labels))
+            # outputs = net((graphs, labels))
             # feat = graphs.ndata.pop('attr')
             # outputs = net(graphs, feat)
+            outputs = net(graphs)
 
             loss = criterion(outputs, labels)
 
@@ -70,22 +73,24 @@ def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
         
         gt = []
         pr = []
+        net.eval()
         for graphs, labels in validloader:
             labels = labels.to(device)
             graphs = graphs.to(device)
             gt.append(labels)
             # feat = graphs.ndata.pop('attr')
             # outputs = net(graphs, feat)
-            outputs = net((graphs, labels))
+            # outputs = net((graphs, labels))
+            outputs = net(graphs)
             pr.append(outputs.argmax(1))
         gt = torch.cat(gt, dim=0)
         pr = torch.cat(pr, dim=0)
         acc = (gt == pr).float().mean().item()
         if acc > best_acc:
             best_acc = acc
-            best_model = net.state_dict()
+            best_model = pickle.dumps(net.state_dict())
     
-    net.load_state_dict(best_model)
+    net.load_state_dict(pickle.loads(best_model))
 
     return net
 
@@ -102,7 +107,8 @@ def eval_net(net, dataloader, device):
         # feat = graphs.ndata.pop('attr')
         total += len(labels)
         # outputs = net(graphs, feat)
-        outputs = net((graphs, labels))
+        # outputs = net((graphs, labels))
+        outputs = net(graphs)
         _, predicted = torch.max(outputs.data, 1)
 
         total_correct += (predicted == labels.data).sum().item()
@@ -130,7 +136,7 @@ def main(args):
     val_dataset = dataset[dataids[fold * 8: fold * 9]]
     test_dataset = dataset[dataids[fold * 9: ]]
 
-    trainloader = GraphDataLoader(train_dataset, batch_size=args.batch_size, shuffle=False)
+    trainloader = GraphDataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     valloader = GraphDataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
     testloader = GraphDataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
@@ -146,7 +152,7 @@ def main(args):
                 device=device,
             ).from_hyper_parameter({
                 "num_layers": 5,
-                "hidden": [64],
+                "hidden": [64,64,64,64],
                 "dropout": 0.5,
                 "act": "relu",
                 "eps": "False",
@@ -174,7 +180,7 @@ def main(args):
         acc = eval_net(model, testloader, device)
         accs.append(acc)
 
-    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
+    print('{:.2f} ~ {:.2f}'.format(np.mean(accs) * 100, np.std(accs) * 100))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('model parser')

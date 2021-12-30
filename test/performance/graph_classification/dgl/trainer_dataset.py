@@ -53,14 +53,19 @@ if __name__ == '__main__':
 
     accs = []
 
-    model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
+    if args.model == "gin":
+        decoder = "JKSumPoolMLP"
+    else:
+        decoder = "sumpoolmlp"
+
+    model_hp, decoder_hp = get_encoder_decoder_hp(args.model, decoder)
 
     from tqdm import tqdm
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
 
         trainer = GraphClassificationFullTrainer(
-            model=args.model,
+            model=(args.model, decoder),
             device=args.device,
             init=False,
             num_features=dataset[0][0].ndata['feat'].size(1),
@@ -86,4 +91,4 @@ if __name__ == '__main__':
         out = trainer.predict(dataset, 'test').detach().cpu().numpy()
         acc = (out == labels).astype('float').mean()
         accs.append(acc)
-    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
+    print('{:.2f} ~ {:.2f}'.format(np.mean(accs) * 100, np.std(accs) * 100))
