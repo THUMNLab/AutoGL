@@ -200,4 +200,4 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         return F.log_softmax(x, dim=1)
 
     def parse_model(self, selection, device) -> BaseModel:
-        return self.wrap(device).fix(selection)
+        return self.wrap().fix(selection)
