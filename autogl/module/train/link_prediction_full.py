@@ -191,8 +191,22 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         optimizer = self.optimizer(
             model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-        scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
-        for epoch in range(1, self.max_epoch):
+        
+        lr_scheduler_type = self.lr_scheduler_type
+        if type(lr_scheduler_type) == str and lr_scheduler_type == "steplr":
+            scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == "multisteplr":
+            scheduler = MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
+        elif type(lr_scheduler_type) == str and lr_scheduler_type == "exponentiallr":
+            scheduler = ExponentialLR(optimizer, gamma=0.1)
+        elif (
+            type(lr_scheduler_type) == str and lr_scheduler_type == "reducelronplateau"
+        ):
+            scheduler = ReduceLROnPlateau(optimizer, "min")
+        else:
+            scheduler = None
+        
+        for epoch in range(1, self.max_epoch + 1):
             model.train()
 
             try:
@@ -220,7 +234,8 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
 
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            if scheduler:
+                scheduler.step()
 
             if type(self.feval) is list:
                 feval = self.feval[0]

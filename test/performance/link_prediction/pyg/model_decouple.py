@@ -8,7 +8,8 @@ import os.path as osp
 import random
 from torch_geometric.datasets import Planetoid
 from torch_geometric.data import Data
-from autogl.module.model.pyg import AutoGCN, AutoGAT, AutoSAGE
+from autogl.module.model.encoders import GCNEncoderMaintainer, GATEncoderMaintainer, SAGEEncoderMaintainer
+from autogl.module.model.decoders import DotProductLinkPredictonDecoderMaintainer
 import torch_geometric.transforms as T
 from torch_geometric.utils import train_test_split_edges
 from torch_geometric.utils import negative_sampling
@@ -16,6 +17,23 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from tqdm import tqdm
 
 from sklearn.metrics import roc_auc_score
+
+class DummyModel(torch.nn.Module):
+    def __init__(self, encoder, decoder=None):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        if self.decoder is None:
+            self.decoder = DotProductLinkPredictonDecoderMaintainer()
+            self.decoder.initialize()
+            self.decoder = self.decoder.decoder
+    
+    def lp_encode(self, data):
+        return self.encoder(data)[-1]
+
+    def lp_decode(self, z, pos_edge, neg_edge):
+        return self.decoder([z], None, pos_edge, neg_edge)
+
 
 def get_link_labels(pos_edge_index, neg_edge_index):
     # returns a tensor:
@@ -51,7 +69,7 @@ else:
 
 dataset = Planetoid(osp.expanduser('~/.cache-autogl'), args.dataset, transform=T.NormalizeFeatures())
 
-def train(data):
+def train():
     model.train()
 
     neg_edge_index = negative_sampling(
@@ -60,9 +78,8 @@ def train(data):
         num_neg_samples=data.train_pos_edge_index.size(1)).to(device) # number of neg_sample equal to number of pos_edges
 
     optimizer.zero_grad()
-    train_data = Data(x=data.x,edge_index=data.train_pos_edge_index)
-    z = model.lp_encode(train_data) #encode
-    link_logits = model.lp_decode(z, data.train_pos_edge_index, neg_edge_index) # decode
+    z = model.lp_encode(data)
+    link_logits = model.lp_decode(z, data.train_pos_edge_index, neg_edge_index)
     link_labels = get_link_labels(data.train_pos_edge_index, neg_edge_index)
     loss = F.binary_cross_entropy_with_logits(link_logits, link_labels)
     loss.backward()
@@ -70,24 +87,24 @@ def train(data):
 
     return loss
 
+
 @torch.no_grad()
-def test(data):
-    train_data = Data(x=data.x,edge_index=data.train_pos_edge_index)
+def test():
     model.eval()
     perfs = []
     for prefix in ["val", "test"]:
-
         pos_edge_index = data[f'{prefix}_pos_edge_index']
         neg_edge_index = data[f'{prefix}_neg_edge_index']
 
-        z = model.lp_encode(train_data) # encode train
-        link_logits = model.lp_decode(z, pos_edge_index, neg_edge_index) # decode test or val
-        link_probs = link_logits.sigmoid() # apply sigmoid
+        z = model.lp_encode(data)
+        link_logits = model.lp_decode(z, pos_edge_index, neg_edge_index)
+        link_probs = link_logits.sigmoid()
         
-        link_labels = get_link_labels(pos_edge_index, neg_edge_index) # get link
+        link_labels = get_link_labels(pos_edge_index, neg_edge_index)
         
-        perfs.append(roc_auc_score(link_labels.cpu(), link_probs.cpu())) #compute roc_auc score
+        perfs.append(roc_auc_score(link_labels.cpu(), link_probs.cpu()))
     return perfs
+
 
 res = []
 for seed in tqdm(range(1234, 1234+args.repeat)):
@@ -96,18 +113,17 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
     # use train_test_split_edges to create neg and positive edges
     data.train_mask = data.val_mask = data.test_mask = data.y = None
     data = train_test_split_edges(data).to(device)
+    data.edge_index = data.train_pos_edge_index
     if args.model == 'gcn':
-        model = AutoGCN(
-                num_features=dataset.num_features,
-                num_classes=2,
-                device=args.device,
-                init=False
-            ).from_hyper_parameter({
-                'num_layers': 3,
-                'hidden': [128,64],
-                'dropout': 0.0,
-                'act': 'relu'
-            }).model
+        encoder = GCNEncoderMaintainer(
+            dataset.num_features, 64, args.device
+        ).from_hyper_parameter({
+            "hidden": [128],
+            "dropout": 0.0,
+            "act": "relu"
+        }).encoder
+        model = DummyModel(encoder).to(args.device)
+
     elif args.model == 'gat':
         model = AutoGAT(dataset=dataset,
                 num_features=dataset.num_features,
@@ -142,10 +158,13 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=0.01)
 
+    import pdb
+    pdb.set_trace()
     best_val_perf = test_perf = 0
+
     for epoch in range(100):
-        train_loss = train(data)
-        val_perf, tmp_test_perf = test(data)
+        train_loss = train()
+        val_perf, tmp_test_perf = test()
         if val_perf > best_val_perf:
             best_val_perf = val_perf
             test_perf = tmp_test_perf
