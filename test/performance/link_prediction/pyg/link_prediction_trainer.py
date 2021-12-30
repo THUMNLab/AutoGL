@@ -73,8 +73,7 @@ if __name__ == "__main__":
         data.train_mask = data.val_mask = data.test_mask = data.y = None
 
         if args.use_our_split_edges:
-            dataset = split_edges([data], 0.85, 0.05)
-            data = dataset[0]
+            data = split_edges(dataset, 0.85, 0.05)[0]
         else:
             data = train_test_split_edges(data).to(device)
 

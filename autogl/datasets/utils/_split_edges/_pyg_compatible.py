@@ -14,9 +14,9 @@ def split_edges_for_data(
         train_ratio: float, val_ratio: float
 ) -> torch_geometric.data.Data:
     if isinstance(data, torch_geometric.data.Data):
-        if (
+        if not (
                 isinstance(data.edge_index, torch.Tensor) and
-                data.edge_index.dim() == data.edge_index.size(1) == 2
+                data.edge_index.dim() == data.edge_index.size(0) == 2
         ):
             raise ValueError
         edge_index: torch.LongTensor = data.edge_index
@@ -52,7 +52,7 @@ def split_edges_for_data(
         else:
             x: _typing.Optional[torch.Tensor] = None
         if hasattr(data, 'y') and isinstance(data.y, torch.Tensor):
-            y: _typing.Optional[torch.Tensor] = data.x
+            y: _typing.Optional[torch.Tensor] = data.y
         else:
             y: _typing.Optional[torch.Tensor] = None
         __data = torch_geometric.data.Data(
