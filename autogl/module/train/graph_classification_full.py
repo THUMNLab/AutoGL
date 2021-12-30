@@ -210,7 +210,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
         else:
             scheduler = None
 
-        for epoch in range(1, self.max_epoch):
+        for epoch in range(1, self.max_epoch + 1):
             model.train()
             loss_all = 0
             for data in train_loader:
@@ -307,7 +307,7 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
         """
         train_loader = utils.graph_get_split(
-            dataset, "train", batch_size=self.batch_size, num_workers=self.num_workers
+            dataset, "train", batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True
         )
         valid_loader = utils.graph_get_split(
             dataset, "val", batch_size=self.batch_size, num_workers=self.num_workers

@@ -3,6 +3,7 @@ Performance check of AutoGL model + DGL (dataset + trainer)
 """
 
 import os
+import pickle
 os.environ["AUTOGL_BACKEND"] = "dgl"
 
 # from dgl.dataloading.pytorch.dataloader import GraphDataLoader
@@ -49,12 +50,12 @@ class DatasetAbstraction():
         return DatasetAbstraction([self.graphs[i] for i in idx], [self.labels[i] for i in idx])
 
 def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
-    best_model = net.state_dict()
+    best_model = pickle.dumps(net.state_dict())
     
     best_acc = 0.
     for e in range(epoch):
+        net.train()
         for graphs, labels in trainloader:
-            net.train()
 
             labels = labels.to(device)
             graphs = graphs.to(device)
@@ -72,6 +73,7 @@ def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
         
         gt = []
         pr = []
+        net.eval()
         for graphs, labels in validloader:
             labels = labels.to(device)
             graphs = graphs.to(device)
@@ -86,9 +88,9 @@ def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
         acc = (gt == pr).float().mean().item()
         if acc > best_acc:
             best_acc = acc
-            best_model = net.state_dict()
+            best_model = pickle.dumps(net.state_dict())
     
-    net.load_state_dict(best_model)
+    net.load_state_dict(pickle.loads(best_model))
 
     return net
 
@@ -134,7 +136,7 @@ def main(args):
     val_dataset = dataset[dataids[fold * 8: fold * 9]]
     test_dataset = dataset[dataids[fold * 9: ]]
 
-    trainloader = GraphDataLoader(train_dataset, batch_size=args.batch_size, shuffle=False)
+    trainloader = GraphDataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     valloader = GraphDataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
     testloader = GraphDataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
@@ -178,7 +180,7 @@ def main(args):
         acc = eval_net(model, testloader, device)
         accs.append(acc)
 
-    print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))
+    print('{:.2f} ~ {:.2f}'.format(np.mean(accs) * 100, np.std(accs) * 100))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('model parser')

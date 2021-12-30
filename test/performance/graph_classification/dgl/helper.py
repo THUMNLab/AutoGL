@@ -3,6 +3,7 @@ def get_encoder_decoder_hp(model='gin', decoder=None):
         model_hp =  {
             "num_layers": 5,
             "hidden": [64,64,64,64],
+            "dropout": 0.5,
             "act": "relu",
             "eps": "False",
             "mlp_layers": 2,
@@ -45,9 +46,14 @@ def get_encoder_decoder_hp(model='gin', decoder=None):
             "act": "relu",
             "graph_pooling_type": "sum"
         }
+    elif decoder == "JKSumPoolMLP":
+        decoder_hp = {
+            "dropout": 0.5,
+            "graph_pooling_type": "sum"
+        }
     elif decoder == "topk":
         decoder_hp = {
             "dropout": 0.5
         }
-    
+
     return model_hp, decoder_hp

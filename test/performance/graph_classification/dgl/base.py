@@ -7,6 +7,7 @@ TopkPool is not supported currently
 """
 
 # from dgl.dataloading.pytorch.dataloader import GraphDataLoader
+import pickle
 from dgl.dataloading import GraphDataLoader
 import numpy as np
 from tqdm import tqdm
@@ -25,6 +26,20 @@ import torch.nn.functional as F
 from dgl.nn.pytorch.conv import GINConv
 from dgl.nn.pytorch.glob import SumPooling, AvgPooling, MaxPooling
 
+def set_seed(seed=None):
+    """
+    Set seed of whole process
+    """
+    if seed is None:
+        seed = random.randint(0, 5000)
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 class DatasetAbstraction():
     def __init__(self, graphs, labels):
@@ -204,12 +219,12 @@ class GIN(nn.Module):
 
 
 def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
-    best_model = net.state_dict()
+    best_model = pickle.dumps(net.state_dict())
     
     best_acc = 0.
     for e in range(epoch):
+        net.train()
         for graphs, labels in trainloader:
-            net.train()
 
             labels = labels.to(device)
             graphs = graphs.to(device)
@@ -226,6 +241,7 @@ def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
         
         gt = []
         pr = []
+        net.eval()
         for graphs, labels in validloader:
             labels = labels.to(device)
             graphs = graphs.to(device)
@@ -238,9 +254,9 @@ def train(net, trainloader, validloader, optimizer, criterion, epoch, device):
         acc = (gt == pr).float().mean().item()
         if acc > best_acc:
             best_acc = acc
-            best_model = net.state_dict()
+            best_model = pickle.dumps(net.state_dict())
     
-    net.load_state_dict(best_model)
+    net.load_state_dict(pickle.loads(best_model))
 
     return net
 
@@ -291,23 +307,18 @@ def main():
     val_dataset = dataset[dataids[fold * 8: fold * 9]]
     test_dataset = dataset[dataids[fold * 9: ]]
 
-    trainloader = GraphDataLoader(train_dataset, batch_size=32, shuffle=False)
+    trainloader = GraphDataLoader(train_dataset, batch_size=32, shuffle=True)
     valloader = GraphDataLoader(val_dataset, batch_size=32, shuffle=False)
     testloader = GraphDataLoader(test_dataset, batch_size=32, shuffle=False)
 
     accs = []
     for seed in tqdm(range(args.repeat)):
         # set up seeds, args.seed supported
-        torch.manual_seed(seed=seed)
-        np.random.seed(seed=seed)
+        set_seed(seed)
 
         model = GIN(
             5, 2, dataset_.dim_nfeats, 64, dataset_.gclasses, 0.5, False,
             "sum", "sum").to(device)
-
-        # for pname, p in model.named_parameters():
-        #     print(pname)
-        # assert False
 
         criterion = nn.CrossEntropyLoss()  # defaul reduce is true
         optimizer = optim.Adam(model.parameters(), lr=0.0001)
@@ -316,7 +327,7 @@ def main():
         acc = eval_net(model, testloader, device)
         accs.append(acc)
 
-    print(np.mean(accs), np.std(accs))
+    print('{:.2f} ~ {:.2f}'.format(np.mean(accs) * 100, np.std(accs) * 100))
 
 if __name__ == '__main__':
     main()

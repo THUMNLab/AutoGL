@@ -564,8 +564,7 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
             self.encoder.output_dimension = num_classes
         elif isinstance(self.decoder, BaseDecoderMaintainer):
             self.decoder.output_dimension = num_classes
-        self.last_dim = num_classes
-    
+
     @property
     def num_graph_features(self):
         return self._num_graph_features

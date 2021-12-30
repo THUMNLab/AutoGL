@@ -10,11 +10,10 @@ import torch.nn.functional as F
 from torch.nn import Sequential, Linear, ReLU
 import torch_geometric
 from torch_geometric.datasets import TUDataset
-from torch_geometric.loader import DataLoader
-# if int(torch_geometric.__version__.split(",")[0]) >= 2:
-#     from torch_geometric.loader import DataLoader
-# else:
-#     from torch_geometric.data import DataLoader
+if int(torch_geometric.__version__.split(",")[0]) >= 2:
+    from torch_geometric.loader import DataLoader
+else:
+    from torch_geometric.data import DataLoader
 from torch_geometric.nn import GINConv, global_add_pool, GraphConv, TopKPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 import logging
