@@ -18,6 +18,9 @@ from torch_geometric.nn import GINConv, global_add_pool, GraphConv, TopKPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 import logging
 
+torch.backends.cudnn.deterministic = True
+#torch.use_deterministic_algorithms(True)
+
 logging.basicConfig(level=logging.ERROR)
 
 class GIN(torch.nn.Module):
@@ -163,6 +166,10 @@ if __name__ == '__main__':
     dataids = list(range(len(dataset)))
     random.seed(args.dataset_seed)
     random.shuffle(dataids)
+    torch.manual_seed(args.dataset_seed)
+    np.random.seed(args.dataset_seed)
+    if args.device == 'cuda':
+        torch.cuda.manual_seed(args.dataset_seed)
     
     fold = int(len(dataset) * 0.1)
     train_index = dataids[:fold * 8]
@@ -177,16 +184,30 @@ if __name__ == '__main__':
 
     labels = np.array([data.y.item() for data in dataset.test_split])
 
-    train_loader = DataLoader(dataset.train_split, batch_size=args.batch_size)
-    val_loader = DataLoader(dataset.val_split, batch_size=args.batch_size)
-    test_loader = DataLoader(dataset.test_split, batch_size=args.batch_size)
-    
+    def seed_worker(worker_id):
+        #seed =  torch.initial_seed()
+        torch.manual_seed(args.dataset_seed)
+        np.random.seed(args.dataset_seed)
+        random.seed(args.dataset_seed)
+    g = torch.Generator()
+    g.manual_seed(args.dataset_seed)
+
+    train_loader = DataLoader(dataset.train_split, batch_size=args.batch_size, worker_init_fn=seed_worker, generator=g)
+    val_loader = DataLoader(dataset.val_split, batch_size=args.batch_size, worker_init_fn=seed_worker, generator=g)
+    test_loader = DataLoader(dataset.test_split, batch_size=args.batch_size, worker_init_fn=seed_worker, generator=g)
+
+    #train_loader = DataLoader(dataset.train_split, batch_size=args.batch_size, shuffle=False)
+    #val_loader = DataLoader(dataset.val_split, batch_size=args.batch_size, shuffle=False)
+    #test_loader = DataLoader(dataset.test_split, batch_size=args.batch_size, shuffle=False)
+
     accs = []
 
     for seed in tqdm(range(args.repeat)):
         torch.manual_seed(seed)
         np.random.seed(seed)
-        random.seed(seed)
+        #random.seed(seed)
+        if args.device == 'cuda':
+            torch.cuda.manual_seed(seed)
 
         if args.model == 'gin':
             model = GIN()
