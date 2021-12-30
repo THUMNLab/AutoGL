@@ -11,6 +11,10 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 
 ## News!
 
+- 2021.12.31 New Version! v0.3.0-pre is here!
+    - AutoGL now support backend [__Deep Graph Library (DGL)__](https://www.dgl.ai/) to be interface-friendly for DGL users! All the homogeneous node classification task, link prediction task, and graph classification task are supported currently under DGL backend.
+    - The __heterogeneous__ node classification tasks are now supported! See [hetero tutorial]() for more details.
+    - To make the whole library more scalable, the module `model` is now __decoupled__ to two additional sub-modules named `encoder` and `decoder`. `encoder` is more related to data and graph structure, responsible for feature extracting. `decoder` is more related to tasks, responsible for task solving. Under the __decoupled__ design, one `encoder` can be used to solve all kinds of tasks, relieving much burden for developing and user expanding/contributing.
 - 2021.07.11 New version! v0.2.0-pre is here! In this new version, AutoGL supports [neural architecture search (NAS)](https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_nas.html) to customize architectures for the given datasets and tasks. AutoGL also supports [sampling](https://autogl.readthedocs.io/en/latest/docfile/tutorial/t_trainer.html#node-classification-with-sampling) now to perform tasks on large datasets, including node-wise sampling, layer-wise sampling, and sub-graph sampling. The link prediction task is now also supported! Learn more in our [tutorial](https://autogl.readthedocs.io/en/latest/index.html).
 - 2021.04.16 Our survey paper about automated machine learning on graphs is accepted by IJCAI! See more [here](http://arxiv.org/abs/2103.00742).
 - 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987) is accepted by _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
@@ -42,15 +46,18 @@ Currently, the following algorithms are supported in AutoGL:
     <tr valign="top">
         <!--<td><b>Generators</b><br>graphlet <br> eigen <br> pagerank <br> PYGLocalDegreeProfile <br> PYGNormalizeFeatures <br> PYGOneHotDegree <br> onehot <br> <br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Subgraph</b><br> NxLargeCliqueSize<br> NxAverageClusteringApproximate<br> NxDegreeAssortativityCoefficient<br> NxDegreePearsonCorrelationCoefficient<br> NxHasBridge <br>NxGraphCliqueNumber<br> NxGraphNumberOfCliques<br> NxTransitivity<br> NxAverageClustering<br> NxIsConnected<br> NxNumberConnectedComponents<br> NxIsDistanceRegular<br> NxLocalEfficiency<br> NxGlobalEfficiency<br> NxIsEulerian </td>-->
         <td><b>Generators</b><br>Graphlets <br> EigenGNN <br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Graph</b><br> netlsd<br> NxAverageClustering<br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">more ...</a></td>
-        <td><b>Node Classification</b><br> GCN <br> GAT <br> GraphSAGE <br><br><b>Graph Classification</b><br> GIN <br> TopKPool </td>
+        <td><b>Homo Encoders</b><br> GCNEncoder <br> GATEncoder <br> SAGEEncoder <br> GINEncoder <br> <br><b>Decoders</b><br>LogSoftmaxDecoder <br> DotProductDecoder <br> SumPoolMLPDecoder <br> JKSumPoolDecoder </td>
         <td>
         <b>Algorithms</b><br>
         Random<br>
         RL<br>
+        Evolution<br>
+        GASSO<br>
         <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
         <b>Spaces</b><br>
         SinglePath<br>
         GraphNas<br>
+        AutoAttend<br>
         <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
         <b>Estimators</b><br>
         Oneshot<br>
@@ -76,9 +83,17 @@ Please make sure you meet the following requirements before installing AutoGL.
 
     see <https://pytorch.org/> for installation.
 
+If you want to use PyTorch Geometric backend, you need to install
+
 3. PyTorch Geometric (>=1.7.0)
 
     see <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html> for installation.
+
+If you want to use Deep Graph Library, you need to install
+
+3. Deep Graph Library (>=0.7.0)
+
+    see <https://dgl.ai> for installation.
 
 ### Installation
 
