@@ -53,7 +53,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed")
     parser.add_argument('--repeat', type=int, default=10)
-    parser.add_argument('--use_our_split_edges', action="store_true",)
     parser.add_argument("--device", default=0, type=int, help="GPU device")
 
     args = parser.parse_args()
