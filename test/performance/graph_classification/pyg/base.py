@@ -157,8 +157,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # seed = 100
-    # dataset = TUDataset(os.path.expanduser('~/.pyg'), args.dataset)
-    dataset = TUDataset('./data', args.dataset)
+    dataset = TUDataset(os.path.expanduser('~/.pyg'), args.dataset)
     
     # 1. split dataset [fix split]
     dataids = list(range(len(dataset)))
