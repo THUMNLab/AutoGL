@@ -39,6 +39,7 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
     agg_ops : list of str
         agg op names for searching. Only ['add','attn'] are options, as mentioned in the paper.
     """
+
     def __init__(
         self,
         hidden_dim: _typ.Optional[int] = 64,
@@ -98,7 +99,7 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         self.agg_map = lambda x, * \
             args, **kwargs: agg_map[x](*args, **kwargs)
         self.preproc0 = nn.Linear(self.input_dim, self.hidden_dim)
-        
+
         node_labels = []
         for layer in range(1, self.layer_number+1):
             # stem path
@@ -124,10 +125,14 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
 
         self._initialized = True
 
-        self.classifier2 = nn.Linear(self.hidden_dim, self.output_dim)
+        # self.classifier2 = nn.Linear(self.hidden_dim, self.output_dim)
 
     def _set_agg_choice(self, layer, key):
-        ops = [self.agg_map(op, self.hidden_dim, self.head,
+        if layer == self.layer_number:
+            dim = self.output_dim
+        else:
+            dim = self.hidden_dim
+        ops = [self.agg_map(op, dim, self.head,
                             self.dropout)for op in self.agg_ops]
         choice = self.setLayerChoice(
             layer,
@@ -138,12 +143,23 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         return choice
 
     def _set_layer_choice(self, layer, key):
+        input_dim = output_dim = self.hidden_dim
+        if layer == 1:
+            input_dim = self.input_dim
+        if layer == self.layer_number:
+            output_dim = self.output_dim
+
+        ops = self.gnn_ops.copy()
+        if input_dim != output_dim:
+            for invalid_op in "ZERO IDEN".split():
+                ops.remove(invalid_op)
+
         if self.ops_type == 0:
-            ops = [self.gnn_map(
-                op, self.hidden_dim, self.hidden_dim, self.dropout)for op in self.gnn_ops]
+            ops = [self.gnn_map(op, input_dim, output_dim,
+                                self.dropout)for op in ops]
         elif self.ops_type == 1:
-            ops = [self.gnn_map(op, self.hidden_dim, self.hidden_dim,
-                                self.head, self.dropout)for op in self.gnn_ops]
+            ops = [self.gnn_map(op, input_dim, output_dim,
+                                self.head, self.dropout)for op in ops]
         choice = self.setLayerChoice(
             layer,
             ops,
@@ -163,19 +179,21 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
 
     def forward(self, data):
         x = bk_feat(data)
+
         def drop(x):
-            x=F.dropout(x, p=self.dropout, training=self.training)
+            x = F.dropout(x, p=self.dropout, training=self.training)
             return x
-        prev_ = self.preproc0(x)
+        # prev_ = self.preproc0(x)
+        prev_ = x
 
         side_outs = []
         stem_outs = []
-        input = prev_  
+        input = prev_
         for layer in range(1, self.layer_number + 1):
             # do layer choice for stem
             op = getattr(self, f"stem_{layer}")
             stem_out = bk_gconv(op, data, drop(input))
-            stem_out = self.act(stem_out)  
+            stem_out = self.act(stem_out)
 
             # do double layer choice for sides
             side_out_list = []
@@ -197,7 +215,7 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
             agg = getattr(self, f"agg_{layer}")
             input = bk_gconv(agg, data, input)
 
-        x = self.classifier2(input)
+        # x = self.classifier2(input)
         return F.log_softmax(x, dim=1)
 
     def parse_model(self, selection, device):
