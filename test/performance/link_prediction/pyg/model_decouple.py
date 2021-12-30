@@ -1,6 +1,7 @@
 import os
 os.environ["AUTOGL_BACKEND"] = "pyg"
 
+import time
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -15,6 +16,7 @@ from torch_geometric.utils import train_test_split_edges
 from torch_geometric.utils import negative_sampling
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from tqdm import tqdm
+from helper import get_encoder_decoder_hp
 
 from sklearn.metrics import roc_auc_score
 
@@ -107,6 +109,10 @@ def test():
 
 
 res = []
+begin_time = time.time()
+
+model_hp, _ = get_encoder_decoder_hp(args.model)
+
 for seed in tqdm(range(1234, 1234+args.repeat)):
     setup_seed(seed)
     data = dataset[0].to(device)
@@ -116,50 +122,25 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
     data.edge_index = data.train_pos_edge_index
     if args.model == 'gcn':
         encoder = GCNEncoderMaintainer(
-            dataset.num_features, 64, args.device
-        ).from_hyper_parameter({
-            "hidden": [128],
-            "dropout": 0.0,
-            "act": "relu"
-        }).encoder
+            dataset.num_features, "auto", args.device
+        ).from_hyper_parameter(model_hp).encoder
         model = DummyModel(encoder).to(args.device)
 
     elif args.model == 'gat':
-        model = AutoGAT(dataset=dataset,
-                num_features=dataset.num_features,
-                num_classes=2,
-                device=args.device,
-                init=False
-            ).from_hyper_parameter({
-                'num_layers': 3,
-                'hidden': [16,64],
-                "heads": 8,
-                'dropout': 0.0,
-                'act': 'relu'
-            }).model
-        # print(model)
+        encoder = GATEncoderMaintainer(
+            dataset.num_features, "auto", args.device
+        ).from_hyper_parameter(model_hp).encoder
+        model = DummyModel(encoder).to(args.device)
     elif args.model == 'sage':
-        model = AutoSAGE(dataset=dataset,
-                num_features=dataset.num_features,
-                num_classes=2,
-                device=args.device,
-                init=False
-            ).from_hyper_parameter({
-                'num_layers': 3,
-                'hidden': [128,64],
-                'dropout': 0.0,
-                'act': 'relu',
-                'agg': 'mean',
-                'add_self_loops': 'False',
-                'normalize': 'False',
-            }).model
+        encoder = SAGEEncoderMaintainer(
+            dataset.num_features, "auto", args.device
+        ).from_hyper_parameter(model_hp).encoder
+        model = DummyModel(encoder).to(args.device)
     else:
         assert False
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=0.01)
 
-    import pdb
-    pdb.set_trace()
     best_val_perf = test_perf = 0
 
     for epoch in range(100):
@@ -170,4 +151,4 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
             test_perf = tmp_test_perf
     res.append(test_perf)
 
-print(np.mean(res), np.std(res))
+print("{:.2f} ~ {:.2f} ({:.2f}s/it)".format(np.mean(res) * 100, np.std(res) * 100, (time.time() - begin_time) / args.repeat))

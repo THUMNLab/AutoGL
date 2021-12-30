@@ -1,3 +1,4 @@
+import time
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -58,14 +59,11 @@ class GAT(torch.nn.Module):
     def __init__(self, num_features, hidden_features, heads):
         super(GAT, self).__init__()
         self.conv1 = GATConv(num_features, hidden_features, heads, dropout=0.0)
-        self.conv2 = GATConv(hidden_features * heads, hidden_features * heads//2, heads=8, concat=True, dropout=0.0)
+        self.conv2 = GATConv(hidden_features * heads, hidden_features, heads=8, concat=True, dropout=0.0)
     def encode(self, data):
         x, edge_index = data.x, data.train_pos_edge_index
-        # x = F.dropout(x, p=0.0, training=self.training)
         x = F.relu(self.conv1(x, edge_index))
-        # x = F.dropout(x, p=0.6, training=self.training)
         x = self.conv2(x, edge_index)
-        # print(x.shape,"!!!!!!") # torch.Size([3327, 64])
         return x
     
     def decode(self, z, pos_edge_index, neg_edge_index):
@@ -161,6 +159,8 @@ def test():
         perfs.append(roc_auc_score(link_labels.cpu(), link_probs.cpu()))
     return perfs
 
+begin_time = time.time()
+
 res = []
 for seed in tqdm(range(1234, 1234+args.repeat)):
     set_seed(seed)
@@ -189,4 +189,4 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
             test_perf = tmp_test_perf
     res.append(test_perf)
 
-print(np.mean(res), np.std(res))
+print("{:.2f} ~ {:.2f} ({:.2f}s/it)".format(np.mean(res) * 100, np.std(res) * 100, (time.time() - begin_time) / args.repeat))

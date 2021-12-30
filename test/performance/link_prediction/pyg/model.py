@@ -1,6 +1,7 @@
 import os
 os.environ["AUTOGL_BACKEND"] = "pyg"
 
+import time
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -90,6 +91,7 @@ def test(data):
     return perfs
 
 res = []
+begin_time = time.time()
 for seed in tqdm(range(1234, 1234+args.repeat)):
     setup_seed(seed)
     data = dataset[0].to(device)
@@ -116,7 +118,7 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
                 init=False
             ).from_hyper_parameter({
                 'num_layers': 3,
-                'hidden': [16,64],
+                'hidden': [16,16],
                 "heads": 8,
                 'dropout': 0.0,
                 'act': 'relu'
@@ -133,9 +135,7 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
                 'hidden': [128,64],
                 'dropout': 0.0,
                 'act': 'relu',
-                'agg': 'mean',
-                'add_self_loops': 'False',
-                'normalize': 'False',
+                'agg': 'mean'
             }).model
     else:
         assert False
@@ -151,4 +151,4 @@ for seed in tqdm(range(1234, 1234+args.repeat)):
             test_perf = tmp_test_perf
     res.append(test_perf)
 
-print(np.mean(res), np.std(res))
+print("{:.2f} ~ {:.2f} ({:.2f}s/it)".format(np.mean(res) * 100, np.std(res) * 100, (time.time() - begin_time) / args.repeat))
