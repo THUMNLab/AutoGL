@@ -193,7 +193,7 @@ class GraphNasNodeClassificationSpace(BaseSpace):
             x = torch.cat(states[2:], dim=1)
         else:
             tmp = states[2]
-            for i in range(2, len(states)):
+            for i in range(3, len(states)):
                 if con == "add":
                     tmp = torch.add(tmp, states[i])
                 elif con == "product":
