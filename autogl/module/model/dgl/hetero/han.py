@@ -7,7 +7,9 @@ import torch.nn.functional as F
 import dgl.function as fn
 from dgl.nn.functional import edge_softmax
 from dgl.nn.pytorch import GATConv
+from functools import partial
 
+from ..._utils import activation
 from .. import register_model
 from .base import BaseHeteroModelMaintainer
 from .....utils import get_logger
@@ -117,21 +119,10 @@ class HAN(nn.Module):
         if len(missing_keys) > 0:
             raise Exception("Missing keys: %s." % ",".join(missing_keys))
 
-        if self.args["act"] == "leaky_relu":
-            act = F.leaky_relu
-        elif self.args["act"] == "relu":
-            act = F.relu
-        elif self.args["act"] == "elu":
-            act = F.elu
-        elif self.args["act"] == "tanh":
-            act = F.tanh
-        elif self.args["act"] == "gelu":
-            act = F.gelu
-        else:
-            act = F.relu
+        act = partial(activation.activation_func, function_name=self.args.get("act", "relu"))
         self.layers = nn.ModuleList()
         self.layers.append(HANLayer(self.args["meta_paths"], self.args["num_features"], self.args["hidden"][0], self.args["heads"][0], self.args["dropout"], act))
-        for l in range(1, len(self.args["heads"])):
+        for l in range(1, len(self.args["hidden"])):
             self.layers.append(HANLayer(self.args["meta_paths"], self.args["hidden"][l-1] * self.args["heads"][l-1],
                                         self.args["hidden"][l], self.args["heads"][l], self.args["dropout"], act))
         self.predict = nn.Linear(self.args["hidden"][-1] * self.args["heads"][-1], self.args["num_class"])
