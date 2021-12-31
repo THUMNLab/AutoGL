@@ -86,7 +86,7 @@ Please make sure you meet the following requirements before installing AutoGL.
 
 3. Graph Library Backend
 
-You will need either PyTorch Geometric (PyG) or Deep Graph Library (DGL) as the backend. You can select a backend following [here](TODO) if you install both.
+    You will need either PyTorch Geometric (PyG) or Deep Graph Library (DGL) as the backend. You can select a backend following [here](TODO) if you install both.
 
 3.1 PyTorch Geometric (>=1.7.0)
 

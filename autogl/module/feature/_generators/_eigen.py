@@ -60,7 +60,7 @@ class EigenFeatureGenerator(BaseFeatureGenerator):
     References
     ----------
     .. [#] Ziwei Zhang, Peng Cui, Jian Pei, Xin Wang, Wenwu Zhu:
-        Eigen-GNN: A Graph Structure Preserving Plug-in for GNNs. CoRR abs/2006.04330 (2020)
+        Eigen-GNN: A Graph Structure Preserving Plug-in for GNNs. TKDE (2021)
         https://arxiv.org/abs/2006.04330
 
 
