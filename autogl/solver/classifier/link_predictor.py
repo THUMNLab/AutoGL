@@ -707,7 +707,7 @@ class AutoLinkPredictor(BaseClassifier):
                 neg_edges = _negative_sample_dgl(graph[0], graph[{"train": 1, "val": 3, "test": 5}[mask]])
                 graph[{"train": 2, "val": 4, "test": 6}[mask]] = neg_edges
 
-        predicted = self.predict_proba(dataset, inplaced, inplace, use_ensemble, use_best, name, mask)
+        predicted = self.predict_proba(dataset, True, True, use_ensemble, use_best, name, mask)
         if label is None:
             if BACKEND == 'pyg':
                 pos_edge_index, neg_edge_index = (

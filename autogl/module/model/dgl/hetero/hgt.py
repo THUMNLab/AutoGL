@@ -155,18 +155,17 @@ class HGT(nn.Module):
         self.gcs = nn.ModuleList()
         self.num_layers = int(self.args["num_layers"])
 
-        if not self.num_layers == len(self.args["hidden"])-1:
-            LOGGER.warn("Warning: layer size does not match the length of hidden units")
+        hidden = self.args["hidden"]*self.args["heads"]
 
         self.adapt_ws  = nn.ModuleList()
         for t in range(len(self.node_dict)):
-            self.adapt_ws.append(nn.Linear(self.args["features_num"], self.args["hidden"][0]))
+            self.adapt_ws.append(nn.Linear(self.args["features_num"], hidden))
 
         for i in range(self.num_layers):
-            self.gcs.append(HGTLayer(self.args["hidden"][i], self.args["hidden"][i+1], self.node_dict, self.edge_dict, \
+            self.gcs.append(HGTLayer(hidden, hidden, self.node_dict, self.edge_dict, \
                 self.args["heads"], use_norm = self.args["use_norm"], dropout = self.args["dropout"]))
             
-        self.out = nn.Linear(self.args["hidden"][-1], self.args["num_class"])
+        self.out = nn.Linear(hidden, self.args["num_class"])
 
     def forward(self, G):
         h = {}
@@ -214,15 +213,11 @@ class AutoHGT(BaseHeteroModelMaintainer):
                 "feasiblePoints": "2,3,4",
             },
             {
-                "parameterName": "hidden",
-                "type": "NUMERICAL_LIST",
-                "numericalType": "INTEGER",
-                "length": 3,
-                "minValue": [8, 8, 8],
-                "maxValue": [64, 64, 64],
-                "scalingType": "LOG",
-                "cutPara": ("num_layers",),
-                "cutFunc": lambda x: x[0] - 1,
+                "parameterName": "hidden", 
+                "type": "INTEGER", 
+                "minValue": 8, 
+                "maxValue": 128,
+                "scalingType": "LOG"
             },
             {
                 "parameterName": "dropout",
@@ -250,7 +245,7 @@ class AutoHGT(BaseHeteroModelMaintainer):
 
         self.hyper_parameters = {
             "num_layers": 2,
-            "hidden": [256],
+            "hidden": 64,
             "heads": 4,
             "dropout": 0.2,
             "act": "gelu",

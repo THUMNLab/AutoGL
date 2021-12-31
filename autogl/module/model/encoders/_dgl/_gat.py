@@ -11,10 +11,10 @@ class GATUtils:
     @classmethod
     def to_total_hidden_dimensions(
             cls, per_head_dimensions: _typing.Sequence[int],
-            num_hidden_heads: int, num_output_heads: int
+            num_hidden_heads: int, num_output_heads: int, concat_last: bool = False,
     ):
         return [
-            d * (num_hidden_heads if layer < (len(per_head_dimensions) - 1) else num_output_heads)
+            d * (num_hidden_heads if layer < (len(per_head_dimensions) - 1) else (num_output_heads if concat_last else 1))
             for layer, d in enumerate(per_head_dimensions)
         ]
 
@@ -27,7 +27,7 @@ class GAT(torch.nn.Module):
     ):
         super(GAT, self).__init__()
         dimensions = GATUtils.to_total_hidden_dimensions(
-            dimensions, num_hidden_heads, num_output_heads
+            dimensions, num_hidden_heads, num_output_heads, concat_last=concat_last
         )
         num_layers: int = len(dimensions)
         self.__convolutions: torch.nn.ModuleList = torch.nn.ModuleList()
@@ -154,18 +154,20 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
 
     def get_output_dimensions(self) -> _typing.Iterable[int]:
         temp = list(self.hyper_parameters["hidden"])
+        concat_last = True
         if (
                 self.final_dimension not in (Ellipsis, None) and
                 isinstance(self.final_dimension, int) and
                 self.final_dimension > 0
         ):
             temp.append(self.final_dimension)
+            concat_last = False
         output_dimensions = [self.input_dimension]
         output_dimensions.extend(
             GATUtils.to_total_hidden_dimensions(
                 temp,
                 self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
-                self.hyper_parameters.get("num_output_heads", 1)
+                self.hyper_parameters.get("num_output_heads", 1), concat_last=concat_last
             )
         )
         return output_dimensions
