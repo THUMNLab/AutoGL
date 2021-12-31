@@ -83,7 +83,7 @@ if __name__=='__main__':
                 init=False
             ).from_hyper_parameter({
                 "num_layers": 2,
-                "hidden": [256,256,256],
+                "hidden": [256,256],
                 "heads": 4,
                 "dropout": 0.2,
                 "act": "gelu",
