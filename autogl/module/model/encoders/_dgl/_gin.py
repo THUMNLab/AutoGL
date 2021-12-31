@@ -107,11 +107,11 @@ class _GIN(torch.nn.Module):
     def forward(self, graph: dgl.DGLGraph, *__args, **__kwargs) -> _typing.Sequence[torch.Tensor]:
         x: torch.Tensor = graph.ndata['feat']
 
-        features: _typing.MutableSequence[torch.Tensor] = []
+        features: _typing.MutableSequence[torch.Tensor] = [x]
         for layer in range(self.__num_layers):
             x: torch.Tensor = self.__gin_layers[layer](graph, x)
-            x: torch.Tensor = _utils.activation.activation_func(x, self._act)
             x: torch.Tensor = self.__batch_normalizations[layer](x)
+            x: torch.Tensor = _utils.activation.activation_func(x, self._act)
             features.append(x)
 
         return features

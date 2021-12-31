@@ -1,6 +1,4 @@
 from tqdm import tqdm
-from autogl.datasets import build_dataset_from_name
-from autogl.solver.classifier.link_predictor import AutoLinkPredictor
 from autogl.module.train.evaluation import Auc
 import random
 import torch
@@ -9,23 +7,10 @@ import dgl
 import torch
 import numpy as np
 import scipy.sparse as sp
-from autogl.datasets.utils.conversion import to_dgl_dataset
 from helper import get_encoder_decoder_hp
 
-
-def construct_negative_graph(graph, k):
-    src, dst = graph.edges()
-
-    neg_src = src.repeat_interleave(k)
-    neg_dst = torch.randint(0, graph.num_nodes(), (len(src) * k,))
-    # return dgl.graph((neg_src, neg_dst), num_nodes=graph.num_nodes()).edges()
-    return neg_src, neg_dst
-
-def negative_sample(data):
-    return construct_negative_graph(data, 5)
-
-import autogl.datasets.utils as tmp_utils
-tmp_utils.negative_sampling = negative_sample
+from dgl.data import CoraGraphDataset, PubmedGraphDataset, CiteseerGraphDataset
+from autogl.module.train.link_prediction_full import LinkPredictionTrainer
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -33,42 +18,6 @@ def setup_seed(seed):
     torch.backends.cudnn.deterministic = True
     np.random.seed(seed)
     random.seed(seed)
-
-def fixed(**kwargs):
-    return [{
-        'parameterName': k,
-        "type": "FIXED",
-        "value": v
-    } for k, v in kwargs.items()]
-
-def split_train_test(g):
-    u, v = g.edges()
-
-    eids = np.arange(g.number_of_edges())
-    eids = np.random.permutation(eids)
-    test_size = int(len(eids) * 0.1)
-    train_size = g.number_of_edges() - test_size
-    test_pos_u, test_pos_v = u[eids[:test_size]], v[eids[:test_size]]
-    train_pos_u, train_pos_v = u[eids[test_size:]], v[eids[test_size:]]
-
-    # Find all negative edges and split them for training and testing
-    adj = sp.coo_matrix((np.ones(len(u)), (u.numpy(), v.numpy())))
-    adj_neg = 1 - adj.todense() - np.eye(g.number_of_nodes())
-    neg_u, neg_v = np.where(adj_neg != 0)
-
-    neg_eids = np.random.choice(len(neg_u), g.number_of_edges())
-    test_neg_u, test_neg_v = neg_u[neg_eids[:test_size]], neg_v[neg_eids[:test_size]]
-    train_neg_u, train_neg_v = neg_u[neg_eids[train_size:]], neg_v[neg_eids[train_size:]]
-
-    train_g = dgl.remove_edges(g, eids[:test_size])
-
-    train_pos_g = dgl.graph((train_pos_u, train_pos_v), num_nodes=g.number_of_nodes())
-    train_neg_g = dgl.graph((train_neg_u, train_neg_v), num_nodes=g.number_of_nodes())
-
-    test_pos_g = dgl.graph((test_pos_u, test_pos_v), num_nodes=g.number_of_nodes())
-    test_neg_g = dgl.graph((test_neg_u, test_neg_v), num_nodes=g.number_of_nodes())
-
-    return train_g, train_pos_g, train_neg_g, test_pos_g, test_neg_g
 
 def split_train_valid_test(g):
     u, v = g.edges()
@@ -92,7 +41,7 @@ def split_train_valid_test(g):
     neg_eids = np.random.choice(len(neg_u), g.number_of_edges())
     test_neg_u, test_neg_v = neg_u[neg_eids[:test_size]], neg_v[neg_eids[:test_size]]
     valid_neg_u, valid_neg_v = neg_u[neg_eids[test_size:test_size+valid_size]], neg_v[neg_eids[test_size:test_size+valid_size]]
-    train_neg_u, train_neg_v = neg_u[neg_eids[train_size:]], neg_v[neg_eids[train_size:]]
+    train_neg_u, train_neg_v = neg_u[neg_eids[test_size+valid_size:]], neg_v[neg_eids[test_size+valid_size:]]
 
     train_g = dgl.remove_edges(g, eids[:test_size+valid_size])
 
@@ -117,7 +66,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--dataset",
-        default="Cora",
+        default="PubMed",
         type=str,
         help="dataset to use",
         choices=[
@@ -128,7 +77,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model",
-        default="sage",
+        default="gat",
         type=str,
         help="model to use",
         choices=[
@@ -145,11 +94,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    dataset = build_dataset_from_name(args.dataset.lower())
-    dataset = to_dgl_dataset(dataset)
-    train_g, train_pos_g, train_neg_g, val_pos_g, val_neg_g, test_pos_g, test_neg_g = split_train_valid_test(dataset[0].cpu())
-
-    dataset = [[train_g, train_pos_g, train_neg_g, val_pos_g, val_neg_g, test_pos_g, test_neg_g]]
+    if args.dataset == 'Cora':
+        dataset = CoraGraphDataset()
+    elif args.dataset == 'CiteSeer':
+        dataset = CiteseerGraphDataset()
+    elif args.dataset == 'PubMed':
+        dataset = PubmedGraphDataset()
+    else:
+        assert False
 
     res = []
     for seed in tqdm(range(1234, 1234+args.repeat)):
@@ -162,27 +114,49 @@ if __name__ == "__main__":
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
+        graph = dataset[0]
+        num_features = graph.ndata['feat'].size(1)
+
         model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 
-        autoClassifier = AutoLinkPredictor(
-            feature_module=None,
-            graph_models=(args.model,),
-            ensemble_module=None,
-            max_evals=1,
-            hpo_module='random',
-            trainer_hp_space=fixed(**{
-                "max_epoch": 100,
-                "early_stopping_round": 100 + 1,
-                "lr":0.01,
-                "weight_decay": 0.0,
-            }),
-            model_hp_spaces=[{"encoder": fixed(**model_hp), "decoder": fixed(**decoder_hp)}]
+        trainer = LinkPredictionTrainer(
+            model = args.model,
+            num_features = num_features,
+            lr = 1e-2,
+            max_epoch = 100,
+            early_stopping_round = 101,
+            weight_decay = 0.0,
+            device = args.device,
+            feval = [Auc],
+            loss = "binary_cross_entropy_with_logits",
+            init = False
+        ).duplicate_from_hyper_parameter(
+            {
+                "trainer": {},
+                "encoder": model_hp,
+                "decoder": decoder_hp
+            },
+            restricted=False
         )
-        autoClassifier.fit(
-            dataset,
-            time_limit=3600,
-            evaluation_method=[Auc],
-            seed=seed,
-        )
-        auc = autoClassifier.evaluate(metric='auc')        
-        print("test auc: {:.4f}".format(auc))
+
+        gs = list(split_train_valid_test(graph))
+    
+        if args.model == 'gcn' or args.model == 'gat':
+            gs[0] = dgl.add_self_loop(gs[0])
+
+        dataset_splitted = {
+            'train': gs[0].to(args.device),
+            'train_pos': gs[1].to(args.device),
+            'train_neg': gs[2].to(args.device),
+            'val_pos': gs[3].to(args.device),
+            'val_neg': gs[4].to(args.device),
+            'test_pos': gs[5].to(args.device),
+            'test_neg': gs[6].to(args.device),
+        }
+
+        trainer.train([dataset_splitted], True)
+        pre = trainer.evaluate([dataset_splitted], mask="test", feval=Auc)
+        result = pre
+        res.append(result)
+
+    print("{:.2f} ~ {:.2f}".format(np.mean(res) * 100, np.std(res) * 100))

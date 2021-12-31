@@ -151,13 +151,3 @@ class AutoTopKMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
             self.input_dimension, dimensions
         ).to(self.device)
         return True
-
-    def get_output_dimensions(self) -> _typing.Iterable[int]:
-        _output_dimensions = [self.input_dimension]
-        _output_dimensions.extend(self.hyper_parameters["hidden"])
-        if (
-                isinstance(self.final_dimension, int) and
-                self.final_dimension > 0
-        ):
-            _output_dimensions.append(self.final_dimension)
-        return _output_dimensions

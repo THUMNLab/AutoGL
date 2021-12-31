@@ -11,6 +11,13 @@ from autogl.module.train import NodeClassificationFullTrainer, Acc
 class TrainEstimator(BaseEstimator):
     """
     An estimator which trans from scratch
+
+    Parameters
+    ----------
+    loss_f : str
+        The name of loss funciton in PyTorch
+    evaluation : list of Evaluation
+        The evaluation metrics in module/train/evaluation
     """
 
     def __init__(self, loss_f="nll_loss", evaluation=[Acc()]):

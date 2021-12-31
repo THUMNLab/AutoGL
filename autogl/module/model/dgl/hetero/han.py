@@ -151,27 +151,23 @@ class AutoHAN(BaseHeteroModelMaintainer):
     `"Heterogenous Graph Attention Network"
     <https://arxiv.org/pdf/1903.07293.pdf>`_ paper.
 
-    .. math::
-        
+
     Parameters
     ----------
-    G: ``autogl.data``
-        The Hetero Graph Data.
-    
-    meta_paths: ``List[List[str]]``
-        List of meth paths, each as a list of edge types.
-
-    num_features: ``int``
+    num_features: `int`.
         The dimension of features.
 
-    num_classes: ``int``
+    num_classes: `int`.
         The number of classes.
 
-    device: ``torch.device`` or ``str``
+    device: `torch.device` or `str`.
         The device where model will be running on.
 
     init: `bool`.
         If True(False), the model will (not) be initialized.
+
+    dataset: `autogl.datasets`.
+        Hetero Graph Dataset in autogl.
     """
     def __init__(
         self, num_features=None, num_classes=None, device=None, init=False, dataset=None, **args

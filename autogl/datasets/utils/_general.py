@@ -295,7 +295,7 @@ def graph_random_splits(
 def graph_get_split(
         dataset, mask: str = "train",
         is_loader: bool = True, batch_size: int = 128,
-        num_workers: int = 0
+        num_workers: int = 0, shuffle: bool = False
 ) -> _typing.Union[torch.utils.data.DataLoader, _typing.Iterable]:
     r"""Get train/test dataset/dataloader after cross validation.
 
@@ -313,6 +313,8 @@ def graph_get_split(
         batch_size for generating Dataloader
     num_workers : int
         number of workers parameter for data loader
+    shuffle: bool
+        whether shuffle the dataloader
     """
     if not isinstance(mask, str):
         raise TypeError
@@ -369,7 +371,8 @@ def graph_get_split(
             from dgl.dataloading.pytorch import GraphDataLoader
             return GraphDataLoader(
                 sub_dataset,
-                **{"batch_size": batch_size, "num_workers": num_workers}
+                **{"batch_size": batch_size, "num_workers": num_workers},
+                shuffle=shuffle
             )
         elif _backend.DependentBackend.is_pyg():
             _sub_dataset: _typing.Any = optional_dataset_split
@@ -380,7 +383,7 @@ def graph_get_split(
             else:
                 from torch_geometric.data import DataLoader
             return DataLoader(
-                _sub_dataset, batch_size=batch_size, num_workers=num_workers
+                _sub_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle
             )
     else:
         return sub_dataset

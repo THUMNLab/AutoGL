@@ -1,6 +1,6 @@
 from ._pyg_decoders import (
     LogSoftmaxDecoderMaintainer,
-    AddPoolMLPDecoderMaintainer,
+    SumPoolMLPDecoderMaintainer,
     DiffPoolDecoderMaintainer,
     DotProductLinkPredictonDecoderMaintainer
 )

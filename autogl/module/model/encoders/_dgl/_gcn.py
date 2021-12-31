@@ -27,7 +27,7 @@ class _GCN(torch.nn.Module):
 
     def forward(self, graph: dgl.DGLGraph, *__args, **__kwargs):
         x: torch.Tensor = graph.ndata['feat']
-        results: _typing.MutableSequence[torch.Tensor] = []
+        results: _typing.MutableSequence[torch.Tensor] = [x]
         for _layer in range(len(self.__convolution_layers)):
             x = self.__convolution_layers[_layer](graph, x)
             if _layer < len(self.__convolution_layers) - 1:

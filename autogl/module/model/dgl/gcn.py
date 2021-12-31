@@ -51,7 +51,7 @@ class GCN(torch.nn.Module):
         for i in range(self.num_layer - 2):
             self.convs.append(
                 GraphConv(
-                    self.args["hidden"][0],
+                    self.args["hidden"][i],
                     self.args["hidden"][i + 1]
                 )
             )
@@ -81,25 +81,16 @@ class GCN(torch.nn.Module):
     def cls_decode(self, x: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.log_softmax(x, dim=1)
 
-    # def lp_encode(self, data):
-    #     x: torch.Tensor = data.ndata['feat']
-    #     for i in range(len(self.convs) - 2):
-    #         x = self.convs[i](
-    #             autogl.data.Data(x, data.edges())
-    #         )
-    #     x = self.__sequential_encoding_layers[-2](
-    #         autogl.data.Data(x, data.edges()), enable_activation=False
-    #     )
-    #     return x
-
     def lp_encode(self, data):
+        # discard the last layer, only use the layer before
+
         x = data.ndata['feat']
-        for i in range(len(self.convs)):
-            if i!=0:
+        for i in range(len(self.convs) - 1):
+            if i != 0:
                 x = F.dropout(x, p=self.args["dropout"], training=self.training)
             x = self.convs[i](data, x)
 
-            if i != self.num_layer - 1:
+            if i != len(self.convs) - 2:
                 x = activate_func(x, self.args["act"])
 
         return x

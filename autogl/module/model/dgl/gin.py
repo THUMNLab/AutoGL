@@ -145,7 +145,7 @@ class GIN(torch.nn.Module):
         #    LOGGER.warn("Warning: layer size does not match the length of hidden units")
         assert self.num_layers == len(self.args["hidden"]) + 1, "Warning: layer size does not match the length of hidden units"
 
-        self.eps = self.args["eps"]
+        self.eps = True if self.args["eps"]=="True" else False
         self.num_mlp_layers = self.args["mlp_layers"]
         input_dim = self.args["features_num"]
         hidden = self.args["hidden"]
@@ -168,7 +168,7 @@ class GIN(torch.nn.Module):
         self.ginlayers = torch.nn.ModuleList()
         self.batch_norms = torch.nn.ModuleList()
 
-        for layer in range(self.num_layers - 2):
+        for layer in range(self.num_layers - 1):
             if layer == 0:
                 mlp = MLP(self.num_mlp_layers, input_dim, hidden[layer], hidden[layer])
             else:
@@ -178,28 +178,19 @@ class GIN(torch.nn.Module):
                 GINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, self.eps))
             self.batch_norms.append(nn.BatchNorm1d(hidden[layer]))
 
-
-        self.fc1 = Linear(
-            hidden[self.num_layers - 3] + self.num_graph_features,
-            hidden[self.num_layers - 2],
-        )
-        self.fc2 = Linear(
-            hidden[self.num_layers - 2], self.args["num_class"]
-        )
-
         # Linear function for graph poolings of output of each layer
         # which maps the output of different layers into a prediction score
-        # self.linears_prediction = torch.nn.ModuleList()
+        self.linears_prediction = torch.nn.ModuleList()
 
-        # for layer in range(self.num_layers):
-        #     if layer == 0:
-        #         self.linears_prediction.append(
-        #             nn.Linear(input_dim, output_dim))
-        #     else:
-        #         self.linears_prediction.append(
-        #             nn.Linear(hidden[layer], output_dim))
+        for layer in range(self.num_layers):
+            if layer == 0:
+                self.linears_prediction.append(
+                    nn.Linear(input_dim, output_dim))
+            else:
+                self.linears_prediction.append(
+                    nn.Linear(hidden[layer-1], output_dim))
 
-        # self.drop = nn.Dropout(final_dropout)
+        self.drop = nn.Dropout(final_dropout)
 
         if graph_pooling_type == 'sum':
             self.pool = SumPooling()
@@ -210,7 +201,6 @@ class GIN(torch.nn.Module):
         else:
             raise NotImplementedError
 
-    #def forward(self, g, h):
     def forward(self, data):
         x = data.ndata.pop('feat')
 
@@ -218,29 +208,20 @@ class GIN(torch.nn.Module):
             graph_feature = data.gf
 
         # list of hidden representation at each layer (including input)
-        # hidden_rep = [h]
+        hidden_rep = [x]
 
-        for i in range(self.num_layers - 2):
+        for i in range(self.num_layers - 1):
             x = self.ginlayers[i](data, x)
-            x = activate_func(x, self.args["act"])
             x = self.batch_norms[i](x)
-            # h = F.relu(h)
-            # hidden_rep.append(h)
-        if self.num_graph_features > 0:
-            x = torch.cat([x, graph_feature], dim=-1)
-        x = self.fc1(x)
-        x = activate_func(x, self.args["act"])
-        x = F.dropout(x, p=self.args["dropout"], training=self.training)
+            x = activate_func(x, self.args["act"])
+            hidden_rep.append(x)
 
-        x = self.fc2(x)
-        x = self.pool(data, x)
-        return F.log_softmax(x, dim=1)
-        # score_over_layer = 0
+        score_over_layer = 0
         # perform pooling over all nodes in each graph in every layer
-        # for i, h in enumerate(hidden_rep):
-        #     pooled_h = self.pool(g, h)
-        #     score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
-        # return score_over_layer
+        for i, h in enumerate(hidden_rep):
+            pooled_h = self.pool(data, h)
+            score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
+        return score_over_layer
 
 
 @register_model("gin-model")
@@ -320,7 +301,7 @@ class AutoGIN(BaseAutoModel):
             {
                 "parameterName": "eps",
                 "type": "CATEGORICAL",
-                "feasiblePoints": ["True", "False"],
+                "feasiblePoints": [True, False],
             },
             {
                 "parameterName": "mlp_layers",
@@ -355,6 +336,7 @@ class AutoGIN(BaseAutoModel):
 
     def _initialize(self):
         # """Initialize model."""
+
         self._model = GIN({
             "features_num": self.input_dimension,
             "num_class": self.output_dimension,

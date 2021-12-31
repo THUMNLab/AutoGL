@@ -5,23 +5,23 @@ from autogl.backend import DependentBackend
 if DependentBackend.is_pyg():
     from ._pyg import (
         LogSoftmaxDecoderMaintainer,
-        AddPoolMLPDecoderMaintainer,
+        SumPoolMLPDecoderMaintainer,
         DiffPoolDecoderMaintainer,
         DotProductLinkPredictonDecoderMaintainer
     )
 else:
     from ._dgl import (
         LogSoftmaxDecoderMaintainer,
-        AddPoolMLPDecoderMaintainer,
+        JKSumPoolDecoderMaintainer,
         TopKDecoderMaintainer,
-        DotProductLinkPredictonDecoderMaintainer
+        DotProductLinkPredictionDecoderMaintainer
     )
 
 __all__ = [
     "BaseDecoderMaintainer",
     "DecoderUniversalRegistry",
     "LogSoftmaxDecoderMaintainer",
-    "AddPoolMLPDecoderMaintainer",
+    "JKSumPoolDecoderMaintainer",
     "TopKDecoderMaintainer",
     "DiffPoolDecoderMaintainer",
     "DotProductLinkPredictonDecoderMaintainer"

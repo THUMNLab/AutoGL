@@ -22,7 +22,7 @@ class ModelUniversalRegistry:
     @classmethod
     def get_model(cls, name: str) -> _typing.Type[BaseAutoModel]:
         if type(name) != str:
-            raise TypeError
+            raise TypeError(f"Expect model type str, but get {type(name)}.")
         if name not in MODEL_DICT:
-            raise KeyError
+            raise KeyError(f"Do not support {name} model in pyg backend")
         return MODEL_DICT.get(name)
