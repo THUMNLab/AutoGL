@@ -89,13 +89,14 @@ Please make sure you meet the following requirements before installing AutoGL.
 
     You will need either PyTorch Geometric (PyG) or Deep Graph Library (DGL) as the backend. You can select a backend following [here](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_backend.html) if you install both.
 
-3.1 PyTorch Geometric (>=1.7.0)
+    3.1 PyTorch Geometric (>=1.7.0)
 
-    see <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html> for installation.
+    See <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html/> for installation.
 
-3.2 Deep Graph Library (>=0.7.0)
+    3.2 Deep Graph Library (>=0.7.0)
 
-    see <https://dgl.ai> for installation.
+    See <https://dgl.ai/> for installation.
+
 
 ### Installation
 
