@@ -19,7 +19,7 @@ The estimation strategy gives the performance of certain architectures when it i
 The simplest option is to perform a standard training and validation of the architecture on data.
 Since there are lots of architectures need estimating in the whole searching process, estimation strategy is desired to be very efficient to save computational resources.
 
-.. image:: ../resources/nas.svg
+.. image:: ../../../resources/nas.svg
    :align: center
 
 To be more flexible, we modulize NAS process with three part: algorithm, space and estimator, corresponding to the three module search space, search strategy and estimation strategy.

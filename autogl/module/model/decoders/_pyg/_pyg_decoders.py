@@ -294,6 +294,6 @@ class _DotProductLinkPredictonDecoder(torch.nn.Module):
 @decoder_registry.DecoderUniversalRegistry.register_decoder('dotproduct'.lower())
 @decoder_registry.DecoderUniversalRegistry.register_decoder('lp-decoder'.lower())
 @decoder_registry.DecoderUniversalRegistry.register_decoder('dot-product'.lower())
-class DotProductLinkPredictonDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
+class DotProductLinkPredictionDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
     def _initialize(self, *args, **kwargs):
         self._decoder = _DotProductLinkPredictonDecoder()

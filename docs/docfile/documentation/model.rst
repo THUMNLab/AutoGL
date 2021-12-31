@@ -3,5 +3,7 @@
 autogl.module.model
 -------------------
 
-.. automodule:: autogl.module.model
-    :members:
+.. toctree::
+
+    model/dgl.rst
+    model/pyg.rst

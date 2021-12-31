@@ -43,7 +43,7 @@ class _SAGE(torch.nn.Module):
 
 @encoder_registry.EncoderUniversalRegistry.register_encoder('sage')
 @encoder_registry.EncoderUniversalRegistry.register_encoder('sage_encoder')
-class SAGEMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
+class SAGEEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     def __init__(
             self,
             input_dimension: _typing.Optional[int] = ...,
@@ -51,7 +51,7 @@ class SAGEMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        super(SAGEMaintainer, self).__init__(
+        super(SAGEEncoderMaintainer, self).__init__(
             input_dimension, final_dimension, device, *args, **kwargs
         )
         self.hyper_parameter_space = [

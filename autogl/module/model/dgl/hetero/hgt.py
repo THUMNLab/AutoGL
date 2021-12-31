@@ -182,7 +182,7 @@ class AutoHGT(BaseHeteroModelMaintainer):
     r"""
     AutoHGT.
     The model used in this automodel is HGT, i.e., the graph convolutional network from the
-    `"Heterogeneous Graph Transformer" <https://arxiv.org/abs/2003.01332>`_paper.
+    `"Heterogeneous Graph Transformer" <https://arxiv.org/abs/2003.01332>`_ paper.
         
     Parameters
     ----------

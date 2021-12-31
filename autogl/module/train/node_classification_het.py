@@ -338,14 +338,17 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
     def get_valid_score(self, return_major=True):
         """
         The function of getting the valid score.
+
         Parameters
         ----------
         return_major: ``bool``.
             If True, the return only consists of the major result.
             If False, the return consists of the all results.
+
         Returns
         -------
         result: The valid score in training stage.
+
         """
         if isinstance(self.feval, list):
             if return_major:
@@ -426,6 +429,7 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
     def duplicate_from_hyper_parameter(self, hp: dict, model=None, restricted=True):
         """
         The function of duplicating a new instance from the given hyperparameter.
+        
         Parameters
         ----------
         hp: ``dict``.
@@ -433,14 +437,16 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
             with corresponding hyperparameters as values.
         model: ``autogl.module.model.BaseAutoModel``
             Currently Heterogeneous trainer doesn't support decoupled model setting.
-        If only encoder is specified, decoder will be default to "logsoftmax"
+            If only encoder is specified, decoder will be default to "logsoftmax"
 
         restricted: ``bool``.
             If False(True), the hyperparameter should (not) be updated from origin hyperparameter.
+        
         Returns
         -------
         self: ``autogl.train.NodeClassificationTrainer``
             A new instance of trainer.
+        
         """
         trainer_hp = hp["trainer"]
         model_hp = hp["encoder"]

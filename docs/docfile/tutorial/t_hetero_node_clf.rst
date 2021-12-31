@@ -1,12 +1,12 @@
 .. _hetero_node_clf:
 
 Node Classification for Heterogeneous Graph
-==============
+===========================================
 
 This tutorial introduces how to use AutoGL to automate the learning of heterogeneous graphs in Deep Graph Library (DGL).
 
 Creating a Heterogeneous Graph
--------------------
+------------------------------
 AutoGL supports datasets created in DGL. We provide two datasets named "hetero-acm-han" and "hetero-acm-hgt" for HAN and HGT models, respectively [1].
 The following code snippet is an example for loading a heterogeneous graph. 
 
@@ -33,7 +33,7 @@ You can also access to data stored in the dataset object for more details:
 You can also build your own dataset and do feature engineering by adding files in the location AutoGL/autogl/datasets/_heterogeneous_datasets/_dgl_heterogeneous_datasets.py. We suggest users create a data object of type torch_geometric.data.HeteroData refering to the official documentation of DGL.
 
 Building Heterogeneous GNN Modules
--------------------
+----------------------------------
 AutoGL integrates commonly used heterogeneous graph neural network models such as HeteroRGCN (Schlichtkrull et al., 2018) [2], HAN (Wang et al., 2019) [3] and HGT (Hu et al., 2029) [4].
 
 .. code-block:: python
@@ -78,7 +78,7 @@ Finally, evaluate the model.
 You can also define your own heterogeneous graph neural network models by adding files in the location AutoGL/autogl/module/model/dgl/hetero.
 
 Automatic Search for Node Classification Tasks
--------------------
+----------------------------------------------
 On top of the modules mentioned above, we provide a high-level API Solver to control the overall pipeline. We encapsulated the training process in the Building Heterogeneous GNN Modules part in the solver AutoHeteroNodeClassifier that supports automatic hyperparametric optimization as well as feature engineering and ensemble.
 In this part, we will show you how to use AutoHeteroNodeClassifier to automatically predict the publishing conference of a paper using the ACM academic graph dataset.
 

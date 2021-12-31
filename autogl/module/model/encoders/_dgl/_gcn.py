@@ -39,7 +39,7 @@ class _GCN(torch.nn.Module):
 
 @encoder_registry.EncoderUniversalRegistry.register_encoder('gcn')
 @encoder_registry.EncoderUniversalRegistry.register_encoder('gcn_encoder')
-class GCNMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
+class GCNEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     def __init__(
             self,
             input_dimension: _typing.Optional[int] = ...,
@@ -47,7 +47,7 @@ class GCNMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        super(GCNMaintainer, self).__init__(
+        super(GCNEncoderMaintainer, self).__init__(
             input_dimension, final_dimension, device, *args, **kwargs
         )
         self.hyper_parameter_space = [

@@ -9,7 +9,7 @@ enable users from both end benifiting the automation of graph learning.
 To specify one specific backend, you can declare the backend using environment variables
 ``AUTOGL_BACKEND``. For example:
 
-.. code-block :: cmd
+.. code-block :: shell
 
     AUTOGL_BACKEND=pyg python xxx.py
 

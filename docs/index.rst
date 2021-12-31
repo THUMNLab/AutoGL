@@ -94,6 +94,8 @@ In AutoGL, the tasks are solved by corresponding solvers, which in general do th
    :caption: Tutorial
 
    docfile/tutorial/t_quickstart
+   docfile/tutorial/t_hetero_node_clf
+   docfile/tutorial/t_homo_graph_classification_gin
    docfile/tutorial/t_backend
    docfile/tutorial/t_dataset
    docfile/tutorial/t_fe
