@@ -167,7 +167,7 @@ def main(args):
                 device=device,
             ).from_hyper_parameter({
                 "num_layers": 5,
-                "hidden": [64],
+                "hidden": [64,64,64,64],
                 "dropout": 0.5
             }).model
 
