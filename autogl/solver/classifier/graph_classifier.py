@@ -129,6 +129,8 @@ class AutoGraphClassifier(BaseClassifier):
                     else self._default_trainer[i]
                 )
                 if isinstance(trainer, str):
+                    if trainer not in TRAINER_DICT:
+                        raise KeyError(f"Does not support trainer {trainer}")
                     trainer = TRAINER_DICT[trainer]()
                 if isinstance(model, (tuple, list)):
                     trainer.encoder = model[0]
@@ -224,7 +226,7 @@ class AutoGraphClassifier(BaseClassifier):
 
         set_seed(seed)
 
-        num_classes = max(get_dataset_labels(dataset)) + 1
+        num_classes = get_dataset_labels(dataset).max().item() + 1
 
         if time_limit < 0:
             time_limit = 3600 * 24

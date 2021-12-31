@@ -52,8 +52,6 @@ class GAT(torch.nn.Module):
     def forward(
             self, graph: dgl.DGLGraph, *__args, **__kwargs
     ) -> _typing.Iterable[torch.Tensor]:
-        graph = dgl.remove_self_loop(graph)
-        graph = dgl.add_self_loop(graph)
         num_layers = len(self.__convolutions)
         x: torch.Tensor = graph.ndata['feat']
         results = [x]
@@ -75,13 +73,10 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     r"""
     AutoGAT. The model used in this automodel is GAT, i.e., the graph attentional network from the `"Graph Attention Networks"
     <https://arxiv.org/abs/1710.10903>`_ paper. The layer is
-
     .. math::
         \mathbf{x}^{\prime}_i = \alpha_{i,i}\mathbf{\Theta}\mathbf{x}_{i} +
         \sum_{j \in \mathcal{N}(i)} \alpha_{i,j}\mathbf{\Theta}\mathbf{x}_{j}
-
     where the attention coefficients :math:`\alpha_{i,j}` are computed as
-
     .. math::
         \alpha_{i,j} =
         \frac{
@@ -92,18 +87,14 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
         \exp\left(\mathrm{LeakyReLU}\left(\mathbf{a}^{\top}
         [\mathbf{\Theta}\mathbf{x}_i \, \Vert \, \mathbf{\Theta}\mathbf{x}_k]
         \right)\right)}.
-
     Parameters
     ----------
     input_dimension: `Optional[int]`
         The dimension of input features.
-
     final_dimension: `Optional[int]`
         The dimension of final features.
-
     device: `torch.device` or `str` or `int`
         The device where model will be running on.
-
     kwargs:
         Other parameters.
     """
@@ -169,11 +160,15 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
                 self.final_dimension > 0
         ):
             temp.append(self.final_dimension)
-        return GATUtils.to_total_hidden_dimensions(
-            temp,
-            self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
-            self.hyper_parameters.get("num_output_heads", 1)
+        output_dimensions = [self.input_dimension]
+        output_dimensions.extend(
+            GATUtils.to_total_hidden_dimensions(
+                temp,
+                self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
+                self.hyper_parameters.get("num_output_heads", 1)
+            )
         )
+        return output_dimensions
 
     def _initialize(self) -> _typing.Optional[bool]:
         dimensions = list(self.hyper_parameters["hidden"])

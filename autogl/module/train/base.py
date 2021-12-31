@@ -85,7 +85,7 @@ class EarlyStopping:
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(val_loss, model)
-        elif score < self.best_score + self.delta:
+        elif score <= self.best_score + self.delta:
             self.counter += 1
             if self.verbose is True:
                 self.trace_func(
@@ -564,8 +564,7 @@ class BaseGraphClassificationTrainer(_BaseClassificationTrainer):
             self.encoder.output_dimension = num_classes
         elif isinstance(self.decoder, BaseDecoderMaintainer):
             self.decoder.output_dimension = num_classes
-        self.last_dim = num_classes
-    
+
     @property
     def num_graph_features(self):
         return self._num_graph_features

@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    dataset = build_dataset_from_name('cora')
+    dataset = build_dataset_from_name(args.dataset)
     label = dataset[0].nodes.data["y" if DependentBackend.is_pyg() else "label"][dataset[0].nodes.data["test_mask"]].cpu().numpy()
     solver = AutoNodeClassifier.from_config(args.config)
     solver.fit(dataset)

@@ -26,13 +26,13 @@ class LogSoftmaxDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
         return True
 
 
-class _AddPoolMLPDecoder(torch.nn.Module):
+class _SumPoolMLPDecoder(torch.nn.Module):
     def __init__(
             self, _final_dimension: int, hidden_dimension: int, output_dimension: int,
             _act: _typing.Optional[str], _dropout: _typing.Optional[float],
             num_graph_features: _typing.Optional[int]
     ):
-        super(_AddPoolMLPDecoder, self).__init__()
+        super(_SumPoolMLPDecoder, self).__init__()
         if (
                 isinstance(num_graph_features, int)
                 and num_graph_features > 0
@@ -82,10 +82,10 @@ class _AddPoolMLPDecoder(torch.nn.Module):
         return torch.nn.functional.log_softmax(feature, dim=-1)
 
 
-@decoder_registry.DecoderUniversalRegistry.register_decoder('AddPoolMLP'.lower())
-@decoder_registry.DecoderUniversalRegistry.register_decoder('AddPoolMLPDecoder'.lower())
-@decoder_registry.DecoderUniversalRegistry.register_decoder('AddPoolMLP_Decoder'.lower())
-class AddPoolMLPDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
+@decoder_registry.DecoderUniversalRegistry.register_decoder('SumPoolMLP'.lower())
+@decoder_registry.DecoderUniversalRegistry.register_decoder('SumPoolMLPDecoder'.lower())
+@decoder_registry.DecoderUniversalRegistry.register_decoder('SumPoolMLP_Decoder'.lower())
+class SumPoolMLPDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
     def _initialize(self, encoder: base_encoder.AutoHomogeneousEncoderMaintainer, *args, **kwargs) -> _typing.Optional[bool]:
         if (
                 isinstance(getattr(self, "num_graph_features"), int) and
@@ -94,7 +94,7 @@ class AddPoolMLPDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
             num_graph_features: _typing.Optional[int] = getattr(self, "num_graph_features")
         else:
             num_graph_features: _typing.Optional[int] = None
-        self._decoder = _AddPoolMLPDecoder(
+        self._decoder = _SumPoolMLPDecoder(
             tuple(encoder.get_output_dimensions())[-1],
             self.hyper_parameters['hidden'], self.output_dimension,
             self.hyper_parameters['act'], self.hyper_parameters['dropout'],
@@ -107,7 +107,7 @@ class AddPoolMLPDecoderMaintainer(base_decoder.BaseDecoderMaintainer):
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        super(AddPoolMLPDecoderMaintainer, self).__init__(
+        super(SumPoolMLPDecoderMaintainer, self).__init__(
             output_dimension, device, *args, **kwargs
         )
         self.num_graph_features = kwargs.get("num_graph_features", 0)

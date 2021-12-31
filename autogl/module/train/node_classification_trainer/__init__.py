@@ -1,14 +1,15 @@
 from ....backend import DependentBackend
 
 if DependentBackend.is_pyg():
-    from .node_classification_sampled_trainer import *
+    from .node_classification_sampled_trainer import (
+        NodeClassificationGraphSAINTTrainer,
+        NodeClassificationLayerDependentImportanceSamplingTrainer,
+        NodeClassificationNeighborSamplingTrainer
+    )
+    __all__ = [
+        "NodeClassificationGraphSAINTTrainer",
+        "NodeClassificationLayerDependentImportanceSamplingTrainer",
+        "NodeClassificationNeighborSamplingTrainer"
+    ]
 else:
-    NodeClassificationGraphSAINTTrainer = None
-    NodeClassificationLayerDependentImportanceSamplingTrainer = None
-    NodeClassificationNeighborSamplingTrainer = None
-    pass
-
-
-
-
-
+    __all__ = []

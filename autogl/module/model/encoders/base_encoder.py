@@ -89,7 +89,8 @@ class AutoHomogeneousEncoderMaintainer(BaseEncoderMaintainer):
     def get_output_dimensions(self) -> _typing.Iterable[int]:
         """"""
         ''' Note that this is a default implicit assumption '''
-        _output_dimensions = list(self.hyper_parameters["hidden"])
+        _output_dimensions = [self._input_dimension]
+        _output_dimensions.extend(self.hyper_parameters["hidden"])
         if (
                 isinstance(self.final_dimension, int) and
                 self.final_dimension > 0

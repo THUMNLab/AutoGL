@@ -27,6 +27,7 @@ from autogl.module.nas.space.single_path import SinglePathNodeClassificationSpac
 from autogl.module.nas.space.graph_nas import GraphNasNodeClassificationSpace
 from autogl.module.nas.space.graph_nas_macro import GraphNasMacroNodeClassificationSpace
 from autogl.module.nas.estimator.one_shot import OneShotEstimator
+from autogl.module.nas.space.autoattend import AutoAttendNodeClassificationSpace
 from autogl.module.nas.backend import bk_feat, bk_label
 from autogl.module.nas.algorithm import Darts, RL, GraphNasRL, Enas, RandomSearch,Spos
 import numpy as np
@@ -103,12 +104,37 @@ if __name__ == "__main__":
     space = GraphNasNodeClassificationSpace().cuda()
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
-    algo = RandomSearch(num_epochs=10)
+    algo = RandomSearch(num_epochs=100)
     model = algo.search(space, dataset, esti)
     test_model(model, data, True)
 
-    print("Random search + singlepath ")
-    space = SinglePathNodeClassificationSpace().cuda()
+    print("Random search + AutoAttend ")
+    space = AutoAttendNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di, output_dim=do)
+    esti = OneShotEstimator()
+    algo = RandomSearch(num_epochs=10)
+    model = algo.search(space, dataset, esti)
+    print(model)
+    test_model(model, data, True)
+
+    print("rl + AutoAttend ")
+    space = AutoAttendNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di, output_dim=do)
+    esti = OneShotEstimator()
+    algo = RL(num_epochs=10)
+    model = algo.search(space, dataset, esti)
+    test_model(model, data, True)
+
+    print("darts + graphnas ")
+    space = AutoAttendNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di, output_dim=do)
+    esti = OneShotEstimator()
+    algo = Darts(num_epochs=10)
+    model = algo.search(space, dataset, esti)
+    test_model(model, data, True)
+
+    print("Random search + graphnas ")
+    space = GraphNasNodeClassificationSpace().cuda()
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
     algo = RandomSearch(num_epochs=10)
@@ -128,14 +154,6 @@ if __name__ == "__main__":
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
     algo = GraphNasRL(num_epochs=10)
-    model = algo.search(space, dataset, esti)
-    test_model(model, data, True)
-
-    print("enas + graphnas ")
-    space = GraphNasNodeClassificationSpace().cuda()
-    space.instantiate(input_dim=di, output_dim=do)
-    esti = OneShotEstimator()
-    algo = Enas(num_epochs=10)
     model = algo.search(space, dataset, esti)
     test_model(model, data, True)
 

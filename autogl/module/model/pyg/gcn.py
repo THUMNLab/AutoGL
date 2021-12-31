@@ -157,6 +157,14 @@ class GCN(ClassificationSupportedSequentialModel):
                             dropout_list[hidden_feature_index + 1],
                         )
                     )
+                    # print((
+                    #         hidden_features[hidden_feature_index],
+                    #         hidden_features[hidden_feature_index + 1],
+                    #         add_self_loops,
+                    #         normalize,
+                    #         activation_name,
+                    #         dropout_list[hidden_feature_index + 1],
+                    #     ))
                 else:
                     self.__sequential_encoding_layers.append(
                         self._GCNLayer(
@@ -167,6 +175,13 @@ class GCN(ClassificationSupportedSequentialModel):
                             dropout_list[-1],
                         )
                     )
+                    # print((
+                    #         hidden_features[hidden_feature_index],
+                    #         num_classes,
+                    #         add_self_loops,
+                    #         normalize,
+                    #         dropout_list[-1],
+                    #     ))
 
     @property
     def sequential_encoding_layers(self) -> torch.nn.ModuleList:
@@ -272,6 +287,11 @@ class GCN(ClassificationSupportedSequentialModel):
             x = self.__sequential_encoding_layers[i](
                 autogl.data.Data(x, getattr(data, "edge_index"))
             )
+        # _GCNLayer(
+        #     (_convolution): GCNConv(1433, 128)
+        #     (_dropout): Dropout(p=0.0, inplace=False)
+        #     )
+        # print(self.__sequential_encoding_layers)
         x = self.__sequential_encoding_layers[-2](
             autogl.data.Data(x, getattr(data, "edge_index")), enable_activation=False
         )
@@ -385,3 +405,11 @@ class AutoGCN(BaseAutoModel):
             bool(self.hyper_parameters.get("add_self_loops", True)),
             bool(self.hyper_parameters.get("normalize", True)),
         ).to(self.device)
+        # print((
+        #     self.input_dimension,
+        #     self.output_dimension,
+        #     self.hyper_parameters.get("hidden"),
+        #     self.hyper_parameters.get("act"),
+        #     self.hyper_parameters.get("dropout", None),
+        #     bool(self.hyper_parameters.get("add_self_loops", True)),
+        #     bool(self.hyper_parameters.get("normalize", True))))

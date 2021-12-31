@@ -3,6 +3,7 @@ Performance check of AutoGL model + DGL (trainer + dataset)
 """
 import numpy as np
 from tqdm import tqdm
+import pickle
 
 import torch
 import torch.nn.functional as F
@@ -36,9 +37,9 @@ def train(model, graph, args, label, train_mask, val_mask):
         val_acc = test(model, graph, val_mask, label)
         if val_acc > best_acc:
             best_acc = val_acc
-            parameters = model.state_dict()
-    
-    model.load_state_dict(parameters)
+            parameters = pickle.dumps(model.state_dict())
+            
+    model.load_state_dict(pickle.loads(parameters))
     return model
 
 
@@ -49,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--dataset', type=str, choices=['Cora', 'CiteSeer', 'PubMed'], default='Cora')
     parser.add_argument('--repeat', type=int, default=50)
-    parser.add_argument('--model', type=str, choices=['gat-model', 'gcn-model', 'sage-model'], default='gat-model')
+    parser.add_argument('--model', type=str, choices=['gat', 'gcn', 'sage'], default='gat')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.0)
     parser.add_argument('--epoch', type=int, default=200)
@@ -79,10 +80,10 @@ if __name__ == '__main__':
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
 
-        if args.model == 'gat-model':
+        if args.model == 'gat':
             model = AutoGAT(
-                num_features=num_features,
-                num_classes=num_classes,
+                input_dimension=num_features,
+                output_dimension=num_classes,
                 device=args.device
             ).from_hyper_parameter({
                 # hp from model
@@ -93,10 +94,10 @@ if __name__ == '__main__':
                 "dropout": 0.6,
                 "act": "relu",
             }).model
-        elif args.model == 'gcn-model':
+        elif args.model == 'gcn':
             model = AutoGCN(
-                num_features=num_features,
-                num_classes=num_classes,
+                input_dimension=num_features,
+                output_dimension=num_classes,
                 device=args.device
             ).from_hyper_parameter({
                 "num_layers": 2,
@@ -104,10 +105,10 @@ if __name__ == '__main__':
                 "dropout": 0.5,
                 "act": "relu"
             }).model
-        elif args.model == 'sage-model':
+        elif args.model == 'sage':
             model = AutoSAGE(
-                num_features=num_features,
-                num_classes=num_classes,
+                input_dimension=num_features,
+                output_dimension=num_classes,
                 device=args.device
             ).from_hyper_parameter({
                 "num_layers": 2,

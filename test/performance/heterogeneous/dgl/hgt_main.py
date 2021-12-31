@@ -5,7 +5,6 @@ import os
 os.environ["AUTOGL_BACKEND"] = "dgl"
 import numpy as np
 from tqdm import tqdm
-
 import torch
 import torch.nn.functional as F
 from autogl.module.model.dgl import AutoHGT, AutoHeteroRGCN

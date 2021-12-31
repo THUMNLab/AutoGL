@@ -220,7 +220,7 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
         else:
             scheduler = None
 
-        for epoch in range(1, self.max_epoch):
+        for epoch in range(1, self.max_epoch + 1):
             model.train()
             optimizer.zero_grad()
             res = model(data)
@@ -261,7 +261,9 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                     LOGGER.debug("Early stopping at %d", epoch)
                     break
 
-        if hasattr(data, "val_mask") and data.val_mask is not None:
+        if self.pyg_dgl == "pyg" and hasattr(data, "val_mask") and data.val_mask is not None:
+            self.early_stopping.load_checkpoint(model)
+        elif self.pyg_dgl == 'dgl' and data.ndata.get('val_mask', None) is not None:
             self.early_stopping.load_checkpoint(model)
 
     @torch.no_grad()

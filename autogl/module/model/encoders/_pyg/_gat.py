@@ -59,7 +59,7 @@ class _GAT(torch.nn.Module):
             edge_weight: _typing.Optional[torch.Tensor] = data.edge_weight
         else:
             edge_weight: _typing.Optional[torch.Tensor] = None
-        results: _typing.MutableSequence[torch.Tensor] = []
+        results: _typing.MutableSequence[torch.Tensor] = [x]
         for layer, _gat in enumerate(self.__convolution_layers):
             x: torch.Tensor = torch.nn.functional.dropout(
                 x, self._dropout, self.training
@@ -105,11 +105,15 @@ class GATEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
                 self.final_dimension > 0
         ):
             temp.append(self.final_dimension)
-        return GATUtils.to_total_hidden_dimensions(
-            temp,
-            self.hyper_parameters['num_hidden_heads'],
-            self.hyper_parameters['num_output_heads']
+        output_dimensions = [self.input_dimension]
+        output_dimensions.extend(
+            GATUtils.to_total_hidden_dimensions(
+                temp,
+                self.hyper_parameters.get("num_hidden_heads", self.hyper_parameters["heads"]),
+                self.hyper_parameters.get("num_output_heads", 1)
+            )
         )
+        return output_dimensions
 
     def __init__(
             self,

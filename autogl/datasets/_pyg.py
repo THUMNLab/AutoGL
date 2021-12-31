@@ -292,6 +292,10 @@ class ENZYMESDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("imdb-b")
+@DatasetUniversalRegistry.register_dataset("imdb-binary")
+@DatasetUniversalRegistry.register_dataset("IMDBb".upper())
+@DatasetUniversalRegistry.register_dataset("IMDBBinary".upper())
+@DatasetUniversalRegistry.register_dataset("IMDBBinary")
 class IMDBBinaryDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         pyg_dataset = TUDataset(os.path.join(path, '_pyg'), "IMDB-BINARY")
@@ -310,6 +314,10 @@ class IMDBBinaryDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("imdb-m")
+@DatasetUniversalRegistry.register_dataset("imdb-multi")
+@DatasetUniversalRegistry.register_dataset("IMDBm".upper())
+@DatasetUniversalRegistry.register_dataset("IMDBMulti".upper())
+@DatasetUniversalRegistry.register_dataset("IMDBMulti")
 class IMDBMultiDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         pyg_dataset = TUDataset(os.path.join(path, '_pyg'), "IMDB-MULTI")
@@ -328,6 +336,9 @@ class IMDBMultiDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("reddit-b")
+@DatasetUniversalRegistry.register_dataset("reddit-binary")
+@DatasetUniversalRegistry.register_dataset("RedditB".upper())
+@DatasetUniversalRegistry.register_dataset("RedditBinary".upper())
 class RedditBinaryDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         pyg_dataset = TUDataset(os.path.join(path, '_pyg'), "REDDIT-BINARY")
@@ -346,6 +357,7 @@ class RedditBinaryDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("reddit-multi-5k")
+@DatasetUniversalRegistry.register_dataset("RedditMulti5K".upper())
 class REDDITMulti5KDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         pyg_dataset = TUDataset(os.path.join(path, '_pyg'), "REDDIT-MULTI-5K")
@@ -364,6 +376,7 @@ class REDDITMulti5KDataset(InMemoryStaticGraphSet):
 
 
 @DatasetUniversalRegistry.register_dataset("reddit-multi-12k")
+@DatasetUniversalRegistry.register_dataset("RedditMulti12K".upper())
 class REDDITMulti12KDataset(InMemoryStaticGraphSet):
     def __init__(self, path: str):
         pyg_dataset = TUDataset(os.path.join(path, '_pyg'), "REDDIT-MULTI-12K")

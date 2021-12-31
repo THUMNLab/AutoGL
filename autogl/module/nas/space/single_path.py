@@ -90,4 +90,4 @@ class SinglePathNodeClassificationSpace(BaseSpace):
 
     def parse_model(self, selection, device) -> BaseAutoModel:
         # return AutoGCN(self.input_dim, self.output_dim, device)
-        return self.wrap(device).fix(selection)
+        return self.wrap().fix(selection)

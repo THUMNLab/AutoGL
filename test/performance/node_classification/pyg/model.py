@@ -2,7 +2,7 @@
 Performance check of AutoGL model + PYG (trainer + dataset)
 """
 import os
-import random
+import pickle
 import numpy as np
 from tqdm import tqdm
 
@@ -15,6 +15,7 @@ import torch_geometric.transforms as T
 from autogl.module.model.pyg import AutoGCN, AutoGAT, AutoSAGE
 from autogl.datasets import utils
 from autogl.solver.utils import set_seed
+from helper import get_encoder_decoder_hp
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -49,9 +50,9 @@ def train(model, data, args):
         val_acc = test(model, data, data.val_mask)
         if val_acc > best_acc:
             best_acc = val_acc
-            parameters = model.state_dict()
-    
-    model.load_state_dict(parameters)
+            parameters = pickle.dumps(model.state_dict())
+            
+    model.load_state_dict(pickle.loads(parameters))
     return model
 
 if __name__ == '__main__':
@@ -74,6 +75,8 @@ if __name__ == '__main__':
 
     accs = []
 
+    model_hp, _ = get_encoder_decoder_hp(args.model)
+
     for seed in tqdm(range(args.repeat)):
         set_seed(seed)
 
@@ -83,39 +86,21 @@ if __name__ == '__main__':
                 num_classes=dataset.num_classes,
                 device=args.device,
                 init=False
-            ).from_hyper_parameter({
-                # hp from model
-                "num_layers": 2,
-                "hidden": [8],
-                "heads": 8,
-                "dropout": 0.6,
-                "act": "elu",
-            }).model
+            ).from_hyper_parameter(model_hp).model
         elif args.model == 'gcn':
             model = AutoGCN(
                 num_features=dataset.num_node_features,
                 num_classes=dataset.num_classes,
                 device=args.device,
                 init=False
-            ).from_hyper_parameter({
-                "num_layers": 2,
-                "hidden": [16],
-                "dropout": 0.5,
-                "act": "relu"
-            }).model
+            ).from_hyper_parameter(model_hp).model
         elif args.model == 'sage':
             model = AutoSAGE(
                 num_features=dataset.num_node_features,
                 num_classes=dataset.num_classes,
                 device=args.device,
                 init=False
-            ).from_hyper_parameter({
-                "num_layers": 2,
-                "hidden": [64],
-                "dropout": 0.5,
-                "act": "relu",
-                "agg": "mean",
-            }).model
+            ).from_hyper_parameter(model_hp).model
         
         model.to(args.device)
 

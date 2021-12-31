@@ -14,8 +14,6 @@ class DecoderUniversalRegistry(universal_registry.UniversalRegistryBase):
         ) -> _typing.Type[base_decoder.BaseDecoderMaintainer]:
             if not issubclass(_decoder, base_decoder.BaseDecoderMaintainer):
                 raise TypeError
-            elif name in cls:
-                raise ValueError
             else:
                 cls[name] = _decoder
                 return _decoder

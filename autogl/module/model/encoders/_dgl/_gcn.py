@@ -26,10 +26,8 @@ class _GCN(torch.nn.Module):
         self._dropout: _typing.Optional[float] = dropout
 
     def forward(self, graph: dgl.DGLGraph, *__args, **__kwargs):
-        graph = dgl.remove_self_loop(graph)
-        graph = dgl.add_self_loop(graph)
         x: torch.Tensor = graph.ndata['feat']
-        results: _typing.MutableSequence[torch.Tensor] = []
+        results: _typing.MutableSequence[torch.Tensor] = [x]
         for _layer in range(len(self.__convolution_layers)):
             x = self.__convolution_layers[_layer](graph, x)
             if _layer < len(self.__convolution_layers) - 1:
