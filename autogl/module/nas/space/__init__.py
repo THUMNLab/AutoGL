@@ -22,10 +22,10 @@ def register_nas_space(name):
 from .graph_nas_macro import GraphNasMacroNodeClassificationSpace
 from .graph_nas import GraphNasNodeClassificationSpace
 from .single_path import SinglePathNodeClassificationSpace
-from .autoattend import AutoAttendNodeClassificationSpace
 from ..backend import *
 if not is_dgl():
     from .gasso import GassoSpace
+    from .autoattend import AutoAttendNodeClassificationSpace
 
 def build_nas_space_from_name(name: str) -> BaseSpace:
     """
@@ -53,8 +53,9 @@ __all__ = [
     "GraphNasMacroNodeClassificationSpace",
     "GraphNasNodeClassificationSpace",
     "SinglePathNodeClassificationSpace",
-    "AutoAttendNodeClassificationSpace",
 ]
 
 if not is_dgl():
     __all__.append("GassoSpace")
+    __all__.append("AutoAttendNodeClassificationSpace")
+
