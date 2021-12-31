@@ -11,10 +11,10 @@ if DependentBackend.is_pyg():
     )
 else:
     from ._dgl import (
-        GCNMaintainer as GCNEncoderMaintainer,
-        GATMaintainer as GATEncoderMaintainer,
+        GCNEncoderMaintainer,
+        GATEncoderMaintainer,
         GINEncoderMaintainer,
-        SAGEMaintainer as SAGEEncoderMaintainer,
+        SAGEEncoderMaintainer,
         AutoTopKMaintainer
     )
 
@@ -26,5 +26,7 @@ __all__ = [
     "GATEncoderMaintainer",
     "GINEncoderMaintainer",
     "SAGEEncoderMaintainer",
-    "AutoTopKMaintainer"
 ]
+
+if DependentBackend.is_dgl():
+    __all__.append("AutoTopKMaintainer")

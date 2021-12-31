@@ -10,7 +10,7 @@ import random
 from torch_geometric.datasets import Planetoid
 from torch_geometric.data import Data
 from autogl.module.model.encoders import GCNEncoderMaintainer, GATEncoderMaintainer, SAGEEncoderMaintainer
-from autogl.module.model.decoders import DotProductLinkPredictonDecoderMaintainer
+from autogl.module.model.decoders import DotProductLinkPredictionDecoderMaintainer
 import torch_geometric.transforms as T
 from torch_geometric.utils import train_test_split_edges
 from torch_geometric.utils import negative_sampling
@@ -26,7 +26,7 @@ class DummyModel(torch.nn.Module):
         self.encoder = encoder
         self.decoder = decoder
         if self.decoder is None:
-            self.decoder = DotProductLinkPredictonDecoderMaintainer()
+            self.decoder = DotProductLinkPredictionDecoderMaintainer()
             self.decoder.initialize()
             self.decoder = self.decoder.decoder
     

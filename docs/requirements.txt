@@ -13,11 +13,5 @@ requests
 scikit-learn
 scipy
 tabulate
-# https://download.pytorch.org/whl/lts/1.8/cpu/torch-1.8.1%2Bcpu-cp36-cp36m-linux_x86_64.whl
-# https://pytorch-geometric.com/whl/torch-1.8.0+cpu/torch_cluster-1.5.9-cp36-cp36m-linux_x86_64.whl
-# https://pytorch-geometric.com/whl/torch-1.8.0+cpu/torch_scatter-2.0.6-cp36-cp36m-linux_x86_64.whl
-# https://pytorch-geometric.com/whl/torch-1.8.0+cpu/torch_sparse-0.6.10-cp36-cp36m-linux_x86_64.whl
-# https://pytorch-geometric.com/whl/torch-1.8.0+cpu/torch_spline_conv-1.2.1-cp36-cp36m-linux_x86_64.whl
-# torch-geometric
 tqdm
 nni

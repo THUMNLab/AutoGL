@@ -38,6 +38,8 @@ if _backend.DependentBackend.is_dgl():
         PTCMRDataset,
         NCI1Dataset
     )
+    from ._heterogeneous_datasets import ACMHANDataset, ACMHGTDataset
+
 elif _backend.DependentBackend.is_pyg():
     from ._pyg import (
         CoraDataset,
@@ -68,4 +70,91 @@ elif _backend.DependentBackend.is_pyg():
         ModelNet40TrainingDataset,
         ModelNet40TestDataset
     )
-from ._heterogeneous_datasets import *
+
+if _backend.DependentBackend.is_pyg():
+    __all__ = [
+        "CoraDataset",
+        "CiteSeerDataset",
+        "PubMedDataset",
+        "FlickrDataset",
+        "RedditDataset",
+        "AmazonComputersDataset",
+        "AmazonPhotoDataset",
+        "CoauthorPhysicsDataset",
+        "CoauthorCSDataset",
+        "PPIDataset",
+        "QM9Dataset",
+        "MUTAGDataset",
+        "ENZYMESDataset",
+        "IMDBBinaryDataset",
+        "IMDBMultiDataset",
+        "RedditBinaryDataset",
+        "REDDITMulti5KDataset",
+        "REDDITMulti12KDataset",
+        "COLLABDataset",
+        "ProteinsDataset",
+        "PTCMRDataset",
+        "NCI1Dataset",
+        "NCI109Dataset",
+        "ModelNet10TrainingDataset",
+        "ModelNet10TestDataset",
+        "ModelNet40TrainingDataset",
+        "ModelNet40TestDataset",
+        "OGBNProductsDataset",
+        "OGBNProteinsDataset",
+        "OGBNArxivDataset",
+        "OGBNPapers100MDataset",
+        "OGBLPPADataset",
+        "OGBLCOLLABDataset",
+        "OGBLDDIDataset",
+        "OGBLCitation2Dataset",
+        "OGBGMOLHIVDataset",
+        "OGBGMOLPCBADataset",
+        "OGBGPPADataset",
+        "OGBGCode2Dataset",
+        "GTNACMDataset",
+        "GTNDBLPDataset",
+        "GTNIMDBDataset",
+        "BlogCatalogDataset",
+        "WIKIPEDIADataset"
+    ]
+else:
+    __all__ = [
+        "CoraDataset",
+        "CiteSeerDataset",
+        "PubMedDataset",
+        "RedditDataset",
+        "AmazonComputersDataset",
+        "AmazonPhotoDataset",
+        "CoauthorPhysicsDataset",
+        "CoauthorCSDataset",
+        "MUTAGDataset",
+        "ENZYMESDataset",
+        "IMDBBinaryDataset",
+        "IMDBMultiDataset",
+        "RedditBinaryDataset",
+        "REDDITMulti5KDataset",
+        "COLLABDataset",
+        "ProteinsDataset",
+        "PTCMRDataset",
+        "NCI1Dataset",
+        "ACMHANDataset",
+        "ACMHGTDataset",
+        "OGBNProductsDataset",
+        "OGBNProteinsDataset",
+        "OGBNArxivDataset",
+        "OGBNPapers100MDataset",
+        "OGBLPPADataset",
+        "OGBLCOLLABDataset",
+        "OGBLDDIDataset",
+        "OGBLCitation2Dataset",
+        "OGBGMOLHIVDataset",
+        "OGBGMOLPCBADataset",
+        "OGBGPPADataset",
+        "OGBGCode2Dataset",
+        "GTNACMDataset",
+        "GTNDBLPDataset",
+        "GTNIMDBDataset",
+        "BlogCatalogDataset",
+        "WIKIPEDIADataset"
+    ]

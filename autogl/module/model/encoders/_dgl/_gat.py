@@ -69,14 +69,16 @@ class GAT(torch.nn.Module):
 
 @encoder_registry.EncoderUniversalRegistry.register_encoder('gat')
 @encoder_registry.EncoderUniversalRegistry.register_encoder('gat_encoder')
-class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
+class GATEncoderMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
     r"""
     AutoGAT. The model used in this automodel is GAT, i.e., the graph attentional network from the `"Graph Attention Networks"
     <https://arxiv.org/abs/1710.10903>`_ paper. The layer is
+
     .. math::
         \mathbf{x}^{\prime}_i = \alpha_{i,i}\mathbf{\Theta}\mathbf{x}_{i} +
         \sum_{j \in \mathcal{N}(i)} \alpha_{i,j}\mathbf{\Theta}\mathbf{x}_{j}
     where the attention coefficients :math:`\alpha_{i,j}` are computed as
+    
     .. math::
         \alpha_{i,j} =
         \frac{
@@ -87,6 +89,7 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
         \exp\left(\mathrm{LeakyReLU}\left(\mathbf{a}^{\top}
         [\mathbf{\Theta}\mathbf{x}_i \, \Vert \, \mathbf{\Theta}\mathbf{x}_k]
         \right)\right)}.
+    
     Parameters
     ----------
     input_dimension: `Optional[int]`
@@ -106,7 +109,7 @@ class GATMaintainer(base_encoder.AutoHomogeneousEncoderMaintainer):
             device: _typing.Union[torch.device, str, int, None] = ...,
             *args, **kwargs
     ):
-        super(GATMaintainer, self).__init__(
+        super(GATEncoderMaintainer, self).__init__(
             input_dimension, final_dimension, device, *args, **kwargs
         )
         self.hyper_parameters: _typing.Mapping[str, _typing.Any] = {

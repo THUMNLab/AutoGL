@@ -39,24 +39,49 @@ def score(logits, labels):
 @register_trainer("NodeClassificationHet")
 class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
     """
-    The node classification trainer.
-    Used to automatically train the node classification problem.
+    The heterogeneous node classification trainer.
+
     Parameters
     ----------
-    model: ``BaseAutoModel`` or ``str``
-        The (name of) model used to train and predict.
+    model: ``autogl.module.model.BaseAutoModel``
+        Currently Heterogeneous trainer doesn't support decoupled model setting.
+
+    num_features: ``int`` (Optional)
+        The number of features in dataset. default None
+    
+    num_classes: ``int`` (Optional)
+        The number of classes. default None
+
     optimizer: ``Optimizer`` of ``str``
-        The (name of) optimizer used to train and predict.
+        The (name of) optimizer used to train and predict. default torch.optim.Adam
+
     lr: ``float``
-        The learning rate of node classification task.
+        The learning rate of node classification task. default 1e-4
+
     max_epoch: ``int``
-        The max number of epochs in training.
+        The max number of epochs in training. default 100
+
     early_stopping_round: ``int``
-        The round of early stop.
+        The round of early stop. default 100
+
+    weight_decay: ``float``
+        weight decay ratio, default 1e-4
+
     device: ``torch.device`` or ``str``
         The device where model will be running on.
+
     init: ``bool``
         If True(False), the model will (not) be initialized.
+
+    feval: (Sequence of) ``Evaluation`` or ``str``
+        The evaluation functions, default ``[LogLoss]``
+    
+    loss: ``str``
+        The loss used. Default ``nll_loss``.
+
+    lr_scheduler_type: ``str`` (Optional)
+        The lr scheduler type used. Default None.
+
     """
 
     def __init__(
@@ -163,6 +188,9 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
 
     @classmethod
     def get_task_name(cls):
+        """
+        Get task name ("NodeClassificationHet")
+        """
         return "NodeClassificationHet"
 
     def _train_only(self, dataset, train_mask="train"):
@@ -310,14 +338,17 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
     def get_valid_score(self, return_major=True):
         """
         The function of getting the valid score.
+
         Parameters
         ----------
         return_major: ``bool``.
             If True, the return only consists of the major result.
             If False, the return consists of the all results.
+
         Returns
         -------
         result: The valid score in training stage.
+
         """
         if isinstance(self.feval, list):
             if return_major:
@@ -398,17 +429,24 @@ class NodeClassificationHetTrainer(BaseNodeClassificationHetTrainer):
     def duplicate_from_hyper_parameter(self, hp: dict, model=None, restricted=True):
         """
         The function of duplicating a new instance from the given hyperparameter.
+        
         Parameters
         ----------
         hp: ``dict``.
-            The hyperparameter used in the new instance.
-        model: The model used in the new instance of trainer.
+            The hyperparameter used in the new instance. Should contain 2 keys "trainer", "encoder"
+            with corresponding hyperparameters as values.
+        model: ``autogl.module.model.BaseAutoModel``
+            Currently Heterogeneous trainer doesn't support decoupled model setting.
+            If only encoder is specified, decoder will be default to "logsoftmax"
+
         restricted: ``bool``.
             If False(True), the hyperparameter should (not) be updated from origin hyperparameter.
+        
         Returns
         -------
         self: ``autogl.train.NodeClassificationTrainer``
             A new instance of trainer.
+        
         """
         trainer_hp = hp["trainer"]
         model_hp = hp["encoder"]

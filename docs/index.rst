@@ -13,7 +13,7 @@ The workflow below shows the overall framework of AutoGL.
 .. image:: ../resources/workflow.svg
    :align: center
 
-AutoGL uses ``AutoGL Dataset`` to maintain datasets for graph-based machine learning, which is based on the dataset in PyTorch Geometric with some support added to corporate with the auto solver framework.
+AutoGL uses ``AutoGL Dataset`` to maintain datasets for graph-based machine learning, which is based on the dataset in PyTorch Geometric or Deep Graph Library with some support added to corporate with the auto solver framework.
 
 Different graph-based machine learning tasks are solved by different ``AutoGL Solvers`` , which make use of four main modules to automatically solve given tasks, namely ``Auto Feature Engineer``, ``Auto Model``, ``Neural Architecture Search``, ``HyperParameter Optimization``, and ``Auto Ensemble``. 
 
@@ -31,9 +31,17 @@ Please make sure you meet the following requirements before installing AutoGL.
 
     see `PyTorch <https://pytorch.org/>`_ for installation.
 
-3. PyTorch Geometric (>=1.7.0)
+3. Graph Library Backend
 
-    see `PyTorch Geometric <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html>`_ for installation.
+    You will need either PyTorch Geometric (PyG) or Deep Graph Library (DGL) as the backend.
+
+3.1 PyTorch Geometric (>=1.7.0)
+
+    see <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html> for installation.
+
+3.2 Deep Graph Library (>=0.7.0)
+
+    see <https://dgl.ai> for installation.
 
 Installation
 ~~~~~~~~~~~~
@@ -86,8 +94,14 @@ In AutoGL, the tasks are solved by corresponding solvers, which in general do th
    :caption: Tutorial
 
    docfile/tutorial/t_quickstart
-   docfile/tutorial/t_dataset
-   docfile/tutorial/t_fe
+   docfile/tutorial/t_hetero_node_clf
+   docfile/tutorial/t_homo_graph_classification_gin
+   docfile/tutorial/t_backend
+
+   ..
+      docfile/tutorial/t_dataset
+      docfile/tutorial/t_fe
+   
    docfile/tutorial/t_model
    docfile/tutorial/t_trainer
    docfile/tutorial/t_hpo
@@ -99,9 +113,9 @@ In AutoGL, the tasks are solved by corresponding solvers, which in general do th
    :maxdepth: 2
    :caption: Documentation
 
-   docfile/documentation/data
+   docfile/documentation/data   
    docfile/documentation/dataset
-   docfile/documentation/feature
+   docfile/documentation/feature      
    docfile/documentation/model
    docfile/documentation/train
    docfile/documentation/hpo
