@@ -146,7 +146,7 @@ class GATConv(MessagePassing):
                     num_nodes = min(size[0], size[1])
                 edge_index, edge_weight = remove_self_loops(edge_index, edge_attr=edge_weight)
                 if edge_weight != None:
-                    edge_index, edge_weight = add_self_loops(edge_index, edge_weight=edge_weight, num_nodes=num_nodes)
+                    edge_index, edge_weight = add_self_loops(edge_index, edge_attr=edge_weight, num_nodes=num_nodes)
                 else:
                     edge_index, _ = add_self_loops(edge_index, num_nodes=num_nodes)
             elif isinstance(edge_index, SparseTensor):

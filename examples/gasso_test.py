@@ -16,10 +16,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #dataset = build_dataset_from_name(args.dataset, path = "/DATA/DATANAS1/qinyj/enhgnas/")
-    dataset = build_dataset_from_name(args.dataset, path = "~/AGL/")
+    dataset = build_dataset_from_name(args.dataset)
     solver = AutoNodeClassifier.from_config(args.config)
     solver.fit(dataset)
     solver.get_leaderboard().show()
-    out = solver.predict_proba()
-    print('acc on dataset', Acc.evaluate(out, dataset[0].y[dataset[0].test_mask].detach().numpy()))
+    print('acc on dataset', solver.evaluate())

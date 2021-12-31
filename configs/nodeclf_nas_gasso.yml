@@ -3,8 +3,7 @@ ensemble:
 feature:
 - name: NormalizeFeatures
 hpo:
-  max_evals: 10
-  name: random
+  name: null
 nas:
   space:
     name: gassospace
