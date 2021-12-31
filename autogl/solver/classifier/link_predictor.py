@@ -1,26 +1,43 @@
 """
 Auto Classfier for Node Classification
 """
+import logging
 import time
 import json
 
 from copy import deepcopy
+from typing import Sequence
 
 import torch
 import numpy as np
 import yaml
 
 from .base import BaseClassifier
-from ..base import _parse_hp_space, _initialize_single_model
+from ..base import _parse_hp_space, _initialize_single_model, _parse_model_hp
 from ...module.feature import FEATURE_DICT
-from ...module.model import MODEL_DICT, BaseModel
 from ...module.train import TRAINER_DICT, BaseLinkPredictionTrainer
 from ...module.train import get_feval
-from ..utils import LeaderBoard, set_seed
+from ..utils import LeaderBoard, get_graph_node_features, convert_dataset, set_seed
 from ...datasets import utils
-from ...utils import get_logger
+from ..utils import get_logger
+from ...backend import DependentBackend
 
 LOGGER = get_logger("LinkPredictor")
+BACKEND = DependentBackend.get_backend_name()
+
+def _negative_sample_dgl(train_graph, pos_graph):
+    import scipy.sparse as sp
+    import dgl
+    u, v = train_graph.edges()
+    up, vp = pos_graph.edges()
+    u_all, v_all = np.concatenate([u.numpy(), up.numpy()]), np.concatenate([v.numpy(), vp.numpy()])
+    adj = sp.coo_matrix((np.ones(len(u_all)), (u_all, v_all)))
+    adj_neg = 1 - adj.todense() - np.eye(train_graph.number_of_nodes())
+    neg_u, neg_v = np.where(adj_neg != 0)
+
+    # sample negative edges
+    neg_eids = np.random.choice(len(neg_u), len(up))
+    return dgl.DGLGraph((neg_u[:neg_eids], neg_v[:neg_eids]), num_nodes=train_graph.number_of_nodes())
 
 
 class AutoLinkPredictor(BaseClassifier):
@@ -50,6 +67,9 @@ class AutoLinkPredictor(BaseClassifier):
         If given, will set the number eval times the hpo module will use.
         Only be effective when hpo_module is ``str``. Default ``None``.
 
+    default_trainer: str (Optional)
+        The (name of) the trainer used in this solver. Default to ``NodeClassificationFull``.
+
     trainer_hp_space: list of dict (Optional)
         trainer hp space or list of trainer hp spaces configuration.
         If a single trainer hp is given, will specify the hp space of trainer for every model.
@@ -60,6 +80,8 @@ class AutoLinkPredictor(BaseClassifier):
     model_hp_spaces: list of list of dict (Optional)
         model hp space configuration.
         If given, will specify every hp space of every passed model. Default ``None``.
+        If the encoder(-decoder) is passed, the space should be a dict containing keys "encoder"
+        and "decoder", specifying the detailed encoder decoder hp spaces.
 
     size: int (Optional)
         The max models ensemble module will use. Default ``None``.
@@ -77,7 +99,7 @@ class AutoLinkPredictor(BaseClassifier):
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
-        default_trainer=None,
+        default_trainer="LinkPredictionFull",
         trainer_hp_space=None,
         model_hp_spaces=None,
         size=4,
@@ -93,7 +115,7 @@ class AutoLinkPredictor(BaseClassifier):
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
-            default_trainer=default_trainer or "LinkPredictionFull",
+            default_trainer=default_trainer,
             trainer_hp_space=trainer_hp_space,
             model_hp_spaces=model_hp_spaces,
             size=size,
@@ -106,92 +128,55 @@ class AutoLinkPredictor(BaseClassifier):
     def _init_graph_module(
         self, graph_models, num_features, feval, device, loss
     ) -> "AutoLinkPredictor":
-        # load graph network module
-        self.graph_model_list = []
-        if isinstance(graph_models, (list, tuple)):
-            for model in graph_models:
-                if isinstance(model, str):
-                    if model in MODEL_DICT:
-                        self.graph_model_list.append(
-                            MODEL_DICT[model](
-                                num_classes=1,
-                                num_features=num_features,
-                                device=device,
-                                init=False,
-                            )
-                        )
-                    else:
-                        raise KeyError("cannot find model %s" % (model))
-                elif isinstance(model, type) and issubclass(model, BaseModel):
-                    self.graph_model_list.append(
-                        model(
-                            num_classes=1,
-                            num_features=num_features,
-                            device=device,
-                            init=False,
-                        )
-                    )
-                elif isinstance(model, BaseModel):
-                    # setup the hp of num_classes and num_features
-                    model.set_num_classes(1)
-                    model.set_num_features(num_features)
-                    self.graph_model_list.append(model.to(device))
-                elif isinstance(model, BaseLinkPredictionTrainer):
-                    # receive a trainer list, put trainer to list
-                    assert (
-                        model.get_model() is not None
-                    ), "Passed trainer should contain a model"
-                    model.model.set_num_classes(1)
-                    model.model.set_num_features(num_features)
-                    model.update_parameters(
-                        num_classes=1,
-                        num_features=num_features,
-                        loss=loss,
-                        feval=feval,
-                        device=device,
-                    )
-                    self.graph_model_list.append(model)
-                else:
-                    raise KeyError("cannot find graph network %s." % (model))
-        else:
-            raise ValueError(
-                "need graph network to be (list of) str or a BaseModel class/instance, get",
-                graph_models,
-                "instead.",
-            )
 
-        # wrap all model_cls with specified trainer
-        for i, model in enumerate(self.graph_model_list):
+        self.graph_model_list = []
+
+        for i, model in enumerate(graph_models):
+            # init the trainer
+            if not isinstance(model, BaseLinkPredictionTrainer):
+                trainer = (
+                    self._default_trainer if not isinstance(self._default_trainer, (tuple, list))
+                    else self._default_trainer[i]
+                )
+                if isinstance(trainer, str):
+                    if trainer not in TRAINER_DICT:
+                        raise KeyError(f"Does not support trainer {trainer}")
+                    trainer = TRAINER_DICT[trainer]()
+                if isinstance(model, (tuple, list)):
+                    trainer.encoder = model[0]
+                    trainer.decoder = model[1]
+                else:
+                    trainer.encoder = model
+            else:
+                trainer = model
+
             # set model hp space
             if self._model_hp_spaces is not None:
                 if self._model_hp_spaces[i] is not None:
-                    if isinstance(model, BaseLinkPredictionTrainer):
-                        model.model.hyper_parameter_space = self._model_hp_spaces[i]
+                    if isinstance(self._model_hp_spaces[i], dict):
+                        encoder_hp_space = self._model_hp_spaces[i].get('encoder', None)
+                        decoder_hp_space = self._model_hp_spaces[i].get('decoder', None)
                     else:
-                        model.hyper_parameter_space = self._model_hp_spaces[i]
-            # initialize trainer if needed
-            if isinstance(model, BaseModel):
-                name = (
-                    self._default_trainer
-                    if isinstance(self._default_trainer, str)
-                    else self._default_trainer[i]
-                )
-                model = TRAINER_DICT[name](
-                    model=model,
-                    num_features=num_features,
-                    loss=loss,
-                    feval=feval,
-                    device=device,
-                    init=False,
-                )
+                        encoder_hp_space = self._model_hp_spaces[i]
+                        decoder_hp_space = None
+                    if encoder_hp_space is not None:
+                        trainer.encoder.hyper_parameter_space = encoder_hp_space
+                    if decoder_hp_space is not None:
+                        trainer.decoder.hyper_parameter_space = decoder_hp_space
+            
             # set trainer hp space
             if self._trainer_hp_space is not None:
                 if isinstance(self._trainer_hp_space[0], list):
                     current_hp_for_trainer = self._trainer_hp_space[i]
                 else:
                     current_hp_for_trainer = self._trainer_hp_space
-                model.hyper_parameter_space = current_hp_for_trainer
-            self.graph_model_list[i] = model
+                trainer.hyper_parameter_space = current_hp_for_trainer
+
+            trainer.num_features = num_features
+            trainer.loss = loss
+            trainer.feval = feval
+            trainer.to(device)
+            self.graph_model_list.append(trainer)
 
         return self
 
@@ -201,6 +186,24 @@ class AutoLinkPredictor(BaseClassifier):
         prob[:, 0] = 1 - sig_prob
         prob[:, 1] = sig_prob
         return prob
+    
+    def _compose_dataset(self, dataset):
+        if isinstance(dataset[0], (list, tuple)):
+            new_dataset = []
+            for data in dataset:
+                new_dataset.append({
+                    "train": data[0],
+                    "train_pos": data[1],
+                    "train_neg": data[2],
+                    "val_pos": data[3],
+                    "val_neg": data[4]
+                })
+                if len(data) == 7:
+                    new_dataset[-1]["test_pos"] = data[5]
+                    new_dataset[-1]["test_neg"] = data[6]
+            return new_dataset
+        else:
+            return convert_dataset(dataset)
 
     # pylint: disable=arguments-differ
     def fit(
@@ -276,43 +279,68 @@ class AutoLinkPredictor(BaseClassifier):
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
 
+        graph_data = dataset[0] # get_graph_from_dataset(dataset)
+
         # set up the dataset
         if train_split is not None and val_split is not None:
-            utils.split_edges(dataset, train_split, val_split)
+            dataset = utils.split_edges(dataset, train_split, val_split)
+            graph_data = dataset[0]
         else:
-            assert all(
-                [
-                    hasattr(dataset.data, f"{name}")
-                    for name in [
-                        "train_pos_edge_index",
-                        "train_neg_adj_mask",
-                        "val_pos_edge_index",
-                        "val_neg_edge_index",
-                        "test_pos_edge_index",
-                        "test_neg_edge_index",
+            if BACKEND == 'pyg':
+                assert all(
+                    [
+                        hasattr(graph_data, f"{name}")
+                        for name in [
+                            "train_pos_edge_index",
+                            "train_neg_adj_mask",
+                            "val_pos_edge_index",
+                            "val_neg_edge_index",
+                            "test_pos_edge_index",
+                            "test_neg_edge_index",
+                        ]
                     ]
-                ]
-            ), (
-                "The dataset has no default train/val split! Please manually pass "
-                "train and val ratio."
-            )
+                ), (
+                    "The dataset has no default train/val split! Please manually pass "
+                    "train and val ratio."
+                )
+            elif BACKEND == 'dgl':
+                assert len(graph_data) in [5, 7], (
+                    "The dataset has no default train/val split! Please manually pass "
+                    "train and val ratio."
+                )
+
             LOGGER.info("Use the default train/val/test ratio in given dataset")
 
         # feature engineering
         if self.feature_module is not None:
-            dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
+            if BACKEND == 'pyg':
+                dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
+            else:
+                _dataset = self.feature_module.fit_transform([g[0] for g in dataset], inplace=inplace)
+                dataset = [[_d, *d[1:]] for _d, d in zip(_dataset, dataset)]
 
         self.dataset = dataset
-        assert self.dataset[0].x is not None, (
+
+        # check whether the dataset has features.
+        # currently we only support graph classification with features.
+        
+        if BACKEND == 'dgl':
+            feat = get_graph_node_features(graph_data[0])
+        else:
+            feat = get_graph_node_features(graph_data)
+        assert feat is not None, (
             "Does not support fit on non node-feature dataset!"
             " Please add node features to dataset or specify feature engineers that generate"
             " node features."
         )
+        
+        # TODO: how can we get num_features?
+        num_features = feat.size(-1)
 
         # initialize graph networks
         self._init_graph_module(
             self.gml,
-            num_features=self.dataset[0].x.shape[1],
+            num_features=num_features,
             feval=evaluator_list,
             device=self.runtime_device,
             loss="binary_cross_entropy_with_logits"
@@ -329,15 +357,15 @@ class AutoLinkPredictor(BaseClassifier):
             )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(self.dataset, True)
+                model.train(self._compose_dataset(self.dataset), True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model
+                    trainer=model, dataset=self._compose_dataset(self.dataset), time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
-            name = optimized.get_name_with_hp() + "_idx%d" % (idx)
+            name = str(optimized) + "_idx%d" % (idx)
             names.append(name)
             performance_on_valid, _ = optimized.get_valid_score(return_major=False)
             result_valid.append(
@@ -356,10 +384,13 @@ class AutoLinkPredictor(BaseClassifier):
 
         # fit the ensemble model
         if self.ensemble_module is not None:
-            pos_edge_index, neg_edge_index = (
-                self.dataset[0].val_pos_edge_index,
-                self.dataset[0].val_neg_edge_index,
-            )
+            if BACKEND == 'pyg':
+                pos_edge_index, neg_edge_index = (
+                    self.dataset[0].val_pos_edge_index,
+                    self.dataset[0].val_neg_edge_index,
+                )
+            elif BACKEND == 'dgl':
+                pos_edge_index, neg_edge_index = torch.stack(self.dataset[0][3].edges()), torch.stack(self.dataset[0][4].edges())
             E = pos_edge_index.size(1) + neg_edge_index.size(1)
             link_labels = torch.zeros(E, dtype=torch.float)
             link_labels[: pos_edge_index.size(1)] = 1.0
@@ -369,7 +400,7 @@ class AutoLinkPredictor(BaseClassifier):
                 link_labels.detach().cpu().numpy(),
                 names,
                 evaluator_list,
-                n_classes=dataset.num_classes,
+                n_classes=2
             )
             self.leaderboard.insert_model_performance(
                 "ensemble",
@@ -516,7 +547,12 @@ class AutoLinkPredictor(BaseClassifier):
                 "Please execute fit() first before" " predicting on remembered dataset"
             )
         elif not inplaced and self.feature_module is not None:
-            dataset = self.feature_module.transform(dataset, inplace=inplace)
+            if BACKEND == 'pyg':
+                dataset = self.feature_module.transform(dataset, inplace=inplace)
+            elif BACKEND == 'dgl':
+                import dgl
+                transformed = self.feature_module.transform([d[0] for d in dataset], inplace=inplace)
+                dataset = [[tran, None, None, None, None, d[1], d[2] if len(d) == 3 else dgl.DGLGraph()] for tran, d in zip(transformed, dataset)]
 
         if use_ensemble:
             LOGGER.info("Ensemble argument on, will try using ensemble model.")
@@ -566,7 +602,7 @@ class AutoLinkPredictor(BaseClassifier):
     def _predict_proba_by_name(self, dataset, name, mask="test"):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
-            self.trained_models[name].predict_proba(dataset, mask=mask).cpu().numpy()
+            self.trained_models[name].predict_proba(self._compose_dataset(dataset), mask=mask).cpu().numpy()
         )
         self.trained_models[name].to(torch.device("cpu"))
         return predicted
@@ -628,6 +664,122 @@ class AutoLinkPredictor(BaseClassifier):
             dataset, inplaced, inplace, use_ensemble, use_best, name, mask
         )
         return (proba > threshold).astype("int")
+
+    def evaluate(self, dataset=None,
+        inplaced=False,
+        inplace=False,
+        use_ensemble=True,
+        use_best=True,
+        name=None,
+        mask="test",
+        label=None,
+        metric="auc"
+    ):
+        """
+        Evaluate the given dataset.
+
+
+        Parameters
+        ----------
+        dataset: torch_geometric.data.dataset.Dataset or None
+            The dataset needed to predict. If ``None``, will use the processed dataset passed
+            to ``fit()`` instead. Default ``None``.
+
+        inplaced: bool
+            Whether the given dataset is processed. Only be effective when ``dataset``
+            is not ``None``. If you pass the dataset to ``fit()`` with ``inplace=True``, and
+            you pass the dataset again to this method, you should set this argument to ``True``.
+            Otherwise ``False``. Default ``False``.
+
+        inplace: bool
+            Whether we process the given dataset in inplace manner. Default ``False``. Set it to
+            True if you want to save memory by modifying the given dataset directly.
+
+        use_ensemble: bool
+            Whether to use ensemble to do the predict. Default ``True``.
+
+        use_best: bool
+            Whether to use the best single model to do the predict. Will only be effective when
+            ``use_ensemble`` is ``False``. Default ``True``.
+
+        name: str or None
+            The name of model used to predict. Will only be effective when ``use_ensemble`` and
+            ``use_best`` both are ``False``. Default ``None``.
+
+        mask: str
+            The data split to give prediction on. Default ``test``.
+
+        label: torch.Tensor (Optional)
+            The groud truth label of the given predicted dataset split. If not passed, will extract
+            labels from the input dataset.
+        
+        metric: str
+            The metric to be used for evaluating the model. Default ``auc``.
+
+        Returns
+        -------
+        score(s): (list of) evaluation scores
+            the evaluation results according to the evaluator passed.
+
+        """
+        if dataset is None:
+            dataset = self.dataset
+            assert dataset is not None, (
+                "Please execute fit() first before" " predicting on remembered dataset"
+            )
+        elif not inplaced and self.feature_module is not None:
+            if BACKEND == 'pyg':
+                dataset = self.feature_module.transform(dataset, inplace=inplace)
+            elif BACKEND == 'dgl':
+                import dgl
+                transformed = self.feature_module.transform([d[0] for d in dataset], inplace=inplace)
+                dataset = [[tran, None, None, None, None, d[1], d[2] if len(d) == 3 else dgl.DGLGraph()] for tran, d in zip(transformed, dataset)]
+
+        graph = dataset[0]
+        mask2posid_dgl = {"train": 1, "val": 3, "test": 5}
+        mask2negid_dgl = {"train": 2, "val": 4, "test": 6}
+        if BACKEND == 'pyg' and not hasattr(graph, f"{mask}_neg_edge_index"):
+            from torch_geometric.utils import negative_sampling
+            logging.warn(
+                "No negative edges passed, will generate random negative edges instead."
+                " However, results may be inconsistent across different run."
+                " Fix negative edges before passing the dataset is recommended"
+            )
+            setattr(graph, f"{mask}_neg_edge_index", negative_sampling(
+                getattr(graph, f"{mask}_pos_edge_index"), graph.num_nodes
+            ))
+        elif BACKEND == 'dgl':
+            neg_graph = graph[{"train": 2, "val": 4, "test": 6}[mask]]
+            if neg_graph is None or len(neg_graph.edges()[0]) == 0:
+                logging.warn(
+                    "No negative edges passed, will generate random negative edges instead."
+                    " However, results may be inconsistent across different run."
+                    " Fix negative edges before passing the dataset is recommended"
+                )
+                neg_edges = _negative_sample_dgl(graph[0], graph[{"train": 1, "val": 3, "test": 5}[mask]])
+                graph[{"train": 2, "val": 4, "test": 6}[mask]] = neg_edges
+
+        predicted = self.predict_proba(dataset, True, True, use_ensemble, use_best, name, mask)
+        if label is None:
+            if BACKEND == 'pyg':
+                pos_edge_index, neg_edge_index = (
+                    getattr(dataset[0], f"{mask}_pos_edge_index"),
+                    getattr(dataset[0], f"{mask}_neg_edge_index"),
+                )
+            elif BACKEND == 'dgl':
+                pos_edge_index, neg_edge_index = (
+                    torch.stack(self.dataset[0][mask2posid_dgl[mask]].edges()),
+                    torch.stack(self.dataset[0][mask2negid_dgl[mask]].edges())
+                )
+            E = pos_edge_index.size(1) + neg_edge_index.size(1)
+            label = torch.zeros(E, dtype=torch.float)
+            label[: pos_edge_index.size(1)] = 1.0
+            label = label.cpu().numpy()
+        evaluator = get_feval(metric)
+        if isinstance(evaluator, Sequence):
+            return [evals.evaluate(predicted, label) for evals in evaluator]
+        return evaluator.evaluate(predicted, label)
+
 
     @classmethod
     def from_config(cls, path_or_dict, filetype="auto") -> "AutoLinkPredictor":
@@ -691,12 +843,16 @@ class AutoLinkPredictor(BaseClassifier):
             if fe_list_ele != []:
                 solver.set_feature_module(fe_list_ele)
 
-        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}])
+        models = path_or_dict.pop("models", [{"name": "gcn"}, {"name": "gat"}, {"name": "sage"}, {"name": "gin"}])
+        # models should be a list of model
+        # with each element in two cases
+        # * a dict describing a certain model
+        # * a dict containing {"encoder": encoder, "decoder": decoder}
         model_hp_space = [
-            _parse_hp_space(model.pop("hp_space", None)) for model in models
+            _parse_model_hp(model) for model in models
         ]
         model_list = [
-            _initialize_single_model(model.pop("name"), model) for model in models
+            _initialize_single_model(model) for model in models
         ]
 
         trainer = path_or_dict.pop("trainer", None)

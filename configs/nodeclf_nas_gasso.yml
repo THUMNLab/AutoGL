@@ -1,0 +1,39 @@
+ensemble:
+  name: null
+feature:
+- name: NormalizeFeatures
+hpo:
+  name: null
+nas:
+  space:
+    name: gassospace
+    hidden_dim: 64
+    layer_number: 2
+  algorithm:
+    name: gasso
+    num_epochs: 250
+  estimator:
+    name: oneshot
+models: []
+trainer:
+  hp_space:
+  - maxValue: 300
+    minValue: 100
+    parameterName: max_epoch
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 30
+    minValue: 10
+    parameterName: early_stopping_round
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 0.05
+    minValue: 0.01
+    parameterName: lr
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 0.0005
+    minValue: 5.0e-05
+    parameterName: weight_decay
+    scalingType: LOG
+    type: DOUBLE
