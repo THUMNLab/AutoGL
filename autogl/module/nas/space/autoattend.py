@@ -52,7 +52,9 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
                                ] = None,
         act_op="tanh",
         head=8,
-        agg_ops=['add', 'attn']
+        agg_ops=['add', 'attn'],
+        # agg_ops=['attn'],
+
     ):
         super().__init__()
         self.layer_number = layer_number
@@ -98,30 +100,33 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         self.gnn_ops = self.gnn_ops or PRIMITIVES
         self.agg_map = lambda x, * \
             args, **kwargs: agg_map[x](*args, **kwargs)
-        self.preproc0 = nn.Linear(self.input_dim, self.hidden_dim)
+        # self.preproc0 = nn.Linear(self.input_dim, self.input_dim)
 
-        node_labels = []
         for layer in range(1, self.layer_number+1):
             # stem path
-            key = f"stem_{layer}"
-            self._set_layer_choice(layer, key)
-
-            # side path
-            key = f"side_{layer}"
-            for i in range(2):
-                sub_key = f"{key}_{i}"
-                self._set_layer_choice(layer, sub_key)
-            node_labels.append(key)
+            layer_stem = f"{layer-1}->{layer}"
+            key = f"stem_{layer_stem}"
+            self._set_layer_choice(layer_stem, key)
 
             # input
             key = f"in_{layer}"
             # self._set_input_choice(key,layer, choose_from=node_labels, n_chosen=1, return_mask=False)
-            self._set_input_choice(key, layer, n_candidates=len(
-                node_labels), n_chosen=1, return_mask=False)
+            self._set_input_choice(
+                key, layer, n_candidates=layer, n_chosen=1, return_mask=False)
 
             # agg
             key = f"agg_{layer}"
             self._set_agg_choice(layer, key=key)
+
+        for l1 in range(1, self.layer_number+1):
+            for l2 in range(l1):
+                # from l2 to l1; l2 means input layer; l1 means output layer
+                layer = f"{l2}->{l1}"
+                # side path
+                key = f"side_{layer}"
+                for i in range(2):
+                    sub_key = f"{key}_{i}"
+                    self._set_layer_choice(layer, sub_key)
 
         self._initialized = True
 
@@ -132,7 +137,8 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
             dim = self.output_dim
         else:
             dim = self.hidden_dim
-        ops = [self.agg_map(op, dim, self.head,
+        agg_head = self.head if layer < self.layer_number else 1
+        ops = [self.agg_map(op, dim, agg_head,
                             self.dropout)for op in self.agg_ops]
         choice = self.setLayerChoice(
             layer,
@@ -143,25 +149,25 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         return choice
 
     def _set_layer_choice(self, layer, key):
+        l1, l2 = list(map(int, layer.split('->')))
         input_dim = output_dim = self.hidden_dim
-        if layer == 1:
-            input_dim = self.input_dim
-        if layer == self.layer_number:
-            output_dim = self.output_dim
 
-        ops = self.gnn_ops.copy()
+        input_dim = self.input_dim if l1 == 0 else self.hidden_dim
+        output_dim = self.output_dim if l2 == self.layer_number else self.hidden_dim
+
+        opnames = self.gnn_ops.copy()
         if input_dim != output_dim:
             for invalid_op in "ZERO IDEN".split():
-                ops.remove(invalid_op)
-
+                opnames.remove(invalid_op)
+        concat = (l2 != self.layer_number)
         if self.ops_type == 0:
             ops = [self.gnn_map(op, input_dim, output_dim,
-                                self.dropout)for op in ops]
+                                self.dropout, concat=concat)for op in opnames]
         elif self.ops_type == 1:
             ops = [self.gnn_map(op, input_dim, output_dim,
-                                self.head, self.dropout)for op in ops]
+                                self.head, self.dropout, concat=concat)for op in opnames]
         choice = self.setLayerChoice(
-            layer,
+            l1,
             ops,
             key=key,
         )
@@ -186,29 +192,37 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
         # prev_ = self.preproc0(x)
         prev_ = x
 
-        side_outs = []
+        side_outs = {}  # {l:[side1,side2...]} collects lth layer's input
         stem_outs = []
         input = prev_
         for layer in range(1, self.layer_number + 1):
             # do layer choice for stem
-            op = getattr(self, f"stem_{layer}")
+            layer_stem = f"{layer-1}->{layer}"
+            op = getattr(self, f"stem_{layer_stem}")
             stem_out = bk_gconv(op, data, drop(input))
             stem_out = self.act(stem_out)
+            stem_outs.append(stem_out)
 
             # do double layer choice for sides
-            side_out_list = []
-            for i in range(2):
-                op = getattr(self, f'side_{layer}_{i}')
-                side_out = bk_gconv(op, data, drop(input))
-                side_out = self.act(side_out)  # torch.Size([2, 2708, 64])
-                side_out_list.append(side_out)
-            side_out = torch.stack(side_out_list, dim=0)
+            for l2 in range(layer, self.layer_number+1):
+                l1 = layer-1
+                layer_side = f"{l1}->{l2}"
 
-            stem_outs.append(stem_out)
-            side_outs.append(side_out)
+                side_out_list = []
+                for i in range(2):
+                    op = getattr(self, f'side_{layer_side}_{i}')
+                    side_out = bk_gconv(op, data, drop(input))
+                    side_out = self.act(side_out)  # torch.Size([2, 2708, 64])
+                    side_out_list.append(side_out)
+                side_out = torch.stack(side_out_list, dim=0)
+
+                if l2 not in side_outs:
+                    side_outs[l2] = []
+                side_outs[l2].append(side_out)
 
             # select input [x1,x2,x3] from side1,side2,stem
-            side_selected = getattr(self, f"in_{layer}")(side_outs)
+            current_side_outs = side_outs[layer]
+            side_selected = getattr(self, f"in_{layer}")(current_side_outs)
             input = [stem_outs[-1], side_selected]
 
             # do agg in [add , attn]
@@ -216,6 +230,7 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
             input = bk_gconv(agg, data, input)
 
         # x = self.classifier2(input)
+        x = input
         return F.log_softmax(x, dim=1)
 
     def parse_model(self, selection, device):
