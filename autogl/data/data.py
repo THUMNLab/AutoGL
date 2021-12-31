@@ -10,7 +10,7 @@ def index_to_mask(index, size):
 
 
 class Data(object):
-    r"""A plain old python object modeling a single graph with various
+    r"""A plain python object modeling a single graph with various
     (optional) attributes:
 
     Args:
