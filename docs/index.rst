@@ -112,6 +112,7 @@ In AutoGL, the tasks are solved by corresponding solvers, which in general do th
 .. toctree::
    :maxdepth: 2
    :caption: Documentation
+
    docfile/documentation/data   
    docfile/documentation/dataset
    docfile/documentation/feature      

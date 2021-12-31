@@ -3,7 +3,7 @@
 autogl.module.feature
 =====================
 
-Several feature engineering operations are collected manually, or from PyTorch Geometric, NetworkX, etc.
+We support feature engineering for both PyTorch Geometric and Deep Deep Graph Library backend.
 
 .. automodule:: autogl.module.feature
 	:members:
