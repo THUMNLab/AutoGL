@@ -1,5 +1,5 @@
 # 智图 (AutoGL)
-[English](README_en.md)
+[English Introduction](README_en.md)
 用于图数据的自动机器学习框架和工具包。
 
 *由清华大学媒体与网络实验室进行开发与维护*
@@ -19,7 +19,7 @@
     - 我们扩展了支持的[神经架构搜索算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，例如[AutoAttend](https://proceedings.mlr.press/v139/guan21a.html)，[GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html)， [硬件感知算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware)等。 
 - 2021.07.11 智图更新v0.2.0-pre版本! 在新版本中，智图支持[神经架构搜索(NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，可以对给定的数据集和架构定制化神经网络架构。智图也支持了[采样](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling)功能以处理大规模图数据集，包括节点采样、层采样和子图采样。链接预测任务也已经支持。详情请参考我们的[教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/index.html).
 - 2021.04.16 我们关于图自动机器学习的综述文章已经被IJCAI 2021接受! 详情见[这里](http://arxiv.org/abs/2103.00742)。
-- 2021.04.10 我们的论文[__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987)已经被_ICLR 2021 Workshop on Geometrical and Topological Representation Learning_接受! 您可通过以下方式进行[引用](#Cite)。
+- 2021.04.10 我们的论文[__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987)已经被 _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_ 接受! 您可通过以下方式进行[引用](#引用)。
 
 ## 介绍
 
@@ -31,7 +31,7 @@
 
 智图通过 `datasets` 类以支持图数据集，其基于 PyTorch Geometric 和 Deep Graph Library 的数据集，并添加了一些函数以支持自动机器学习框架。
 
-智图通过 `AutoGL solvers` 以处理不同的图机器学习任务，利用五个主要模块自动解决给定的任务，即自动特征工程 `auto feature engineer`，神经架构搜索 `neural architecture search`，自动模型 `auto model`，超参数优化 `hyperparameter optimization`，和自动模型集成`auto ensemble。
+智图通过 `AutoGL solvers` 以处理不同的图机器学习任务，利用五个主要模块自动解决给定的任务，即自动特征工程 `auto feature engineer`，神经架构搜索 `neural architecture search`，自动模型 `auto model`，超参数优化 `hyperparameter optimization`，和自动模型集成 `auto ensemble`。
 
 目前，智图支持以下算法：
 
@@ -45,7 +45,7 @@
         <td>模型集成</td>
     </tr>
     <tr valign="top">
-        <td><b>生成器</b><br>Graphlets <br> EigenGNN <br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">更多 ...</a><br><br><b>选择器</b><br> SeFilterConstant<br> gbdt <br> <br><b>Graph</b><br> netlsd<br> NxAverageClustering<br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">更多 ...</a></td>
+        <td><b>生成器</b><br>Graphlets <br> EigenGNN <br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">更多 ...</a><br><br><b>选择器</b><br> SeFilterConstant<br> gbdt <br> <br><b>全图特征</b><br> Netlsd<br> NxAverageClustering<br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">更多 ...</a></td>
         <td><b>同构图编码器</b><br> GCNEncoder <br> GATEncoder <br> SAGEEncoder <br> GINEncoder <br> <br><b>解码器</b><br>LogSoftmaxDecoder <br> DotProductDecoder <br> SumPoolMLPDecoder <br> JKSumPoolDecoder </td>
         <td>
         <b>搜索算法</b><br>
