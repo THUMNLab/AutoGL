@@ -1,67 +1,65 @@
-# Auto Graph Learning
+# 智图 (AutoGL)
+[English](README_en.md)
+用于图数据的自动机器学习框架和工具包。
 
-An autoML framework & toolkit for machine learning on graphs.
+*由清华大学媒体与网络实验室进行开发与维护*
 
-*Actively under development by @THUMNLab*
-
-Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a> or contact us at <a href="mailto:autogl@tsinghua.edu.cn">autogl@tsinghua.edu.cn</a> if you have any comments or suggestions!
+若有任何意见或建议，欢迎通过<a href="https://www.gitlink.org.cn/THUMNLab/AutoGL/issues">issues</a> 或邮件<a href="mailto:autogl@tsinghua.edu.cn">autogl@tsinghua.edu.cn</a>与我们联系。
 
 <!--
  [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 % [![Documentation Status](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)-->
 
-## News!
+## 最新消息
 
-- 2021.12.31 New Version! v0.3.0-pre is here!
-    - AutoGL now support [__Deep Graph Library (DGL)__](https://www.dgl.ai/) backend to be interface-friendly for DGL users! All the homogeneous node classification task, link prediction task, and graph classification task are currently supported under DGL backend. AutoGL is also compatible with PyG 2.0 now.
-    - The __heterogeneous__ node classification tasks are now supported! See [hetero tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html) for more details.
-    - To make the library more flexible, the module `model` now supports __decoupled__ to two additional sub-modules named `encoder` and `decoder`. Under the __decoupled__ design, one `encoder` can be used to solve all kinds of tasks, relieving burdens for developing and user expanding/contributing.
-    - We enrich our supported [NAS algorithms](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) such as [AutoAttend](https://proceedings.mlr.press/v139/guan21a.html), [GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html), [hardware-aware algorithm](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware), etc. 
-- 2021.07.11 New version! v0.2.0-pre is here! In this new version, AutoGL supports [neural architecture search (NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) to customize architectures for the given datasets and tasks. AutoGL also supports [sampling](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling) now to perform tasks on large datasets, including node-wise sampling, layer-wise sampling, and sub-graph sampling. The link prediction task is now also supported! Learn more in our [tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/index.html).
-- 2021.04.16 Our survey paper about automated machine learning on graphs is accepted by IJCAI! See more [here](http://arxiv.org/abs/2103.00742).
-- 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987) is accepted by _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
+- 2021.12.31 v0.3.0-pre版本更新!
+    - 智图目前支持[__Deep Graph Library (DGL)__](https://www.dgl.ai/)作为后端，以方便DGL的用户使用。目前在DGL后端已经支持同构图的节点分类、链接预测以及图分类等任务。智图现在也可兼容PyG 2.0版本。
+    - 智图可以支持__异构图__节点分类任务!详情请参考[异构图教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html)。
+    - 为了使智图算法更灵活，`model`模块目前支持__解耦__为两个子模块，即编码器`encoder`和解码器`decoder`。在__解耦__设计中，一个`encoder`可以被用来处理不同任务，以减少重复开发的负担，
+    - 我们扩展了支持的[神经架构搜索算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，例如[AutoAttend](https://proceedings.mlr.press/v139/guan21a.html)，[GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html)， [硬件感知算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware)等。 
+- 2021.07.11 智图更新v0.2.0-pre版本! 在新版本中，智图支持[神经架构搜索(NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，可以对给定的数据集和架构定制化神经网络架构。智图也支持了[采样](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling)功能以处理大规模图数据集，包括节点采样、层采样和子图采样。链接预测任务也已经支持。详情请参考我们的[教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/index.html).
+- 2021.04.16 我们关于图自动机器学习的综述文章已经被IJCAI 2021接受! 详情见[这里](http://arxiv.org/abs/2103.00742)。
+- 2021.04.10 我们的论文[__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987)已经被_ICLR 2021 Workshop on Geometrical and Topological Representation Learning_接受! 您可通过以下方式进行[引用](#Cite)。
 
-## Introduction
+## 介绍
 
-AutoGL is developed for researchers and developers to conduct autoML on graph datasets and tasks easily and quickly. See our documentation for detailed information!
+智图的设计目标是可以简单、快速地对图数据集和任务进行自动机器学习，可供研究者和开发者使用。更多详细信息，可以参阅我们的文档。
 
-The workflow below shows the overall framework of AutoGL.
+下图是智图的整体框架。
 
 <img src="./resources/workflow.svg">
 
-AutoGL uses `datasets` to maintain datasets for graph-based machine learning, which is based on Dataset in PyTorch Geometric or Deep Graph Library with some functions added to support the auto solver framework.
+智图通过 `datasets` 类以支持图数据集，其基于 PyTorch Geometric 和 Deep Graph Library 的数据集，并添加了一些函数以支持自动机器学习框架。
 
-Different graph-based machine learning tasks are handled by different `AutoGL solvers`, which make use of five main modules to automatically solve given tasks, namely `auto feature engineer`, `neural architecture search`, `auto model`, `hyperparameter optimization`, and `auto ensemble`. 
+智图通过 `AutoGL solvers` 以处理不同的图机器学习任务，利用五个主要模块自动解决给定的任务，即自动特征工程 `auto feature engineer`，神经架构搜索 `neural architecture search`，自动模型 `auto model`，超参数优化 `hyperparameter optimization`，和自动模型集成`auto ensemble。
 
-Currently, the following algorithms are supported in AutoGL:
-
+目前，智图支持以下算法：
 
 <table>
     <tbody>
     <tr valign="top">
-        <td>Feature Engineer</td>
-        <td>Model</td>
-        <td>NAS</td>
-        <td>HPO</td>
-        <td>Ensemble</td>
+        <td>特征工程</td>
+        <td>图模型</td>
+        <td>神经架构搜索</td>
+        <td>超参数优化</td>
+        <td>模型集成</td>
     </tr>
     <tr valign="top">
-        <!--<td><b>Generators</b><br>graphlet <br> eigen <br> pagerank <br> PYGLocalDegreeProfile <br> PYGNormalizeFeatures <br> PYGOneHotDegree <br> onehot <br> <br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Subgraph</b><br> NxLargeCliqueSize<br> NxAverageClusteringApproximate<br> NxDegreeAssortativityCoefficient<br> NxDegreePearsonCorrelationCoefficient<br> NxHasBridge <br>NxGraphCliqueNumber<br> NxGraphNumberOfCliques<br> NxTransitivity<br> NxAverageClustering<br> NxIsConnected<br> NxNumberConnectedComponents<br> NxIsDistanceRegular<br> NxLocalEfficiency<br> NxGlobalEfficiency<br> NxIsEulerian </td>-->
-        <td><b>Generators</b><br>Graphlets <br> EigenGNN <br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Graph</b><br> netlsd<br> NxAverageClustering<br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">more ...</a></td>
-        <td><b>Homo Encoders</b><br> GCNEncoder <br> GATEncoder <br> SAGEEncoder <br> GINEncoder <br> <br><b>Decoders</b><br>LogSoftmaxDecoder <br> DotProductDecoder <br> SumPoolMLPDecoder <br> JKSumPoolDecoder </td>
+        <td><b>生成器</b><br>Graphlets <br> EigenGNN <br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">更多 ...</a><br><br><b>选择器</b><br> SeFilterConstant<br> gbdt <br> <br><b>Graph</b><br> netlsd<br> NxAverageClustering<br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">更多 ...</a></td>
+        <td><b>同构图编码器</b><br> GCNEncoder <br> GATEncoder <br> SAGEEncoder <br> GINEncoder <br> <br><b>解码器</b><br>LogSoftmaxDecoder <br> DotProductDecoder <br> SumPoolMLPDecoder <br> JKSumPoolDecoder </td>
         <td>
-        <b>Algorithms</b><br>
+        <b>搜索算法</b><br>
         Random<br>
         RL<br>
         Evolution<br>
         GASSO<br>
-        <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
-        <b>Spaces</b><br>
+        <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>更多 ...</a><br><br>
+        <b>搜索空间</b><br>
         SinglePath<br>
         GraphNas<br>
         AutoAttend<br>
-        <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
-        <b>Estimators</b><br>
+        <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>更多 ...</a><br><br>
+        <b>模型评估</b><br>
         Oneshot<br>
         Scratch<br>
         </td>
@@ -71,93 +69,91 @@ Currently, the following algorithms are supported in AutoGL:
     </tbody>
 </table>
 
-This toolkit also serves as a framework for users to implement and test their own autoML or graph-based machine learning models.
+此工具包还可作为一个框架供用户实现和测试自己的自动机器学习或图机器学习模型。
 
-## Installation
+## 安装
 
-### Requirements
+### 依赖
 
-Please make sure you meet the following requirements before installing AutoGL.
+在安装智图之前，请首先安装以下依赖项。
 
 1. Python >= 3.6.0
 
 2. PyTorch (>=1.6.0)
 
-    see <https://pytorch.org/> for installation.
+    详细信息请参考<https://pytorch.org/>。
 
-3. Graph Library Backend
+3. 图机器学习工具包
 
-    You will need either PyTorch Geometric (PyG) or Deep Graph Library (DGL) as the backend. You can select a backend following [here](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_backend.html) if you install both.
+    智图需要 PyTorch Geometric（PyG）或 Deep Graph Library（DGL）作为后端。若两者均安装，可在运行时选择任一后端，参考[这里](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_backend.html)。
 
     3.1 PyTorch Geometric (>=1.7.0)
 
-    See <https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html/> for installation.
+    详细信息请参考<https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html/>。
 
     3.2 Deep Graph Library (>=0.7.0)
 
-    See <https://dgl.ai/> for installation.
+    详细信息请参考<https://dgl.ai/>。
 
 
-### Installation
+### 安装
 
-#### Install from pip
+#### 通过pip进行安装
 
-Run the following command to install this package through `pip`.
+运行以下命令以通过`pip`安装智图。
 
 ```
 pip install autogl
 ```
 
-#### Install from source
+#### 从源代码安装
 
-Run the following command to install this package from the source.
+运行以下命令以从源安装智图。
 
 ```
-git clone https://github.com/THUMNLab/AutoGL.git
+git clone https://gitlink.org.cn/THUMNLab/AutoGL.git
 cd AutoGL
 python setup.py install
 ```
 
-#### Install for development
+#### 开发者安装
 
-If you are a developer of the AutoGL project, please use the following command to create a soft link, then you can modify the local package without install them again.
-
+如果您想以开发者方式安装智图，请运行以下命令以创建软链接，然后即可修改本地程序后而无需重复安装。
 ```
 pip install -e .
 ```
 
-## Documentation
+## 文档
 
-Please refer to our <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/">documentation</a> to see the detailed documentation.
+您可参考<a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/">文档页面</a> 以参阅我们的详细文档。
 
-You can also make the documentation locally. First, please install sphinx and sphinx-rtd-theme:
+文档也可以进行本地编译。首先，请安装 sphinx 和 sphinx-rtd-theme:
 ```
 pip install -U Sphinx
 pip install sphinx-rtd-theme
 ```
-Then, make an html documentation by:
+
+然后，通过以下方式创建 html 文档：
 ```
 cd docs
 make clean && make html
 ```
+文档将在如下路径自动生成：`docs/_build/html`
 
-The documentation will be automatically generated under `docs/_build/html`
+## 引用
 
-## Cite
-
-Please cite [our paper](https://openreview.net/forum?id=0yHwpLeInDn) as follows if you find our code useful:
+如果您使用了智图代码，请按如下方式引用我们的[论文](https://openreview.net/forum?id=0yHwpLeInDn):
 ```
-@inproceedings{
-guan2021autogl,
-title={Auto{GL}: A Library for Automated Graph Learning},
-author={Chaoyu Guan and Ziwei Zhang and Haoyang Li and Heng Chang and Zeyang Zhang and Yijian Qin and Jiyan Jiang and Xin Wang and Wenwu Zhu},
-booktitle={ICLR 2021 Workshop on Geometrical and Topological Representation Learning},
-year={2021},
-url={https://openreview.net/forum?id=0yHwpLeInDn}
+@inproceedings{guan2021autogl,
+  title={Auto{GL}: A Library for Automated Graph Learning},
+  author={Chaoyu Guan and Ziwei Zhang and Haoyang Li and Heng Chang and Zeyang Zhang and Yijian Qin and Jiyan Jiang and Xin Wang and Wenwu Zhu},
+  booktitle={ICLR 2021 Workshop on Geometrical and Topological Representation Learning},
+  year={2021},
+  url={https://openreview.net/forum?id=0yHwpLeInDn}
 }
 ```
 
-You may also find our [survey paper](http://arxiv.org/abs/2103.00742) helpful:
+或许您也会发现我们的[综述](http://arxiv.org/abs/2103.00742)有帮助:
 ```
 @article{zhang2021automated,
   title={Automated Machine Learning on Graphs: A Survey},
@@ -168,5 +164,6 @@ You may also find our [survey paper](http://arxiv.org/abs/2103.00742) helpful:
 }
 ```
 
-## License
-We follow [Apache license](LICENSE) across the entire codebase from v0.2.
+## 版权相关
+从v0.2版本开始，智图的所有代码采用[Apache license](LICENSE)。
+
