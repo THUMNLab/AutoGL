@@ -1,5 +1,5 @@
 # 智图 (AutoGL)
-[English Introduction](https://www.gitlink.org.cn/THUMNLab/AutoGL/README_en.md)
+[English Introduction](https://www.gitlink.org.cn/THUMNLab/AutoGL/tree/main/README_en.md)
 用于图数据的自动机器学习框架和工具包。
 
 *由清华大学媒体与网络实验室进行开发与维护*
