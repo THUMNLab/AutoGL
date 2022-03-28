@@ -25,7 +25,7 @@ class BaseFeatureEngineer(
         with torch.no_grad():
             for i, data in enumerate(dataset):
                 dataset[i] = self.__postprocess(
-                    self._postprocess(self._transform(self._fit(self._preprocess(self.__preprocess(data)))))
+                    self._postprocess(self._fit(self._preprocess(self.__preprocess(data))))
                 )
         return dataset
 
