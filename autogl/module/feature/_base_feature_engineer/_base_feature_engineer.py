@@ -32,7 +32,7 @@ class _ComposedFeatureEngineer(_AbstractBaseFeatureEngineer):
         for fe in self.fe_components:
             dataset = fe.fit(dataset)
         for fe in self.fe_components:
-            dataset = fe.fit(dataset)
+            dataset = fe.transform(dataset)
         return dataset
 
     def __init__(self, feature_engineers: _typing.Iterable[_AbstractBaseFeatureEngineer]):
