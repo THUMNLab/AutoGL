@@ -13,7 +13,7 @@ AutoGIN
 .. The graph isomorphism operator from the “How Powerful are Graph Neural Networks?” paper
 图同构算子（Graph Isomorphism Operator）出自论文“How Powerful are Graph Neural Networks?”中，
 
-图同构网络（Graph Isomorphism Network (GIN)）是一种图神经网络，出自论文`“How Powerful are Graph Neural Networks” <https://arxiv.org/pdf/1810.00826.pdf>`_.
+图同构网络（Graph Isomorphism Network (GIN)）是一种图神经网络，出自论文 `“How Powerful are Graph Neural Networks” <https://arxiv.org/pdf/1810.00826.pdf>`_ 。
 
 .. The layer is
 层间更新方式为：
@@ -31,7 +31,7 @@ AutoGIN
     (1 + \epsilon) \cdot \mathbf{I} \right) \cdot \mathbf{X} \right),
 
 .. here :math:`h_{\mathbf{\Theta}}` denotes a neural network, *.i.e.* an MLP.
-这里 :math:`h_{\mathbf{\Theta}}`代表一个神经网络, *.i.e.* 一个多层感知机.
+这里 :math:`h_{\mathbf{\Theta}}` 代表一个神经网络, 例如一个多层感知机（MLP）.
 
 .. PARAMETERS:
 参数包括：
