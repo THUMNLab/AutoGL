@@ -13,7 +13,7 @@ AutoGIN
 .. The graph isomorphism operator from the “How Powerful are Graph Neural Networks?” paper
 图同构算子（Graph Isomorphism Operator）出自论文“How Powerful are Graph Neural Networks?”中，
 
-图同构网络（Graph Isomorphism Network (GIN)是一种图神经网络，出自论文`"How Powerful are Graph Neural Networks" <https://arxiv.org/pdf/1810.00826.pdf>`_.
+图同构网络（Graph Isomorphism Network (GIN)）是一种图神经网络，出自论文`“How Powerful are Graph Neural Networks” <https://arxiv.org/pdf/1810.00826.pdf>`_ 。
 
 .. The layer is
 层间更新方式为：
@@ -189,21 +189,21 @@ GIN中的超参数：
 .. - neighbor_pooling_type: `str` - pooling type in the  GIN layer.
 
 .. - graph_pooling_type: `str` - graph pooling type following the last GIN layer.
-- num_layers: `int` - GIN的层数.
+- num_layers: `int` - GIN的层数。
 
-- hidden: `List[int]` - 每个隐藏层的大小.
+- hidden: `List[int]` - 每个隐藏层的大小。
 
-- dropout: `float` - 随机失活（Dropout）的概率.
+- dropout: `float` - 随机失活（Dropout）的概率。
 
-- act: `str` - 激活函数的类型.
+- act: `str` - 激活函数的类型。
 
-- eps: `str` - 是否在GIN层中训练参数 :math:`epsilon` .
+- eps: `str` - 是否在GIN层中训练参数 :math:`epsilon` 。
 
-- mlp_layers: `int` - GIN中的多层感知机（MLP）层数.
+- mlp_layers: `int` - GIN中的多层感知机（MLP）层数。
 
-- neighbor_pooling_type: `str` - GIN中的池化（pooling）层类å.
+- neighbor_pooling_type: `str` - GIN中的池化（pooling）层类型。
 
-- graph_pooling_type: `str` - GIN最后一层之后的图池化（graph pooling）类型.
+- graph_pooling_type: `str` - GIN最后一层之后的图池化（graph pooling）类型。
 
 
 .. You could get define your own ``gin`` model by using ``from_hyper_parameter`` function and specify the hyperpameryers.
