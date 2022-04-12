@@ -2,7 +2,7 @@
 
 AutoGL 模型
 ============
-在AutoGL中，我们使用``model``和``automodel``类定义图神经网络模型，并让它们和超参数优化(hyper parameter optimization, HPO)模块兼容。
+在AutoGL中，我们使用 ``model``和 ``automodel``类定义图神经网络模型，并让它们和超参数优化(hyper parameter optimization, HPO)模块兼容。
 
 当前版本下，我们支持节点分类、图分类和链接预测三种任务任务，支持的具体模型如下：
 
@@ -18,8 +18,8 @@ AutoGL 模型
 
 自定义模型和自动模型
 ------------------
-我们强烈建议您同时定义``model``类和``automodel``类。
-其中，``model``类来管理参数的初始化与模型前向传播逻辑，``automodel``类组织超参数相关的搜索。
+我们强烈建议您同时定义 ``model``类和 ``automodel``类。
+其中， ``model`` 类来管理参数的初始化与模型前向传播逻辑， ``automodel``类组织超参数相关的搜索。
 ``automodel``在``solver``和``trainer``模块会被调用。
 
 示例
@@ -56,8 +56,8 @@ AutoGL 模型
             return torch.nn.functional.log_softmax(self.core(x))
 
 
-接下来，您可以定义自动模型``automodel``类以更好管理您的超参数。
-对于来自于数据集的参数如输入维度与输出维度，可以直接传入``automodel``类中的初始化函数中``__init__()``。
+接下来，您可以定义自动模型 ``automodel`` 类以更好管理您的超参数。
+对于来自于数据集的参数如输入维度与输出维度，可以直接传入 ``automodel`` 类中的初始化函数中 ``__init__()`` 。
 而对于需要搜索的其他超参数，需要自定义搜索空间。
 
 .. code-block:: python
@@ -100,7 +100,7 @@ AutoGL 模型
 
         
 
-接着，只需要将定义好的自动图模型输入自动图分类任务的``solver``中，就可以利用它完成节点分类任务。
+接着，只需要将定义好的自动图模型输入自动图分类任务的 ``solver`` 中，就可以利用它完成节点分类任务。
 具体代码示例如下：
 .. code-block :: python
 
@@ -116,10 +116,10 @@ AutoGL 模型
 用于链接预测任务的模型
 ^^^^^^^^^^^^^^^^^^^^
 
-对于链接预测任务，模型的定义在``forward()``函数中略有不同。
-为了更好地和链接预测训练器``LinkPredictionTrainer``与自动链接预测器``AutoLinkPredictor``交互，您需要定义编码函数``lp_encode(self, data)``与解码函数``lp_decode(self, x, pos_edge_index, neg_edge_index)``
+对于链接预测任务，模型的定义在 ``forward()`` 函数中略有不同。
+为了更好地和链接预测训练器 ``LinkPredictionTrainer`` 与自动链接预测器 ``AutoLinkPredictor`` 交互，您需要定义编码函数 ``lp_encode(self, data)`` 与解码函数 ``lp_decode(self, x, pos_edge_index, neg_edge_index)`` 。
 
-用同样的多层感知机作为示例，如果您想要将其用于链接预测任务，那么您不必再定义``forward()``函数，而是定义``lp_encode(self, data)``与``lp_decode(self, x, pos_edge_index, neg_edge_index)``两个函数。具体代码示例如下：
+用同样的多层感知机作为示例，如果您想要将其用于链接预测任务，那么您不必再定义 ``forward()`` 函数，而是定义 ``lp_encode(self, data)`` 与 ``lp_decode(self, x, pos_edge_index, neg_edge_index)`` 两个函数。具体代码示例如下：
 
 .. code-block:: python
 
