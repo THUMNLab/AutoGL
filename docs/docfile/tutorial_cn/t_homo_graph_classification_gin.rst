@@ -1,23 +1,19 @@
 ==========================
-.. Graph Classification Model
 图分类模型
 ==========================
 
-.. Building Graph Classification Modules
 构建图分类模块
 =====================================
-
 .. In AutoGL, we support two graph classification models, ``gin`` and  ``topk``.
-在AutoGL中，我们支持两种图分类模型：``gin`` and  ``topk`` 。
+在AutoGL中，我们支持两种图分类模型： ``gin`` and  ``topk`` 。
 
 AutoGIN
 >>>>>>>
 
 .. The graph isomorphism operator from the “How Powerful are Graph Neural Networks?” paper
-图同构算子（Graph Isomorphism Operator）出自论文“How Powerful are Graph Neural Networks?”中
+图同构算子（Graph Isomorphism Operator）出自论文“How Powerful are Graph Neural Networks?”中，
 
-.. Graph Isomorphism Network (GIN) is one graph classification model from `"How Powerful are Graph Neural Networks" paper <https://arxiv.org/pdf/1810.00826.pdf>`_.
-图同构网络（Graph Isomorphism Network (GIN)是出自论文`"How Powerful are Graph Neural Networks" paper <https://arxiv.org/pdf/1810.00826.pdf>`_中的一种图神经网络。
+图同构网络（Graph Isomorphism Network (GIN)是的一种图神经网,络出自论文`"How Powerful are Graph Neural Networks" paper <https://arxiv.org/pdf/1810.00826.pdf>`_。
 
 .. The layer is
 层间更新方式为：
