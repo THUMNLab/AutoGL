@@ -1,5 +1,5 @@
 # 智图 (AutoGL)
-[English Introduction](https://github.com/THUMNLab/AutoGL)
+[English Introduction]()
 
 用于图数据的自动机器学习框架和工具包。
 
