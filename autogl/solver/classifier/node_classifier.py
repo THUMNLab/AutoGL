@@ -313,6 +313,7 @@ class AutoNodeClassifier(BaseClassifier):
         # check whether the dataset has features.
         # currently we only support graph classification with features.
 
+        graph_data = get_graph_from_dataset(dataset, 0)
         feat = get_graph_node_features(graph_data)
         assert feat is not None, (
             "Does not support fit on non node-feature dataset!"
