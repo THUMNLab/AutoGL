@@ -43,9 +43,9 @@ solver. Following shows an example:
         graph_models = (),
         hpo = 'tpe',
         ensemble = None,
-        nas_algorithms='rl',
+        nas_algorithms=['rl'],
         nas_spaces='graphnasmacro',
-        nas_estimators='scratch'
+        nas_estimators=['scratch']
     )
 
     cora = build_dataset_from_name('cora')
@@ -96,16 +96,17 @@ Here is an example.
             self.output_dim = output_dim
 
         # Instantiate the super network
-        def instantiate(self, input_dim, output_dim):
+        def instantiate(self, input_dim = None, output_dim = None):
             # must call super in this function
             super().instantiate()
             self.input_dim = input_dim or self.input_dim
             self.output_dim = output_dim or self.output_dim
             # define two layers with order 0 and 1
-            self.layer0 = self.setLayerChoice(0, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']])
-            self.layer1 = self.setLayerChoice(1, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']])
+            setattr(self, 'layer0', self.setLayerChoice(0, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']], key = 'layer0')
+            setattr(self, 'layer1', self.setLayerChoice(1, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']], key = 'layer1')
             # define an input choice two choose from the result of the two layer
-            self.input_layer = self.setInputChoice(2, n_candidates = 2)
+            setattr(self, 'input_layer', self.setInputChoice(2, choose_from = ['layer0', 'layer1'], n_chosen = 1, returen_mask = False, key = 'input_layer'))
+            self._initialized = True
 
         # Define the forward process
         def forward(self, data):
@@ -113,6 +114,7 @@ Here is an example.
             x_0 = self.layer0(x, edges)
             x_1 = self.layer1(x, edges)
             y = self.input_layer([x_0, x_1])
+            y = F.log_fostmax(y, dim = 1)
             return y
 
         # For one-shot fashion, you can directly use following scheme in ``parse_model``
