@@ -1,5 +1,7 @@
 # Auto Graph Learning
 
+[Chinese Introduction](https://github.com/THUMNLab/AutoGL/blob/main/README_cn.md)
+
 An autoML framework & toolkit for machine learning on graphs.
 
 *Actively under development by @THUMNLab*
