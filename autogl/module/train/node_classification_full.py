@@ -229,6 +229,8 @@ class NodeClassificationFullTrainer(BaseNodeClassificationTrainer):
                     loss = getattr(F, self.loss)(res[mask], data.y[mask])
                 elif self.pyg_dgl == 'dgl':
                     loss = getattr(F, self.loss)(res[mask], data.ndata['label'][mask])
+            elif callable(self.loss):
+                loss = self.loss(res[mask], data.ndata['label'][mask])
             else:
                 raise TypeError(
                     "PyTorch does not support loss type {}".format(self.loss)

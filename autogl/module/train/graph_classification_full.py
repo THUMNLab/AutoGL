@@ -248,6 +248,8 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
                     
                     if hasattr(F, self.loss):
                         loss = getattr(F, self.loss)(output, data.y)
+                    elif callable(self.loss):
+                        loss = self.loss(output, data.y)
                     else:
                         raise TypeError(
                             "PyTorch does not support loss type {}".format(self.loss)
@@ -262,6 +264,8 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
 
                     if hasattr(F, self.loss):
                         loss = getattr(F, self.loss)(output, labels)
+                    elif callable(self.loss):
+                        loss = self.loss(output, labels)
                     else:
                         raise TypeError(
                             "PyTorch does not support loss type {}".format(self.loss)
