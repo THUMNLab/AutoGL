@@ -20,7 +20,7 @@ if DependentBackend.is_dgl():
 elif DependentBackend.is_pyg():
     from torch_geometric.datasets import Planetoid
     from autogl.module.model.pyg import BaseAutoModel
-
+from autogl.datasets import build_dataset_from_name
 import torch
 import torch.nn.functional as F
 from autogl.module.nas.space.single_path import SinglePathNodeClassificationSpace
@@ -71,12 +71,13 @@ def test_model(model, data=None, check_children=False):
 if __name__ == "__main__":
 
     print("Testing backend: {}".format("dgl" if DependentBackend.is_dgl() else "pyg"))
-
     if DependentBackend.is_dgl():
-        dataset = CoraGraphDataset()
+        from autogl.datasets.utils.conversion._to_dgl_dataset import to_dgl_dataset as convert_dataset
     else:
-        dataset = Planetoid(os.path.expanduser("~/.cache-autogl"), "Cora")
+        from autogl.datasets.utils.conversion._to_pyg_dataset import to_pyg_dataset as convert_dataset
 
+    dataset = build_dataset_from_name('cora')
+    dataset = convert_dataset(dataset)
     data = dataset[0]
 
     di = bk_feat(data).shape[1]
@@ -122,14 +123,6 @@ if __name__ == "__main__":
     space.instantiate(input_dim=di, output_dim=do)
     esti = OneShotEstimator()
     algo = RL(num_epochs=10)
-    model = algo.search(space, dataset, esti)
-    test_model(model, data, True)
-
-    print("darts + graphnas ")
-    space = AutoAttendNodeClassificationSpace().cuda()
-    space.instantiate(input_dim=di, output_dim=do)
-    esti = OneShotEstimator()
-    algo = Darts(num_epochs=10)
     model = algo.search(space, dataset, esti)
     test_model(model, data, True)
 

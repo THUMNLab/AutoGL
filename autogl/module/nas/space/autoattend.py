@@ -57,6 +57,9 @@ class AutoAttendNodeClassificationSpace(BaseSpace):
 
     ):
         super().__init__()
+
+        from autogl.backend import DependentBackend;assert not DependentBackend.is_dgl(),"Now AutoAttend only support pyg"
+        
         self.layer_number = layer_number
         self.hidden_dim = hidden_dim
         self.input_dim = input_dim
