@@ -1,4 +1,4 @@
-.. _dataset:
+.. _dataset_cn:
 
 AutoGL 数据集
 ==============

@@ -1,4 +1,4 @@
-.. _ensemble:
+.. _ensemble_cn:
 
 Ensemble
 ========

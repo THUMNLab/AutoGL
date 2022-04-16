@@ -6,11 +6,11 @@ Neural Architecture Search
 We support different neural architecture search algorithm in variant search space.
 Neural architecture search is usually constructed by three modules: search space, search strategy and estimation strategy.
 
-The search space describes all possible architectures to be searched. There are mainly two parts of the space formulated, the operations(e.g. GCNconv, GATconv) and the input-ouput realations.
+The search space describes all possible architectures to be searched. There are mainly two parts of the space formulated, the operations(e.g. GCNconv, GATconv) and the input-ouput relations.
 A large space may have better optimal architecture but demands more effect to explore.
 Human knowledge can help to design a reasonable search space to reduce the efforts of search strategy.
 
-The search strategy controls how to explore the search sapce. 
+The search strategy controls how to explore the search space. 
 It encompasses the classical exploration-exploitation trade-off since.
 On the one hand, it is desirable to find well-performing architectures quickly, 
 while on the other hand, premature convergence to a region of suboptimal architectures should be avoided.
@@ -104,7 +104,7 @@ Here is an example.
             # define two layers with order 0 and 1
             setattr(self, 'layer0', self.setLayerChoice(0, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']], key = 'layer0')
             setattr(self, 'layer1', self.setLayerChoice(1, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']], key = 'layer1')
-            # define an input choice two choose from the result of the two layer
+            # define an input choice to choose from the result of the two layer
             setattr(self, 'input_layer', self.setInputChoice(2, choose_from = ['layer0', 'layer1'], n_chosen = 1, returen_mask = False, key = 'input_layer'))
             self._initialized = True
 
@@ -287,7 +287,7 @@ If you want to define more complex strategy, you can refer to Darts, Enas or oth
 Different search strategies should be combined with different search spaces and estimators in usage.
 
 +----------------+-------------+-------------+------------------+
-| Sapce          | single path | GraphNAS[1] | GraphNAS-macro[1]|
+| Space          | single path | GraphNAS[1] | GraphNAS-macro[1]|
 +================+=============+=============+==================+
 | Random         |  ✓          |  ✓          |  ✓               | 
 +----------------+-------------+-------------+------------------+

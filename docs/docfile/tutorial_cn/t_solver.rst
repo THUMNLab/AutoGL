@@ -1,4 +1,4 @@
-.. _solver:
+.. _solver_cn:
 
 AutoGL Solver
 =============
@@ -23,7 +23,7 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
 
     from autogl.solver import AutoNodeClassifier
     
-    # 1. initialize from keywords
+    # 1. 通过关键词初始化
     solver = AutoNodeClassifier(
         feature_module='deepgl', 
         graph_models=['gat','gcn'], 
@@ -32,7 +32,7 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
         device='auto'
     )
 
-    # 2. initialize using instances
+    # 2. 使用实例初始化
     from autogl.module import AutoFeatureEngineer, AutoGCN, AutoGAT, AnnealAdvisorHPO, Voting
     solver = AutoNodeClassifier(
         feature_module=AutoFeatureEngineer(),
@@ -65,11 +65,11 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
 
 .. code-block:: python
 
-    # initialize from config file
+    # 通过配置文件初始化
     path_to_config = 'your/path/to/config'
     solver = AutoNodeClassifier.from_config(path_to_config)
 
-    # initialize from a dictionary
+    # 通过字典初始化
     config = {
         'models':{'gcn': None, 'gat': None},
         'hpo': {'name': 'tpe', 'max_evals': 10},
@@ -82,13 +82,13 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
 优化
 ------------
 
-初始化 solver 之后，你可以在给定的数据集上进行优化（请参考 :ref:`dataset` 和 :ref:`dataset documentation` 以创建数据集）。
+初始化 solver 之后，你可以在给定的数据集上进行优化（请参考 :ref:`dataset_cn` 和 :ref:`dataset documentation` 以创建数据集）。
 
 你可以使用 ``fit()`` 或 ``fit_predict()`` 来进行优化，它们有相似的参数列表：
 
 .. code-block:: python
 
-    # load your dataset here
+    # 加载数据集
     dataset = some_dataset()
     solver.fit(dataset, inplace=True)
 
@@ -99,12 +99,12 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
 
 .. code-block:: python
 
-    # split 0.2 of total nodes/graphs for train and 0.4 of nodes/graphs for validation, 
-    # the rest 0.4 is left for test. 
+    .. # 分割 20% 的节点/图用于训练，40% 的节点/图用于验证 
+    # 剩余 40% 用于测试
     solver.fit(dataset, train_split=0.2, val_split=0.4)
 
-    # split 600 nodes/graphs for train and 400 nodes/graphs for validation,
-    # the rest nodes are left for test.
+    # 分割 600 个节点/图用于训练，400 个节点/图用于验证 
+    # 剩余的用于测试
     solver.fit(dataset, train_split=600, val_split=400)
 
 对于点分类问题，我们同样支持对训练和测试集的平衡采样：强制不同类别的节点数量相同。这种平衡模式可以通过在 ``fit()`` 使 ``balanced=True`` 来进行设置，而其默认值也是 ``True``。
@@ -115,9 +115,9 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
 
 .. code-block:: python
 
-    # get current leaderboard of the solver
+    # 获取当前榜单
     lb = solver.get_leaderboard()
-    # show the leaderboard info
+    # 展示榜单信息
     lb.show()
 
 你可以参考榜单的文档 :ref:`solver documentation` 以获取更多使用细节。
@@ -177,9 +177,9 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
 
 对于 ``feature``，``hpo`` 和 ``ensemble``，它们对应的值都是字典，里面至少有一个键是 ``name``， 其它的参数则用于初始化对应模型。``name`` 指定了所使用的的算法，如果你不想使用某个模块，你可以传入 ``None``。
 
-对于 ``trainer``，你需要制指定它的超参数空间。请参考 :ref:`trainer` 或者 :ref:`train documentation` 来获取不同 trainer 的详细超参数空间信息。
+对于 ``trainer``，你需要制指定它的超参数空间。请参考 :ref:`trainer_cn` 或者 :ref:`train documentation` 来获取不同 trainer 的详细超参数空间信息。
 
-对于 ``models``，其值是另一个字典，它的键是需要优化的模型，值是对应模型的超参数空间。参考 :ref:`model` 或者 :ref:`model documentation` 来获取不同模型的详细超参数信息。
+对于 ``models``，其值是另一个字典，它的键是需要优化的模型，值是对应模型的超参数空间。参考 :ref:`model_cn` 或者 :ref:`model documentation` 来获取不同模型的详细超参数信息。
 
 下面展示了配置所需字典的一个例子。
 
@@ -187,14 +187,14 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
 
     config_for_node_classification = {
         'feature': {
-            'name': 'deepgl',       # name of auto feature module
-            # following are the deepgl specified auto feature engineer arguments
+            'name': 'deepgl',       # 自动特征工程模块的名字
+            # 下面是 deepgl 特征工程模块的专有参数
             'fixlen': 100,
             'max_epoch': 5
         },
         'models': {
             'gcn': 
-            # specify the hp space of gcn
+            # 指定 gcn 的超参数空间
             [
                 {'parameterName': 'num_layers', 'type': 'DISCRETE', 'feasiblePoints': '2,3,4'}, 
                 {'parameterName': 'hidden', 'type': 'NUMERICAL_LIST', 'numericalType': 'INTEGER', 'length': 3, 
@@ -202,35 +202,35 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
                 {'parameterName': 'dropout', 'type': 'DOUBLE', 'maxValue': 0.9, 'minValue': 0.1, 'scalingType': 'LINEAR'}, 
                 {'parameterName': 'act', 'type': 'CATEGORICAL', 'feasiblePoints': ['leaky_relu', 'relu', 'elu', 'tanh']}
             ],
-            'gat': None,             # set to None to use default hp space
+            'gat': None,             # 设置为空则使用默认的超参数空间
             'gin': None
         }
         'trainer': [
-            # trainer hp space
+            # trainer 超参数空间
             {'parameterName': 'max_epoch', 'type': 'INTEGER', 'maxValue': 300, 'minValue': 10, 'scalingType': 'LINEAR'}, 
             {'parameterName': 'early_stopping_round', 'type': 'INTEGER', 'maxValue': 30, 'minValue': 10, 'scalingType': 'LINEAR'}, 
             {'parameterName': 'lr', 'type': 'DOUBLE', 'maxValue': 0.001, 'minValue': 0.0001, 'scalingType': 'LOG'}, 
             {'parameterName': 'weight_decay', 'type': 'DOUBLE', 'maxValue': 0.005, 'minValue': 0.0005, 'scalingType': 'LOG'}
         ],
         'hpo': {
-            'name': 'autone',       # name of hpo module
-            # following are the autone specified auto hpo arguments
+            'name': 'autone',       # 超参数优化模块的名字
+            # 下面是 autone 超参数优化模块的专有参数
             'max_evals': 10,
             'subgraphs': 10,
             'sub_evals': 5
         }, 
         'ensemble': {
-            'name': 'voting',       # name of ensemble module
-            # following are the voting specified auto ensemble arguments
+            'name': 'voting',       # 集成模块的名字
+            # 下面是 voting 集成模块的专有参数
             'size': 2
         }
     }
 
     config_for_graph_classification = {
-        'feature': None,            # set to None to disable this module
-        # do not add field `model` to use default settings of solver
+        'feature': None,            # 设置为空会禁用该模块
+        # 不添加 `model` 域以使用默认设置
         'trainer': [
-            # trainer hp space
+            # trainer 超参数空间
             {'parameterName': 'max_epoch', 'type': 'INTEGER', 'maxValue': 300, 'minValue': 10, 'scalingType': 'LINEAR'},
             {'parameterName': 'batch_size', 'type': 'INTEGER', 'maxValue': 128, 'minValue': 32, 'scalingType': 'LOG'},
             {'parameterName': 'early_stopping_round', 'type': 'INTEGER', 'maxValue': 30, 'minValue': 10, 'scalingType': 'LINEAR'},
@@ -238,9 +238,9 @@ AutoGL 项目用 ``solver`` 类来控制整个自动机器学习流程。目前�
             {'parameterName': 'weight_decay', 'type': 'DOUBLE', 'maxValue': 5e-3, 'minValue': 5e-4, 'scalingType': 'LOG'},
         ],
         'hpo': {
-            'name': 'random',       # name of hpo module
-            # following are the random specified auto hpo arguments
+            'name': 'random',       # 超参数优化模块的名字
+            # 下面是 random 超参数优化模块的专有参数
             'max_evals': 10
         }, 
-        'ensemble': None            # set to None to disable this module
+        'ensemble': None            # 设置为空以禁用该模块
     }
