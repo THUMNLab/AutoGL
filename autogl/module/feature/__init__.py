@@ -33,6 +33,9 @@ from ._graph import (
 from ._selectors import (
     FilterConstant, GBDTFeatureSelector
 )
+from ._auto_feature import (
+    IdentityFeature, OnlyConstFeature, AutoFeatureEngineer
+)
 
 __all__ = [
     "BaseFeatureEngineer",
@@ -61,5 +64,8 @@ __all__ = [
     "NXGlobalEfficiency",
     "NXIsEulerian",
     "FilterConstant",
-    "GBDTFeatureSelector"
+    "GBDTFeatureSelector",
+    "IdentityFeature",
+    "OnlyConstFeature",
+    "AutoFeatureEngineer"
 ]
