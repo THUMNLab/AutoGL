@@ -168,3 +168,10 @@ make clean && make html
 ## 版权相关
 从v0.2版本开始，智图的所有代码采用[Apache license](LICENSE)。
 
+## 用户交流微信群
+![weixin](https://user-images.githubusercontent.com/17705534/163801846-2aa1bdf8-919e-4636-b7d9-e5346f352c15.jpg)
+
+
+
+
+
