@@ -111,6 +111,26 @@ In AutoGL, the tasks are solved by corresponding solvers, which in general do th
 
 .. toctree::
    :maxdepth: 2
+   :caption: 中文教程
+
+   docfile/tutorial_cn/t_quickstart
+   docfile/tutorial_cn/t_hetero_node_clf
+   docfile/tutorial_cn/t_homo_graph_classification_gin
+   docfile/tutorial_cn/t_backend
+
+   ..
+      docfile/tutorial/t_dataset
+      docfile/tutorial/t_fe
+   
+   docfile/tutorial_cn/t_model
+   docfile/tutorial_cn/t_trainer
+   docfile/tutorial_cn/t_hpo
+   docfile/tutorial_cn/t_nas
+   docfile/tutorial_cn/t_ensemble
+   docfile/tutorial_cn/t_solver
+
+.. toctree::
+   :maxdepth: 2
    :caption: Documentation
 
    docfile/documentation/data   

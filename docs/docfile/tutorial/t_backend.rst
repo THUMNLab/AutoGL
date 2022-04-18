@@ -9,13 +9,13 @@ enable users from both end benifiting the automation of graph learning.
 To specify one specific backend, you can declare the backend using environment variables
 ``AUTOGL_BACKEND``. For example:
 
-.. code-block :: shell
+.. code-block:: python
 
     AUTOGL_BACKEND=pyg python xxx.py
 
 or
 
-.. code-block :: python
+.. code-block:: python
 
     import os
     os.environ["AUTOGL_BACKEND"] = "pyg"
