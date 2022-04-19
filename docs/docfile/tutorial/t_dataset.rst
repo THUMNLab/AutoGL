@@ -10,6 +10,7 @@ Besides, users are able to leverage a unified abstraction provided in AutoGL, ``
 A basic example to construct an instance of ``GeneralStaticGraph`` is shown as follows.
 
 .. code-block:: python
+
     from autogl.data.graph import GeneralStaticGraph, GeneralStaticGraphGenerator
 
     ''' Construct a custom homogeneous graph '''
