@@ -265,7 +265,6 @@ class RL(BaseNAS):
         disable_progress=False,
     ):
         super().__init__(device)
-        self.device = device
         self.num_epochs = num_epochs
         self.log_frequency = log_frequency
         self.entropy_weight = entropy_weight
@@ -447,7 +446,6 @@ class GraphNasRL(BaseNAS):
         hardware_metric_limit=None,
     ):
         super().__init__(device)
-        self.device = device
         self.num_epochs = num_epochs
         self.log_frequency = log_frequency
         self.entropy_weight = entropy_weight

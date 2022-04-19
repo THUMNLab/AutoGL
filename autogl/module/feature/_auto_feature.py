@@ -166,7 +166,7 @@ class AutoFeatureEngineer(BaseFeatureEngineer):
             verbosity: int = 0,
             *args, **kwargs
     ):
-        super(AutoFeatureEngineer, self).__init__(multi_graph=False)
+        super(AutoFeatureEngineer, self).__init__()
         self._ops = [op_sum, op_mean, op_max, op_min]
         self._sim = cosine_similarity
         self._fixlen = fix_length
@@ -208,7 +208,7 @@ class AutoFeatureEngineer(BaseFeatureEngineer):
         for u, v in homogeneous_static_graph.edges.connections.t().numpy():
             neighbours[u].append(v)
         self.__neighbours: _typing.Sequence[np.ndarray] = tuple(
-            [np.ndarray(v) for v in neighbours]
+            [np.array(v) for v in neighbours]
         )
 
         x: np.ndarray = _original_features.numpy()

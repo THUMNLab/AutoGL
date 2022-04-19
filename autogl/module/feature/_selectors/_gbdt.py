@@ -41,6 +41,7 @@ def _gbdt_generator(
     )
 
     num_classes: int = torch.max(data.y).item() + 1
+    parameters["num_class"] = num_classes
     __optimizer_parameters = {
         "num_boost_round": 100,
         "early_stopping_rounds": 5,
@@ -78,7 +79,7 @@ def _gbdt_generator(
         train_x = pd.DataFrame(x, columns=feature_index, index=None)
         dtrain = lightgbm.Dataset(train_x, label=label)
         clf = lightgbm.train(
-            train_set=dtrain, params=params,
+            train_set=dtrain, params=parameters,
             **__optimizer_parameters
         )
 
