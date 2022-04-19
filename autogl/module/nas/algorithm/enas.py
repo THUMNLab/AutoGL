@@ -82,7 +82,6 @@ class Enas(BaseNAS):
         device="auto",
     ):
         super().__init__(device)
-        self.device = device
         self.num_epochs = num_epochs
         self.log_frequency = log_frequency
         self.entropy_weight = entropy_weight
