@@ -228,7 +228,6 @@ class Spos(BaseNAS):
         device="cuda",
     ):
         super().__init__(device)
-        self.device = device
         self.model_lr=5e-3
         self.model_wd=5e-4
         self.n_warmup = n_warmup
