@@ -4,8 +4,7 @@ AutoGL Feature Engineering
 ==========================
 
 We provide a series of node and graph feature engineers for 
-you to compose within a feature engineering pipeline. An automatic
-feature engineering algorithm is also provided.
+you to compose within a feature engineering pipeline. 
 
 Quick Start
 -----------
@@ -16,18 +15,15 @@ Quick Start
     data = build_dataset_from_name('cora')
 
     # 2. Compose a feature engineering pipeline
-    from autogl.module.feature import BaseFeature,AutoFeatureEngineer
-    from autogl.module.feature.generators import GeEigen
-    from autogl.module.feature.selectors import SeGBDT
-    from autogl.module.feature.graph import SgNetLSD
-    # you may compose feature engineering bases through BaseFeature.compose
-    fe = BaseFeature.compose([
-    GeEigen(size=32) ,
-    SeGBDT(fixlen=100),
-    SgNetLSD()
+    from autogl.module.feature._base_feature_engineer._base_feature_engineer import _ComposedFeatureEngineer
+    from autogl.module.feature import EigenFeatureGenerator
+    from autogl.module.feature import NetLSD
+
+    # you may compose feature engineering bases through autogl.module.feature._base_feature_engineer
+    fe = _ComposedFeatureEngineer([
+        EigenFeatureGenerator(size=32),
+        NetLSD()
     ])
-    # or just through '&' operator
-    fe = fe & AutoFeatureEngineer(fixlen=200,max_epoch=3)
 
     # 3. Fit and transform the data
     fe.fit(data)
@@ -44,19 +40,19 @@ in configurations or as arguments of the autogl solver.
 +---------------------------+-------------------------------------------------+
 |           Base            |                   Description                   |
 +===========================+=================================================+
-| ``graphlet``              | concatenate local graphlet numbers as features. |
+| ``GraphletGenerator``              | concatenate local graphlet numbers as features. |
 +---------------------------+-------------------------------------------------+
-| ``eigen``                 | concatenate Eigen features.                     |
+| ``EigenFeatureGenerator``                 | concatenate Eigen features.                     |
 +---------------------------+-------------------------------------------------+
-| ``pagerank``              | concatenate Pagerank scores.                    |
+| ``PageRankFeatureGenerator``              | concatenate Pagerank scores.                    |
 +---------------------------+-------------------------------------------------+
-| ``PYGLocalDegreeProfile`` | concatenate Local Degree Profile features.      |
+| ``    LocalDegreeProfileGenerator `` | concatenate Local Degree Profile features.      |
 +---------------------------+-------------------------------------------------+
-| ``PYGNormalizeFeatures``  | Normalize all node features                     |
+| ``NormalizeFeatures``  | Normalize all node features                     |
 +---------------------------+-------------------------------------------------+
-| ``PYGOneHotDegree``       | concatenate degree one-hot encoding.            |
+| ``OneHotDegreeGenerator``       | concatenate degree one-hot encoding.            |
 +---------------------------+-------------------------------------------------+
-| ``onehot``                | concatenate node id one-hot encoding.           |
+| ``OneHotFeatureGenerator``                | concatenate node id one-hot encoding.           |
 +---------------------------+-------------------------------------------------+
 
 2. ``selectors``
@@ -64,14 +60,14 @@ in configurations or as arguments of the autogl solver.
 +----------------------+--------------------------------------------------------------------------------+
 |         Base         |                                  Description                                   |
 +======================+================================================================================+
-| ``SeFilterConstant`` | delete all constant and one-hot encoding node features.                        |
+| ``FilterConstant`` | delete all constant and one-hot encoding node features.                        |
 +----------------------+--------------------------------------------------------------------------------+
-| ``gbdt``             | select top-k important node features ranked by Gradient Descent Decision Tree. |
+| ``GBDTFeatureSelector``             | select top-k important node features ranked by Gradient Descent Decision Tree. |
 +----------------------+--------------------------------------------------------------------------------+
 
 3. ``graph``
 
-``netlsd`` is a graph feature generation method. please refer to the according document.
+``NetLSD`` is a graph feature generation method. please refer to the according document.
 
 A set of graph feature extractors implemented in NetworkX are wrapped, please refer to NetworkX for details.  (``NxLargeCliqueSize``, ``NxAverageClusteringApproximate``, ``NxDegreeAssortativityCoefficient``, ``NxDegreePearsonCorrelationCoefficient``, ``NxHasBridge``
 ,``NxGraphCliqueNumber``, ``NxGraphNumberOfCliques``, ``NxTransitivity``, ``NxAverageClustering``, ``NxIsConnected``, ``NxNumberConnectedComponents``, 
@@ -87,24 +83,24 @@ Of course, you can directly inherit the ``BaseFeature`` as well.
 Create Your Own FE
 ------------------
 You can create your own feature engineering object by simply inheriting one of feature engineering base types ,namely ``generators``, ``selectors`` , ``graph``,
-and overloading methods ``_fit`` and ``_transform``.
+and overloading methods ``extract_xx_features``.
 
 .. code-block :: python
 
     # for example : create a node one-hot feature.
-    from autogl.module.feature.generators.base import BaseGenerator
-    import numpy as np
-    class GeOnehot(BaseGenerator):
-        def __init__(self):
-            super(GeOnehot,self).__init__(data_t='np',multigraph=True,subgraph=False) 
-            # data type in mid is 'numpy',
-            # and it can be used for multigraph, 
-            # but not suitable for subgraph feature extraction.
-        
-        def _fit(self):
-            pass # nothing to train or memorize
+    import autogl
+    import torch
+    from autogl.module.feature._generators._basic import BaseFeatureGenerator
 
-        def _transform(self, data):
-            fe=np.eye(data.x.shape[0])
-            data.x=np.concatenate([data.x,fe],axis=1)
-            return data 
+    class OneHotFeatureGenerator(BaseFeatureGenerator):
+        # if overrider_features==False , concat the features with original features; otherwise override.
+        def __init__(self, override_features: bool = False): 
+            super(BaseFeatureGenerator, self).__init__(override_features)
+
+        def _extract_nodes_feature(self, data: autogl.data.Data) -> torch.Tensor:
+            num_nodes: int = (
+                data.x.size(0)
+                if data.x is not None and isinstance(data.x, torch.Tensor)
+                else (data.edge_index.max().item() + 1)
+            )
+            return torch.eye(num_nodes)

@@ -1,40 +1,40 @@
-.. _nas:
+.. _nas_cn：
 
-Neural Architecture Search
+神经架构搜索
 ============================
 
-We support different neural architecture search algorithm in variant search space.
-Neural architecture search is usually constructed by three modules: search space, search strategy and estimation strategy.
+我们在不同的搜索空间中支持不同的神经架构搜索算法。
+神经架构搜索通常由三个模块构成：搜索空间、搜索策略和评估策略。
 
-The search space describes all possible architectures to be searched. There are mainly two parts of the space formulated, the operations(e.g. GCNconv, GATconv) and the input-ouput relations.
-A large space may have better optimal architecture but demands more effect to explore.
-Human knowledge can help to design a reasonable search space to reduce the efforts of search strategy.
+搜索空间描述了所有可能要搜索的架构。空间主要由两部分组成：操作（如GCNconv、GATconv）和输入输出关系。
+大空间可能有更好的最优架构，但需要更多的算力来探索。
+人类知识可以帮助设计合理的搜索空间，减少搜索策略的开销。
 
-The search strategy controls how to explore the search space. 
-It encompasses the classical exploration-exploitation trade-off since.
-On the one hand, it is desirable to find well-performing architectures quickly, 
-while on the other hand, premature convergence to a region of suboptimal architectures should be avoided.
+搜索策略则控制着如何来探索搜索空间。
+它包含了经典的探索-利用困境。
+一方面，人们希望快速找到性能良好的架构，
+而另一方面，也需要避免过早收敛到次优架构区域。
 
-The estimation strategy gives the performance of certain architectures when it is explored.
-The simplest option is to perform a standard training and validation of the architecture on data.
-Since there are lots of architectures need estimating in the whole searching process, estimation strategy is desired to be very efficient to save computational resources.
+评估策略在探索时给出架构的性能。
+最简单的方法是对数据执行标准的架构训练和验证。
+但由于在搜索过程中有很多架构需要评估，因此需要非常有效的评估策略来节省计算资源。
 
 .. image:: ../../../resources/nas.svg
    :align: center
 
-To be more flexible, we modulize NAS process with three part: algorithm, space and estimator, corresponding to the three module search space, search strategy and estimation strategy.
-Different models in different parts can be composed in some certain constrains.
-If you want to design your own NAS process, you can change any of those parts according to your demand.
+为了更加灵活易用，我们将神经架构搜索过程分解为三部分：算法、空间和评估器，分别对应于三个模块：搜索空间、搜索策略和评估策略。
+不同部分的不同模型可以在满足一定条件的时候组合起来。
+如果您想设计自己的神经架构搜索流程，您可以根据需要更改其中的任意部分。
 
-Usage
+用法
 -----
 
-You can directly enable architecture search for node classification tasks by passing the algorithms, spaces and estimators to
-solver. Following shows an example:
+您可以通过将算法、空间与评估器直接传递给求解器来在节点分类任务上启用架构搜索。
+下面是一个例子：
 
 .. code-block:: python
 
-    # Use graphnas to solve cora
+    # 在cora数据集上使用图神经架构搜索
     from autogl.datasets import build_dataset_from_name
     from autogl.solver import AutoNodeClassifier
 
@@ -51,64 +51,64 @@ solver. Following shows an example:
     cora = build_dataset_from_name('cora')
     solver.fit(cora)
 
-The code above will first find the best architecture in space ``graphnasmacro`` using ``rl`` search algorithm.
-Then the searched architecture will be further optimized through hyperparameter-optimization ``tpe``.
+上面的代码将先用 ``rl`` 搜索算法在空间 ``GraphnaSmaro`` 中找到最优架构。
+然后通过超参数优化方法 ``tpe`` 进一步优化搜索到的架构。
 
-.. note:: The ``graph_models`` argument is not conflict with nas module. You can set ``graph_models`` to
-    other hand-crafted models beside the ones found by nas. Once the architectures are derived from nas module,
-    they act in the same way as hand-crafted models directly passed through graph_models.
+.. note:: ``graph_models`` 参数与神经架构搜索模块不冲突。您可以将 ``graph_models`` 设置为
+    神经架构搜索发现的模型外的，其他手工设计的模型。而神经架构搜索模块派生出来的架构
+    的作用也与直接通过图模型模块传递的手工设计的模型相同。
 
-Search Space
+搜索空间
 ------------
 
-The space definition is base on mutable fashion used in NNI, which is defined as a model inheriting BaseSpace
-There are mainly two ways to define your search space, one can be performed with one-shot fashion while the other cannot.
-Currently, we support following search space:
+空间定义基于开源工具包NNI中使用的可变方式，定义为继承基础空间的模型。
+定义搜索空间的方法主要有两种，一种支持单样本方法，而另一种则不支持。
+目前，我们支持如下搜索空间：
 
 +------------------------+-----------------------------------------------------------------+
-| Space                  | Description                                                     |
+| 空间                   | 描述                                                             |
 +========================+=================================================================+
-| ``singlepath`` [4]_    | Architectures with several sequential layers with each layer    |
-|                        | choosing only one path                                          |
+| ``singlepath`` [4]_    | 多个连续层构成的架构，其中每层                                     |
+|                        | 只能有一个选择                                                   |
 +------------------------+-----------------------------------------------------------------+
-| ``graphnas``   [1]_    | The graph nas micro search space designed for fully supervised  |
-|                        | node classification models                                      |
+| ``graphnas``   [1]_    | 为监督节点分类问题的模型设计的                                     |
+|                        | 图神经架构搜索微搜索空间                                          |
 +------------------------+-----------------------------------------------------------------+
-| ``graphnasmacro`` [1]_ | The graph nas macro search space designed for semi-superwised   |
-|                        | node classification models                                      |
+| ``graphnasmacro`` [1]_ | 为半监督节点分类问题的模型设计的                                   |
+|                        | 图神经架构搜索宏搜索空间                                          |
 +------------------------+-----------------------------------------------------------------+
 
-You can also define your own nas search space. 
-If you need one-shot fashion, you should use the function ``setLayerChoice`` and ``setInputChoice`` to construct the super network.
-Here is an example.
+您也可以定义自己的神经架构搜索空间。
+如果需要支持单样本方式，可以使用函数 ``setLayerChoice`` 与 ``setInputChoice`` 来构建超网络。
+下面是一个例子。
 
 .. code-block:: python
 
-    # For example, create an NAS search space by yourself
+    # 创建一个神经架构搜索空间的例子
     from autogl.module.nas.space.base import BaseSpace
     from autogl.module.nas.space.operation import gnn_map
     class YourOneShotSpace(BaseSpace):
-        # Get essential parameters at initialization
+        # 在初始化时获取基本参数
         def __init__(self, input_dim = None, output_dim = None):
             super().__init__()
-            # must contain input_dim and output_dim in space, or you can initialize these two parameters in function `instantiate`
+            # 必须在空间中设定输入维度与输出维度，也可以在函数 `instantiate` 中初始化这两个参数`
             self.input_dim = input_dim
             self.output_dim = output_dim
 
-        # Instantiate the super network
+        # 实例化超网络
         def instantiate(self, input_dim = None, output_dim = None):
-            # must call super in this function
+            # 必须在函数中调用父类的实例化
             super().instantiate()
             self.input_dim = input_dim or self.input_dim
             self.output_dim = output_dim or self.output_dim
-            # define two layers with order 0 and 1
+            # 按照顺序定义两层网络
             setattr(self, 'layer0', self.setLayerChoice(0, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']], key = 'layer0')
             setattr(self, 'layer1', self.setLayerChoice(1, [gnn_map(op,self.input_dim,self.output_dim)for op in ['gcn', 'gat']], key = 'layer1')
-            # define an input choice to choose from the result of the two layer
+            # 定义一个从两层的结果中选择的输入选项
             setattr(self, 'input_layer', self.setInputChoice(2, choose_from = ['layer0', 'layer1'], n_chosen = 1, returen_mask = False, key = 'input_layer'))
             self._initialized = True
 
-        # Define the forward process
+        # 定义前向传播过程
         def forward(self, data):
             x, edges = data.x, data.edge_index
             x_0 = self.layer0(x, edges)
@@ -117,48 +117,50 @@ Here is an example.
             y = F.log_fostmax(y, dim = 1)
             return y
 
-        # For one-shot fashion, you can directly use following scheme in ``parse_model``
+        # 对于单样本范式，您可以使用如 ``parse_model`` 函数中的方法
         def parse_model(self, selection, device) -> BaseModel:
             return self.wrap().fix(selection)
 
-Also, you can use the way which does not support one shot fashion.
-In this way, you can directly copy you model with few changes.
-But you can only use sample-based search strategy.
+您也可以使用不支持单样本范式的方式。
+这样的话，您可以直接复制模型，并进行少量更改。
+但相应的，您也只能使用基于样本的搜索策略。
 
 .. code-block:: python
 
-    # For example, create an NAS search space by yourself
+    # 创建一个神经架构搜索空间的例子
     from autogl.module.nas.space.base import BaseSpace, map_nn
     from autogl.module.nas.space.operation import gnn_map
-    # here we search from three types of graph convolution with `head` as a parameter
-    # we should search `heads` at the same time with the convolution
+    # 在这里，我们以 `head` 作为参数，在三种图卷积上进行搜索
+    # 在搜索 `heads` 时，我们在搜索图卷积
     from torch_geometric.nn import GATConv, FeaStConv, TransformerConv
     class YourNonOneShotSpace(BaseSpace):
-        # Get essential parameters at initialization
+        # 在初始化时获取基本参数
         def __init__(self, input_dim = None, output_dim = None):
             super().__init__()
-            # must contain input_dim and output_dim in space, or you can initialize these two parameters in function `instantiate`
+            # 必须在空间中设定输入维度与输出维度，也可以在函数 `instantiate` 中初始化这两个参数`
             self.input_dim = input_dim
             self.output_dim = output_dim
 
-        # Instantiate the super network
+        # 实例化超网络
         def instantiate(self, input_dim, output_dim):
-            # must call super in this function
+            # 必须在函数中调用父类的实例化
             super().instantiate()
             self.input_dim = input_dim or self.input_dim
             self.output_dim = output_dim or self.output_dim
-            # set your choices as LayerChoices
+            # 设置你每一层的选择
             self.choice0 = self.setLayerChoice(0, map_nn(["gat", "feast", "transformer"]), key="conv")
             self.choice1 = self.setLayerChoice(1, map_nn([1, 2, 4, 8]), key="head")
 
-        # You do not need to define forward process here
-        # For non-one-shot fashion, you can directly return your model based on the choices
-        # ``YourModel`` must inherit BaseSpace.
+        # 不要忘记在这里定义前向传播过程
+        # 对于非单样本范式，您可以直接返回选择下的模型
+        # ``YourModel`` 也就是您的模型必须继承基础空间
         def parse_model(self, selection, device) -> BaseModel:
             model = YourModel(selection, self.input_dim, self.output_dim).wrap()
             return model
 
-    # YourModel can be defined as follows
+.. code-block:: python
+
+    # ``YourModel`` 也就是您的模型定义如下
     class YourModel(BaseSpace):
         def __init__(self, selection, input_dim, output_dim):
             self.input_dim = input_dim
@@ -176,71 +178,70 @@ But you can only use sample-based search strategy.
             y = self.layer(x, edges)
             return y
 
-Performance Estimator
+性能评估器
 ---------------------
 
-The performance estimator estimates the performance of an architecture. Currently we support following estimators:
+性能评估器用于评估一个架构的优劣. 目前我们支持如下一些评估器:
 
 +-------------------------+-------------------------------------------------------+
-| Estimator               | Description                                           |
+| 评估器                   | 描述                                                   |
 +=========================+=======================================================+
-| ``oneshot``             | Directly evaluating the given models without training |
+| ``oneshot``             | 对于给定的子架构，无需训练地直接评估其效果                   |
 +-------------------------+-------------------------------------------------------+
-| ``scratch``             | Train the models from scratch and then evaluate them  |
+| ``scratch``             | 对于给定的子架构，从头开始训练直到收敛之后再评估其效果         |
 +-------------------------+-------------------------------------------------------+
 
-You can also write your own estimator. Here is an example of estimating an architecture without training (used in one-shot space).
+您也可以自己定义一个评估器. 下面是一个无需训练即可评估架构效果的评估器的例子 (通常应用于one-shot space).
 
 .. code-block:: python
 
-    # For example, create an NAS estimator by yourself
+    # 例如，您也可以自己定义一个estimator
     from autogl.module.nas.estimator.base import BaseEstimator
     class YourOneShotEstimator(BaseEstimator):
-        # The only thing you should do is defining ``infer`` function
+        # 您所需要做的只是定义``infer``这个方法
         def infer(self, model: BaseSpace, dataset, mask="train"):
             device = next(model.parameters()).device
             dset = dataset[0].to(device)
-            # Forward the architecture
+            # 对架构直接进行前向传播
             pred = model(dset)[getattr(dset, f"{mask}_mask")]
             y = dset.y[getattr(dset, f'{mask}_mask')]
-            # Use default loss function and metrics to evaluate the architecture
+            # 使用默认的损失函数和评价指标来评估架构效果，当然，在这里您也可以选择其他的损失函数和评价指标
             loss = getattr(F, self.loss_f)(pred, y)
             probs = F.softmax(pred, dim = 1)
             metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
             return metrics, loss
 
-Search Strategy
+搜索策略
 ---------------
 
-The space strategy defines how to find an architecture. We currently support following search strategies:
+搜索策略定义了如何去搜索一个好的子架构. 目前我们支持如下一些搜索策略:
 
 +-------------------------+-------------------------------------------------------+
-| Strategy                | Description                                           |
+| 策略                     | 描述                                                  |
 +=========================+=======================================================+
-| ``random``              | Random search by uniform sampling                     |
+| ``random``              | 通过均匀采样进行随机搜索                                  |
 +-------------------------+-------------------------------------------------------+
-| ``rl`` [1]_             | Use rl as architecture generator agent                |
+| ``rl`` [1]_             | 通过强化学习方法来进行架构搜索                             |
 +-------------------------+-------------------------------------------------------+
-| ``enas`` [2]_           | efficient neural architecture search                  |
+| ``enas`` [2]_           | 通过共享参数等方法，更高效地进行架构搜索                     |
 +-------------------------+-------------------------------------------------------+
-| ``darts`` [3]_          | differentiable neural architecture search             |
+| ``darts`` [3]_          | 通过可微方法来进行架构搜索                                |
 +-------------------------+-------------------------------------------------------+
 
-
-Sample-based strategy without weight sharing is simpler than strategies with weight sharing.
-We show how to define your strategy here with DFS as an example.
-If you want to define more complex strategy, you can refer to Darts, Enas or other strategies in NNI.
+基于采样的非共享权重的搜索策略在实现上更加简单
+接下来，我们将向您展示如何自定义一个基于DFS的搜索策略来作为一个例子
+如果您想要自定义更多复杂的搜索策略，您可以去参考NNI中Darts、Enas或者其他搜索策略的实现
 
 .. code-block:: python
 
     from autogl.module.nas.algorithm.base import BaseNAS
     class RandomSearch(BaseNAS):
-        # Get the number of samples at initialization
+        # 接收需要采样的数量作为初始化
         def __init__(self, n_sample):
             super().__init__()
             self.n_sample = n_sample
 
-        # The key process in NAS algorithm, search for an architecture given space, dataset and estimator
+        # NAS算法流程中的关键步骤，这个方法会根据给定的search space、dataset和estimator去搜索一个合理的架构
         def search(self, space: BaseSpace, dset, estimator):
             self.estimator=estimator
             self.dataset=dset
@@ -248,19 +249,19 @@ If you want to define more complex strategy, you can refer to Darts, Enas or oth
                 
             self.nas_modules = []
             k2o = get_module_order(self.space)
-            # collect all mutables in the space
+            # 寻找并存储search space中所有的mutables，这些mutables就是您在search space中定义的可搜索的部分
             replace_layer_choice(self.space, PathSamplingLayerChoice, self.nas_modules)
             replace_input_choice(self.space, PathSamplingInputChoice, self.nas_modules)
-            # sort all mutables with given orders
+            # 根据给定的orders对mutables进行排序
             self.nas_modules = sort_replaced_module(k2o, self.nas_modules) 
-            # get a dict cantaining all chioces
+            # 得到包含所有可能选择的一个字典
             selection_range={}
             for k,v in self.nas_modules:
                 selection_range[k]=len(v)
             self.selection_dict=selection_range
                 
             arch_perfs=[]
-            # define DFS process
+            # 定义DFS的流程
             self.selection = {}
             last_k = list(self.selection_dict.keys())[-1]
             def dfs():
@@ -269,7 +270,7 @@ If you want to define more complex strategy, you can refer to Darts, Enas or oth
                         for i in range(v):
                             self.selection[k] = i
                             if k == last_k:
-                                # evaluate an architecture
+                                # 评估一个架构的效果
                                 self.arch=space.parse_model(self.selection,self.device)
                                 metric,loss=self._infer(mask='val')
                                 arch_perfs.append([metric, self.selection.copy()])
@@ -279,12 +280,14 @@ If you want to define more complex strategy, you can refer to Darts, Enas or oth
                         break
             dfs()
 
-            # get the architecture with the best performance
+            # 得到在搜索过程中拥有最好效果的架构
             selection=arch_perfs[np.argmax([x[0] for x in arch_perfs])][1]
             arch=space.parse_model(selection,self.device)
             return arch 
 
-Different search strategies should be combined with different search spaces and estimators in usage.
+不同的搜索策略需要与特定的搜索空间与评估器搭配使用
+这与它们的实现相关，如非one-shot的搜索空间不能与one-shot的搜索策略搭配使用
+下面的表格中给出了我们目前所支持的搭配组合
 
 +----------------+-------------+-------------+------------------+
 | Space          | single path | GraphNAS[1] | GraphNAS-macro[1]|

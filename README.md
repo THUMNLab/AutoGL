@@ -11,7 +11,7 @@
 % [![Documentation Status](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)-->
 
 ## 最新消息
-
+- 2021.4.19 v0.3.1版本更新！首次更新中文教程！
 - 2021.12.31 v0.3.0-pre版本更新!
     - 智图目前支持[__Deep Graph Library (DGL)__](https://www.dgl.ai/)作为后端，以方便DGL的用户使用。目前在DGL后端已经支持同构图的节点分类、链接预测以及图分类等任务。智图现在也可兼容PyG 2.0版本。
     - 智图可以支持__异构图__节点分类任务!详情请参考[异构图教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html)。

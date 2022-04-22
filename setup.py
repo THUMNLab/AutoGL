@@ -16,7 +16,7 @@ with open("README.md", 'r') as fh:
 ''' https://setuptools.readthedocs.io/en/latest/ '''
 setup(
     name='autogl',
-    version='0.3.0-pre',
+    version='0.3.1',
     author='THUMNLab/aglteam',
     maintainer='THUMNLab/aglteam',
     author_email='autogl@tsinghua.edu.cn',

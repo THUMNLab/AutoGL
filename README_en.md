@@ -4,7 +4,7 @@ An autoML framework & toolkit for machine learning on graphs.
 
 *Actively under development by @THUMNLab*
 
-Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a> or contact us at <a href="mailto:autogl@tsinghua.edu.cn">autogl@tsinghua.edu.cn</a> if you have any comments or suggestions!
+Feel free to open <a href="https://www.gitlink.org.cn/THUMNLab/AutoGL/issues">issues</a> or contact us at <a href="mailto:autogl@tsinghua.edu.cn">autogl@tsinghua.edu.cn</a> if you have any comments or suggestions!
 
 <!--
  [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -113,7 +113,7 @@ pip install autogl
 Run the following command to install this package from the source.
 
 ```
-git clone https://github.com/THUMNLab/AutoGL.git
+git clone https://gitlink.org.cn/THUMNLab/AutoGL.git
 cd AutoGL
 python setup.py install
 ```
