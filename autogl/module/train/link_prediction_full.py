@@ -247,10 +247,10 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
                 data.train_pos_edge_index, neg_edge_index
             )
             
-            if hasattr(F, self.loss):
-                loss = getattr(F, self.loss)(link_logits, link_labels)
-            elif callable(self.loss):
+            if callable(self.loss):
                 loss = self.loss(link_logits, link_labels)
+            elif hasattr(F, self.loss):
+                loss = getattr(F, self.loss)(link_logits, link_labels)
             else:
                 raise TypeError(
                     "PyTorch does not support loss type {}".format(self.loss)
@@ -308,10 +308,10 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             link_logits = model.encode(train_graph)
             link_logits = model.decode(link_logits, train_graph, pos_edges, neg_edges)
             link_labels = self.get_link_labels(pos_edges, neg_edges)
-            if hasattr(F, self.loss):
-                loss = getattr(F, self.loss)(link_logits, link_labels)
-            elif callable(self.loss):
+            if callable(self.loss):
                 loss = self.loss(link_logits, link_labels)
+            elif hasattr(F, self.loss):
+                loss = getattr(F, self.loss)(link_logits, link_labels)
             else:
                 raise TypeError(
                     "PyTorch does not support loss type {}".format(self.loss)
