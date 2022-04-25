@@ -8,6 +8,7 @@ from .graph_saint import GraphSAINTAggregationModel
 from .gcn import AutoGCN
 from .gat import AutoGAT
 from .gin import AutoGIN
+from .GNNGuard.gcn_attack import AutoGNNGuard_GCN
 
 __all__ = [
     "ModelUniversalRegistry",
@@ -19,4 +20,5 @@ __all__ = [
     "AutoGCN",
     "AutoGAT",
     "AutoGIN",
+    "AutoGNNGuard_GCN"
 ]
