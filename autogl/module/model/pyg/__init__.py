@@ -8,6 +8,7 @@ from .graph_saint import GraphSAINTAggregationModel
 from .gcn import AutoGCN
 from .gat import AutoGAT
 from .gin import AutoGIN
+from .am_gcn import AutoAMGCN
 
 __all__ = [
     "ModelUniversalRegistry",
@@ -19,4 +20,5 @@ __all__ = [
     "AutoGCN",
     "AutoGAT",
     "AutoGIN",
+    "AutoAMGCN"
 ]

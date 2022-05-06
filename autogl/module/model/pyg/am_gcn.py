@@ -99,8 +99,8 @@ class SFGCN(nn.Module):
         emb = torch.stack([emb1, emb2, Xcom], dim=1)
         emb, att = self.attention(emb)
         output = self.MLP(emb)
-        # return output, att, emb1, com1, com2, emb2, emb
-        return output
+        return output, att, emb1, com1, com2, emb2, emb
+        # return output
 
 
 
