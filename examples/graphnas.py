@@ -7,7 +7,7 @@ from autogl.backend import DependentBackend
 if __name__ == '__main__':
     set_seed(202106)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='../configs/nodeclf_nas_macro_benchmark2.yml')
+    parser.add_argument('--config', type=str, default='/home/jcai/code/AutoGL/configs/nodeclf_nas_macro_benchmark2.yml')
     parser.add_argument('--dataset', choices=['cora', 'citeseer', 'pubmed'], default='cora', type=str)
 
     args = parser.parse_args()

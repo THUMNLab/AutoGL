@@ -192,7 +192,8 @@ def get_graph_from_dataset(dataset, graph_id=0):
         from dgl import DGLGraph
         data = dataset[graph_id]
         if isinstance(data, DGLGraph): return data
-        return data[0]
+        return data[0] # Jie
+    # return dataset
     
 def get_graph_node_number(graph):
     # FIXME: if the feature is None, this will throw an error
@@ -245,7 +246,8 @@ def get_dataset_labels(dataset):
     if isinstance(dataset[0], GeneralStaticGraph):
         return torch.LongTensor([d.data['label' if BACKEND == 'dgl' else 'y'] for d in dataset])
     if BACKEND == 'pyg':
-        return dataset.data.y
+        # return dataset.data.y
+        return dataset.labels
     else:
         return torch.LongTensor([d[1] for d in dataset])
 

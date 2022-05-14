@@ -27,7 +27,7 @@ def register_nas_algo(name):
 
 from .darts import Darts
 from .enas import Enas
-from .random_search import RandomSearch
+from .random_search import RandomSearch, GCLRandomSearch
 from .rl import RL, GraphNasRL
 from ..backend import *
 if not is_dgl():
@@ -55,6 +55,6 @@ def build_nas_algo_from_name(name: str) -> BaseNAS:
     return NAS_ALGO_DICT[name]()
 
 
-__all__ = ["BaseNAS", "Darts", "Enas", "RandomSearch", "RL", "GraphNasRL","Spos"]
+__all__ = ["BaseNAS", "Darts", "Enas", "RandomSearch", "RL", "GraphNasRL","Spos","GCLRandomSearch"]
 if not is_dgl():
     __all__.append("Gasso")

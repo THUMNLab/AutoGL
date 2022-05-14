@@ -15,6 +15,9 @@ from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
 from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space, _parse_model_hp
+from ...module.nas.space import NAS_SPACE_DICT
+from ...module.nas.algorithm import NAS_ALGO_DICT
+from ...module.nas.estimator import NAS_ESTIMATOR_DICT, BaseEstimator
 from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features, convert_dataset
 from ...datasets import utils
 from ..utils import get_logger
@@ -80,6 +83,9 @@ class AutoGraphClassifier(BaseClassifier):
         self,
         feature_module=None,
         graph_models=("gin", "topkpool"),
+        nas_algorithms=None, #
+        nas_spaces=None, #
+        nas_estimators=None, #
         hpo_module="anneal",
         ensemble_module="voting",
         max_evals=50,
@@ -93,9 +99,9 @@ class AutoGraphClassifier(BaseClassifier):
         super().__init__(
             feature_module=feature_module,
             graph_models=graph_models,
-            nas_algorithms=None,
-            nas_spaces=None,
-            nas_estimators=None,
+            nas_algorithms=nas_algorithms,#
+            nas_spaces=nas_spaces,#
+            nas_estimators=nas_estimators,#
             hpo_module=hpo_module,
             ensemble_module=ensemble_module,
             max_evals=max_evals,
@@ -172,6 +178,15 @@ class AutoGraphClassifier(BaseClassifier):
 
         return self
 
+    def _init_nas_module(self, num_features, num_classes, feval, device, loss):
+        for algo, space, estimator in zip(
+            self.nas_algorithms, self.nas_spaces, self.nas_estimators
+        ):
+            estimator: BaseEstimator
+            algo.to(device)
+            space.instantiate(input_dim=num_features, output_dim=num_classes)
+            estimator.setEvaluation(feval)
+            estimator.setLossFunction(loss)
 
     # pylint: disable=arguments-differ
     def fit(
@@ -303,6 +318,58 @@ class AutoGraphClassifier(BaseClassifier):
             else dataset[0].gf.size(1)) if BACKEND == 'pyg' else 
             (0 if 'gf' not in dataset[0].data else dataset[0].data['gf'].size(1)),
         )
+
+        if self.nas_algorithms is not None:
+            # perform neural architecture search
+            self._init_nas_module(
+                num_features=num_features,
+                num_classes=num_classes,
+                feval=evaluator_list,
+                device=self.runtime_device,
+                loss="nll_loss" if not hasattr(dataset, "loss") else dataset.loss,
+            )
+
+            assert not isinstance(self._default_trainer, list) or len(
+                self.nas_algorithms
+            ) == len(self._default_trainer) - len(
+                self.graph_model_list
+            ), "length of default trainer should match total graph models and nas models passed"
+
+            # perform nas and add them to model list
+            idx_trainer = len(self.graph_model_list)
+            for algo, space, estimator in zip(
+                self.nas_algorithms, self.nas_spaces, self.nas_estimators
+            ):
+                model = algo.search(space, convert_dataset(self.dataset), estimator)
+                # insert model into default trainer
+                if isinstance(self._default_trainer, list):
+                    train_name = self._default_trainer[idx_trainer]
+                    idx_trainer += 1
+                else:
+                    train_name = self._default_trainer
+                if isinstance(train_name, str):
+                    trainer = TRAINER_DICT[train_name](
+                        model=model,
+                        num_features=num_features,
+                        num_classes=num_classes,
+                        loss="nll_loss"
+                        if not hasattr(dataset, "loss")
+                        else dataset.loss,
+                        feval=evaluator_list,
+                        device=self.runtime_device,
+                        init=False,
+                    )
+                elif isinstance(train_name, BaseGraphClassificationTrainer):
+                    trainer = train_name
+                    trainer.encoder = model
+                    trainer.num_features = num_features
+                    trainer.num_classes = num_classes
+                    trainer.loss = "nll_loss" if not hasattr(dataset, "loss") else dataset.loss
+                    trainer.feval = evaluator_list
+                    trainer.to(self.runtime_device)
+                else:
+                    raise ValueError()
+                self.graph_model_list.append(trainer)
 
         # train the models and tune hpo
         result_valid = []

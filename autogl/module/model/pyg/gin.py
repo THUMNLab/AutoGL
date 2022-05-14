@@ -10,6 +10,7 @@ from ....utils import get_logger
 
 LOGGER = get_logger("GINModel")
 
+# Jie: device = torch.device('cuda:7' if torch.cuda.is_available() else 'cpu')
 
 def set_default(args, d):
     for k, v in d.items():
@@ -91,6 +92,7 @@ class GIN(torch.nn.Module):
         )
 
     def forward(self, data):
+        # Jie: x, edge_index, batch = data.x.to(device), data.edge_index.to(device), data.batch.to(device)
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
         if self.num_graph_features > 0:
@@ -219,4 +221,4 @@ class AutoGIN(BaseAutoModel):
             "num_class": self.output_dimension,
             "num_graph_features": self.num_graph_features,
             **self.hyper_parameters
-        }).to(self.device)
+        }).to(self.device) # Jie

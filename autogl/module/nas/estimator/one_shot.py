@@ -1,5 +1,6 @@
 import torch.nn.functional as F
 import torch
+import numpy as np
 
 from . import register_nas_estimator
 from ..space import BaseSpace
@@ -28,6 +29,7 @@ class OneShotEstimator(BaseEstimator):
         self.evaluation = evaluation
 
     def infer(self, model: BaseSpace, dataset, mask="train"):
+        print("mask",mask)
         device = next(model.parameters()).device
         dset = dataset[0].to(device)
         mask = bk_mask(dset, mask)
@@ -35,6 +37,41 @@ class OneShotEstimator(BaseEstimator):
         pred = model(dset)[mask]
         label = bk_label(dset)
         y = label[mask]
+
+        loss = getattr(F, self.loss_f)(pred, y)
+        probs = F.softmax(pred, dim=1).detach().cpu().numpy()
+        
+        y = y.cpu()
+        metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
+        return metrics, loss
+
+@register_nas_estimator("gcloneshot")
+class GCLOneShotEstimator(BaseEstimator):
+    """
+    One shot estimator.
+
+    Use model directly to get estimations.
+
+    Parameters
+    ----------
+    loss_f : str
+        The name of loss funciton in PyTorch
+    evaluation : list of Evaluation
+        The evaluation metrics in module/train/evaluation
+    """
+
+    def __init__(self, loss_f="nll_loss", evaluation=[Acc()]):
+        super().__init__(loss_f, evaluation)
+        self.evaluation = evaluation
+
+    def infer(self, model: BaseSpace, dataset, mask="train"):
+
+        device = next(model.parameters()).device
+        dset = dataset[0].to(device)
+        mask = bk_mask(dset, mask)
+
+        pred = model(dset)[mask].squeeze(0)
+        y = torch.tensor(np.array([dset.y])).to(device)
 
         loss = getattr(F, self.loss_f)(pred, y)
         probs = F.softmax(pred, dim=1).detach().cpu().numpy()

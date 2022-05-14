@@ -61,16 +61,16 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, choices=['MUTAG', 'COLLAB', 'IMDBBINARY', 'IMDBMULTI', 'NCI1', 'PROTEINS', 'PTC', 'REDDITBINARY', 'REDDITMULTI5K'], default='MUTAG')
     parser.add_argument('--dataset_seed', type=int, default=2021)
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--repeat', type=int, default=50)
+    parser.add_argument('--repeat', type=int, default=2) # 50
     parser.add_argument('--model', type=str, choices=['gin', 'topkpool'], default='gin')
     parser.add_argument('--lr', type=float, default=0.0001)
-    parser.add_argument('--epoch', type=int, default=100)
+    parser.add_argument('--epoch', type=int, default=2) # 100
 
     args = parser.parse_args()
-
     # seed = 100
     dataset = TUDataset(os.path.expanduser('~/.pyg'), args.dataset)
-    
+    args.device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
+
     # 1. split dataset [fix split]
     dataids = list(range(len(dataset)))
     random.seed(args.dataset_seed)

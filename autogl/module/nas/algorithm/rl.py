@@ -333,7 +333,8 @@ class RL(BaseNAS):
                 self._resample()
                 metric, loss = self._infer(mask="val")
                 reward = metric
-                bar.set_postfix(acc=metric, loss=loss.item())
+                # bar.set_postfix(acc=metric, loss=loss.item()) # Jie
+                bar.set_postfix(acc=metric, loss=loss)
                 LOGGER.debug(f"{self.arch}\n{self.selection}\n{metric},{loss}")
                 rewards.append(reward)
                 if self.entropy_weight:

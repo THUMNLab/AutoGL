@@ -254,7 +254,8 @@ class AutoNodeClassifier(BaseClassifier):
             time_limit = 3600 * 24
         time_begin = time.time()
 
-        graph_data = get_graph_from_dataset(dataset, 0)
+        # graph_data = get_graph_from_dataset(dataset, 0) # Jie
+        graph_data = dataset
         all_labels = get_graph_labels(graph_data)
         num_classes = all_labels.max().item() + 1
 
