@@ -1,6 +1,8 @@
 import torch.nn.functional as F
 import torch
 import numpy as np
+from sklearn.metrics import roc_curve, auc
+from torch_geometric.data import DataLoader
 
 from . import register_nas_estimator
 from ..space import BaseSpace
@@ -29,7 +31,7 @@ class OneShotEstimator(BaseEstimator):
         self.evaluation = evaluation
 
     def infer(self, model: BaseSpace, dataset, mask="train"):
-        print("mask",mask)
+        # print("mask",mask)
         device = next(model.parameters()).device
         dset = dataset[0].to(device)
         mask = bk_mask(dset, mask)
@@ -65,20 +67,108 @@ class GCLOneShotEstimator(BaseEstimator):
         self.evaluation = evaluation
 
     def infer(self, model: BaseSpace, dataset, mask="train"):
-
         device = next(model.parameters()).device
-        dset = dataset[0].to(device)
-        mask = bk_mask(dset, mask)
+        out_auc = 0
+        out_loss = 0
+        # print("one_1")
+        for i, fold in enumerate(dataset):
+            print("~~~~~~~~~~~~~~fold",i)
+            if mask == "train":
+                loader=DataLoader(fold[0], 1, shuffle = True) # train_loader 1: batch_size
 
-        pred = model(dset)[mask].squeeze(0)
-        y = torch.tensor(np.array([dset.y])).to(device)
-
-        loss = getattr(F, self.loss_f)(pred, y)
-        probs = F.softmax(pred, dim=1).detach().cpu().numpy()
+            elif mask == "test":
+                loader=DataLoader(fold[1], 1, shuffle = True) # test_loader
         
-        y = y.cpu()
-        metrics = [eva.evaluate(probs, y) for eva in self.evaluation]
-        return metrics, loss
+            ys = []
+            preds = []
+            total_loss = 0
+            for data in loader:
+                # print("one_2")
+                ys.append(data.y)
+                data = data.to(device)
+                # out = model(data.x, data.edge_index, data.batch).cpu()
+                out = model(data)
+                # print(out)
+                # print("one_3")
+                # out = a.squeeze(0)
+                # out = model(data)[mask].squeeze(0)
+                preds.append(out)
+                loss = F.nll_loss(out, data.y)
+                total_loss += float(loss) * data.num_graphs
+                # break # 记得后面去掉
+            total_loss = total_loss / len(loader.dataset)
+            ys = torch.cat(ys).numpy()
+            preds = F.softmax(torch.cat(preds), dim = 1)[:,1].detach().numpy()
+            fpr, tpr, th = roc_curve(ys, preds, pos_label = 1)
+            out_auc += auc(fpr, tpr)
+            out_loss += total_loss
+
+        out_auc = out_auc / float(len(dataset))
+        total_loss = total_loss / float(len(dataset))
+        return out_auc, total_loss
+
+@register_nas_estimator("gcloneshot2")
+class GCLOneShotEstimator2(BaseEstimator):
+    """
+    One shot estimator.
+
+    Use model directly to get estimations.
+
+    Parameters
+    ----------
+    loss_f : str
+        The name of loss funciton in PyTorch
+    evaluation : list of Evaluation
+        The evaluation metrics in module/train/evaluation
+    """
+
+    def __init__(self, loss_f="nll_loss", evaluation=[Acc()]):
+        super().__init__(loss_f, evaluation)
+        self.evaluation = evaluation
+
+    def infer(self, model: BaseSpace, dataset, batch, mask="train"):
+        device = next(model.parameters()).device
+        out_auc = 0
+        out_loss = 0
+        # print("one_1")
+        for i, fold in enumerate(dataset):
+            print("~~~~~~~~~~~~~~fold",i)
+            if mask == "train":
+                loader=DataLoader(fold[0], 1, shuffle = True) # train_loader 1: batch_size
+
+            elif mask == "test":
+                loader=DataLoader(fold[2], 1, shuffle = True) # test_loader
+
+            elif mask == "val":
+                loader=DataLoader(fold[1], 1, shuffle = True) # val_loader，新加的，后面记得改！！
+        
+            ys = []
+            preds = []
+            total_loss = 0
+            for data in loader:
+                # print("one_2")
+                ys.append(data.y)
+                data = data.to(device)
+                # out = model(data.x, data.edge_index, data.batch).cpu()
+                out = model(data, batch)
+                # print(out)
+                # print("one_3")
+                # out = a.squeeze(0)
+                # out = model(data)[mask].squeeze(0)
+                preds.append(out)
+                loss = F.nll_loss(out, data.y)
+                total_loss += float(loss) * data.num_graphs
+                # break # 记得后面去掉
+            total_loss = total_loss / len(loader.dataset)
+            ys = torch.cat(ys).numpy()
+            preds = F.softmax(torch.cat(preds), dim = 1)[:,1].detach().numpy()
+            fpr, tpr, th = roc_curve(ys, preds, pos_label = 1)
+            out_auc += auc(fpr, tpr)
+            out_loss += total_loss
+
+        out_auc = out_auc / float(len(dataset))
+        total_loss = total_loss / float(len(dataset))
+        return out_auc, total_loss
 
 
 @register_nas_estimator("oneshot_hardware")

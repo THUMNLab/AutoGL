@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import torch.nn as nn
 from nni.nas.pytorch import mutables
+# Mutable被设计成具有所有必要的操作符权重的普通层。结构的状态和权重应该包含在mutator中，而不是层本身。可变对象有一个键，用来标记可变对象的身份。用户可以使用此密钥进行共享不同可变变量之间的决策。在mutator的实现中，mutator应该使用键来区分不同的可变。共享相同密钥的可变变量应该彼此“相似”
 from nni.nas.pytorch.fixed import FixedArchitecture
 import json
 from copy import deepcopy
@@ -32,7 +33,7 @@ class OrderedLayerChoice(OrderedMutable, mutables.LayerChoice):
         mutables.LayerChoice.__init__(
             self, op_candidates, reduction, return_mask, key)
 
-
+# https://github.com/microsoft/nni/blob/master/nni/nas/pytorch/mutables.py
 class OrderedInputChoice(OrderedMutable, mutables.InputChoice):
     def __init__(
         self,
