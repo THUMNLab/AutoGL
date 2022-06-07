@@ -200,7 +200,7 @@ class GraphRepresentation(torch.nn.Module):
         )
 
 class GMT(nn.Module):
-    def __init__(self, args, input_dim, output_dim, num_nodes):
+    def __init__(self, args, input_dim, output_dim, num_nodes, device='cuda'):
         super(GMT,self).__init__()
 
         self.ln = args.ln                 #  Bool, whether to use Layernorm 
@@ -208,9 +208,14 @@ class GMT(nn.Module):
         self.cluster = args.cluster       # whether???
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.args = args
+        self.device = device
+        self.num_nodes = num_nodes
+        
 
         # self.model_sequence = args.model_string.split('-')  # default: GMPool_G-SelfAtt-GMPool_I
         self.model_sequence = ['GMPool_G','SelfAtt']
+        # self.model_sequence = ['GMPool_G']
 
         self.pools = self.get_pools(num_nodes=num_nodes)  
 
@@ -232,13 +237,12 @@ class GMT(nn.Module):
         for _index, _model_str in enumerate(self.model_sequence):
 
             # if (_index == len(self.model_sequence) - 1) and (reconstruction == False):
-                
             #     _num_nodes = 1
 
             if _model_str == 'GMPool_G':
                 # key, value通过GCN得到，GMPool->自动学习节点特征X
                 pools.append(
-                    PMA(_input_dim, self.num_heads, _num_nodes, ln=self.ln, cluster=self.cluster, mab_conv=self.args.mab_conv)
+                    PMA(_input_dim, self.num_heads, _num_nodes, ln=self.ln, cluster=self.cluster, mab_conv=self.args.mab_conv).to(self.device)
                 )
                 if num_nodes is None:
                     _num_nodes = ceil(self.pooling_ratio * _num_nodes)
@@ -247,14 +251,14 @@ class GMT(nn.Module):
                 
                 # Key, value通过linear trans得到
                 pools.append(
-                    PMA(_input_dim, self.num_heads, _num_nodes, ln=self.ln, cluster=self.cluster, mab_conv=None)
+                    PMA(_input_dim, self.num_heads, _num_nodes, ln=self.ln, cluster=self.cluster, mab_conv=None).to(self.device)
                 )
                 if num_nodes is None:
                     _num_nodes = ceil(self.pooling_ratio * _num_nodes)
 
             elif _model_str == 'SelfAtt':
                 pools.append(
-                    SAB(_input_dim, _output_dim, self.num_heads, ln=self.ln, cluster=self.cluster)
+                    SAB(_input_dim, _output_dim, self.num_heads, ln=self.ln, cluster=self.cluster).to(self.device)
                 )
                 # _input_dim = _output_dim
                 # _output_dim = _output_dim
@@ -263,11 +267,11 @@ class GMT(nn.Module):
                 raise ValueError("Model Name in Model String <{}> is Unknown".format(_model_str))
 
         # pools.append(nn.Linear(_input_dim, self.nhid))
-        pools.append(nn.Linear(_output_dim, _output_dim))
+        pools.append(nn.Linear(_output_dim, _output_dim).to(self.device))
 
         return pools
 
-    def forward(self, x, cross_edge_index, batch):
+    def forward(self, x, cross_edge_index, num_nodes_prev, batch_size):
         """
             x: node feature in layer l
             cross_edge_index: edge_index from layer l-1 to layer l
@@ -284,19 +288,25 @@ class GMT(nn.Module):
 
         # For Graph Multiset Transformer
         for _index, _model_str in enumerate(self.model_sequence):
-
+            # batch_x = x
             if _index == 0:
+                batch = torch.arange(batch_size).repeat_interleave(num_nodes_prev).to(self.device)
                 batch_x, mask = to_dense_batch(x, batch)
 
                 extended_attention_mask = mask.unsqueeze(1)
                 extended_attention_mask = extended_attention_mask.to(dtype=next(self.parameters()).dtype)
                 extended_attention_mask = (1.0 - extended_attention_mask) * -1e9
+            # else:
+            #     batch = torch.arange(batch_size).repeat_interleave(num_nodes_prev).to(self.device)
+            batch_x = batch_x.to(self.device)
+            # xx = batch_x.reshape(-1, self.input_dim)
+            # print('xx:',xx)
+            # print('x:',x)
+            # assert False=
 
             if _model_str == 'GMPool_G':
                 batch_x = self.pools[_index](batch_x, attention_mask=extended_attention_mask, graph=(x, edge_index, batch))
-
             else:
-
                 batch_x = self.pools[_index](batch_x, attention_mask=extended_attention_mask)
 
             extended_attention_mask = None
