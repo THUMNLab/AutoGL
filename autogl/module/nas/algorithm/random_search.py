@@ -197,12 +197,10 @@ class GCLRandomSearch2(BaseNAS):
         cache = {}
         with tqdm(range(self.num_epochs), disable=self.disable_progress) as bar:
             for i in bar:
-                # print("random_search_1")
                 selection = self.sample()
                 vec = tuple(list(selection.values()))
                 if vec not in cache:
                     self.arch = space.parse_model(selection, self.device)
-                    # print("random_search_2")
                     metric, loss = self._infer(mask="test")
                     arch_perfs.append([metric, selection])
                     cache[vec] = metric
@@ -219,5 +217,5 @@ class GCLRandomSearch2(BaseNAS):
         return selection
 
     def _infer(self, mask="train"):
-        metric, loss = self.estimator.infer(self.arch._model, self.dataset, self.batch, mask=mask)
+        metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
         return metric, loss

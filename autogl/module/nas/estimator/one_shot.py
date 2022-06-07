@@ -126,7 +126,7 @@ class GCLOneShotEstimator2(BaseEstimator):
         super().__init__(loss_f, evaluation)
         self.evaluation = evaluation
 
-    def infer(self, model: BaseSpace, dataset, batch, mask="train"):
+    def infer(self, model: BaseSpace, dataset, mask="train"):
         device = next(model.parameters()).device
         out_auc = 0
         out_loss = 0
@@ -134,31 +134,26 @@ class GCLOneShotEstimator2(BaseEstimator):
         for i, fold in enumerate(dataset):
             print("~~~~~~~~~~~~~~fold",i)
             if mask == "train":
-                loader=DataLoader(fold[0], 1, shuffle = True) # train_loader 1: batch_size
+                loader=DataLoader(fold[0], 1, shuffle = False) # train_loader 1: batch_size
 
             elif mask == "test":
-                loader=DataLoader(fold[2], 1, shuffle = True) # test_loader
+                loader=DataLoader(fold[2], 1, shuffle = False) # test_loader
 
             elif mask == "val":
-                loader=DataLoader(fold[1], 1, shuffle = True) # val_loader，新加的，后面记得改！！
+                loader=DataLoader(fold[1], 1, shuffle = False) # val_loader
         
             ys = []
             preds = []
             total_loss = 0
+            batch = 0
             for data in loader:
-                # print("one_2")
                 ys.append(data.y)
                 data = data.to(device)
-                # out = model(data.x, data.edge_index, data.batch).cpu()
                 out = model(data, batch)
-                # print(out)
-                # print("one_3")
-                # out = a.squeeze(0)
-                # out = model(data)[mask].squeeze(0)
+                batch += 1
                 preds.append(out)
                 loss = F.nll_loss(out, data.y)
                 total_loss += float(loss) * data.num_graphs
-                # break # 记得后面去掉
             total_loss = total_loss / len(loader.dataset)
             ys = torch.cat(ys).numpy()
             preds = F.softmax(torch.cat(preds), dim = 1)[:,1].detach().numpy()

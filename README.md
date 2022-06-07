@@ -1,5 +1,7 @@
 # Auto Graph Learning
 
+[Chinese Introduction](README_cn.md)
+
 An autoML framework & toolkit for machine learning on graphs.
 
 *Actively under development by @THUMNLab*
@@ -12,6 +14,7 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 
 ## News!
 
+- 2022.4.19 New version v0.3.1！We have released Chinese tutorial for the first time!
 - 2021.12.31 New Version! v0.3.0-pre is here!
     - AutoGL now support [__Deep Graph Library (DGL)__](https://www.dgl.ai/) backend to be interface-friendly for DGL users! All the homogeneous node classification task, link prediction task, and graph classification task are currently supported under DGL backend. AutoGL is also compatible with PyG 2.0 now.
     - The __heterogeneous__ node classification tasks are now supported! See [hetero tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html) for more details.

@@ -1,4 +1,4 @@
-.. _hetero_node_clf:
+.. _hetero_node_clf_cn:
 
 .. Node Classification for Heterogeneous Graph
 异质图上的节点分类

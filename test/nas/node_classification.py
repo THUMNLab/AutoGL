@@ -20,7 +20,7 @@ if DependentBackend.is_dgl():
 elif DependentBackend.is_pyg():
     from torch_geometric.datasets import Planetoid
     from autogl.module.model.pyg import BaseAutoModel
-
+from autogl.datasets import build_dataset_from_name
 import torch
 import torch.nn.functional as F
 from autogl.module.nas.space.single_path import SinglePathNodeClassificationSpace
@@ -73,12 +73,13 @@ if __name__ == "__main__":
 
 
     print("Testing backend: {}".format("dgl" if DependentBackend.is_dgl() else "pyg"))
-
     if DependentBackend.is_dgl():
-        dataset = CoraGraphDataset()
+        from autogl.datasets.utils.conversion._to_dgl_dataset import to_dgl_dataset as convert_dataset
     else:
-        dataset = Planetoid(os.path.expanduser("~/.cache-autogl"), "Cora")
+        from autogl.datasets.utils.conversion._to_pyg_dataset import to_pyg_dataset as convert_dataset
 
+    dataset = build_dataset_from_name('cora')
+    dataset = convert_dataset(dataset)
     data = dataset[0]
 
     di = bk_feat(data).shape[1]
@@ -103,6 +104,7 @@ if __name__ == "__main__":
     
     # print("Random search + graphnas ")
     
+<<<<<<< HEAD
     # space = GraphNasNodeClassificationSpace().cuda()
     # space.instantiate(input_dim=di, output_dim=do)
     # esti = OneShotEstimator()
@@ -134,6 +136,31 @@ if __name__ == "__main__":
     # algo = Darts(num_epochs=10)
     # model = algo.search(space, dataset, esti)
     # test_model(model, data, True)
+=======
+    space = GraphNasNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di, output_dim=do)
+    esti = OneShotEstimator()
+    algo = RandomSearch(num_epochs=100)
+    model = algo.search(space, dataset, esti)
+    test_model(model, data, True)
+
+    print("Random search + AutoAttend ")
+    space = AutoAttendNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di, output_dim=do)
+    esti = OneShotEstimator()
+    algo = RandomSearch(num_epochs=10)
+    model = algo.search(space, dataset, esti)
+    print(model)
+    test_model(model, data, True)
+
+    print("rl + AutoAttend ")
+    space = AutoAttendNodeClassificationSpace().cuda()
+    space.instantiate(input_dim=di, output_dim=do)
+    esti = OneShotEstimator()
+    algo = RL(num_epochs=10)
+    model = algo.search(space, dataset, esti)
+    test_model(model, data, True)
+>>>>>>> 487f2b2f798b9b1363ad5dc100fb410b12222e06
 
     print("Random search + graphnas ")
     space = GraphNasNodeClassificationSpace().cuda()
