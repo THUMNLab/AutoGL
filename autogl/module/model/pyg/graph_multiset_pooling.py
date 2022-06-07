@@ -51,6 +51,7 @@ class MAB(nn.Module):
         Q_ = torch.cat(Q.split(dim_split, 2), 0)
         K_ = torch.cat(K.split(dim_split, 2), 0)
         V_ = torch.cat(V.split(dim_split, 2), 0)
+        # print('K_, V_:',K_.size(), V_.size())
 
         if attention_mask is not None:
             attention_mask = torch.cat([attention_mask for _ in range(self.num_heads)], 0)
@@ -136,6 +137,14 @@ class PMA(nn.Module):
         return self.mab(self.S.repeat(X.size(0), 1, 1), X, attention_mask, graph, return_attn)
 
 
+class CrossPMA(nn.Module):
+    def __init__(self, dim, num_heads, num_seeds, ln=False, cluster=False, mab_conv=None):
+        super(CrossPMA, self).__init__()
+        self.num_seeds = num_seeds
+        self.mab = MAB(dim, dim, dim, num_heads, ln=ln, cluster=cluster, conv=mab_conv)
+        
+    def forward(self, X, X1, attention_mask=None, graph=None, return_attn=False):
+        return self.mab(X1, X, attention_mask, graph, return_attn)
 
 class GraphRepresentation(torch.nn.Module):
 
@@ -212,9 +221,10 @@ class GMT(nn.Module):
         self.device = device
         self.num_nodes = num_nodes
         
-
         # self.model_sequence = args.model_string.split('-')  # default: GMPool_G-SelfAtt-GMPool_I
         self.model_sequence = ['GMPool_G','SelfAtt']
+        # GMPool_G_cross是自己写的函数
+        # self.model_sequence = ['GMPool_G_cross','SelfAtt']
         # self.model_sequence = ['GMPool_G']
 
         self.pools = self.get_pools(num_nodes=num_nodes)  
@@ -246,6 +256,15 @@ class GMT(nn.Module):
                 )
                 if num_nodes is None:
                     _num_nodes = ceil(self.pooling_ratio * _num_nodes)
+            
+            # if _model_str == 'GMPool_G_cross':
+            #     # key, value通过GCN得到，GMPool->自动学习节点特征X
+            #     pools.append(
+            #         CrossPMA(_input_dim, self.num_heads, _num_nodes, ln=self.ln, cluster=self.cluster, mab_conv=self.args.mab_conv).to(self.device)
+            #     )
+            #     if num_nodes is None:
+            #         _num_nodes = ceil(self.pooling_ratio * _num_nodes)
+
 
             elif _model_str == 'GMPool_I':
                 
@@ -271,13 +290,13 @@ class GMT(nn.Module):
 
         return pools
 
-    def forward(self, x, cross_edge_index, num_nodes_prev, batch_size):
+    def forward(self, x, inner_edge_index, num_nodes_prev, batch_size, x1=None):
         """
             x: node feature in layer l
             cross_edge_index: edge_index from layer l-1 to layer l
             batch: batch index in layer l
         """
-        edge_index = cross_edge_index
+        edge_index = inner_edge_index
         # For Graph Convolution Network
         # xs = []
         # for _ in range(self.args.num_convs):
@@ -306,6 +325,9 @@ class GMT(nn.Module):
 
             if _model_str == 'GMPool_G':
                 batch_x = self.pools[_index](batch_x, attention_mask=extended_attention_mask, graph=(x, edge_index, batch))
+            # elif _model_str == 'GMPool_G_cross':
+            #     x1 = x1.reshape(-1,self.num_nodes, self.output_dim)
+            #     batch_x = self.pools[_index](batch_x, X1=x1, attention_mask=extended_attention_mask, graph=(x, edge_index, batch))
             else:
                 batch_x = self.pools[_index](batch_x, attention_mask=extended_attention_mask)
 
