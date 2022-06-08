@@ -22,13 +22,14 @@ class AGNNReinforceController(ReinforceController):
         self._inputs = self.embedding[field.name](torch.LongTensor([sampled]).to(self._inputs.device))
 
 class AGNNActionGuider(nn.Module):
-    def __init__(self, fields, groups, **controllargs):
+    def __init__(self, fields, groups,guide_type, **controllargs):
         super(AGNNActionGuider, self).__init__()
         # create independent controllers for each group 
         controllers=[AGNNReinforceController(fields,**controllargs) for group in groups]
         self.controllers=nn.ModuleList(controllers)
         self.fields=fields
         self.groups=groups
+        self.guide_type = guide_type
 
     def dummy_selection(self):
         # create dummy selection 
@@ -49,8 +50,15 @@ class AGNNActionGuider(nn.Module):
             entropy=cont.sample_entropy
             entropys.append(entropy)
             sample_probs.append(cont.sample_log_prob)
-        # use the most uncertain one 
-        idx=np.argmax(entropys)
+        print(f'$$entropys {entropys}')
+        if self.guide_type==0:
+            # use the most uncertain one 
+            idx=np.argmax(entropys)
+        elif self.guide_type==1:
+            # or sample by using entropy 
+            idx=torch.multinomial(F.softmax(torch.tensor(entropys),dim=0),1).item()
+        else:
+            assert False,f"Not implemented guide type {self.guide_type}"
         group=self.groups[idx]
         print(f'$$select group {group}')
         new_selection=new_selections[idx]
@@ -61,6 +69,9 @@ class AGNNActionGuider(nn.Module):
 
 @register_nas_algo("agnn")
 class AGNNRL(GraphNasRL):
+    def __init__(self,guide_type=1,*args,**kwargs):
+        super(AGNNRL, self).__init__(*args,**kwargs)
+        self.guide_type = guide_type
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
         self.dataset = dset  # .to(self.device)
@@ -98,6 +109,7 @@ class AGNNRL(GraphNasRL):
         self.controller = AGNNActionGuider(
             self.nas_fields,
             groups,
+            self.guide_type,
             lstm_size=100,
             temperature=5.0,
             tanh_constant=2.5,
