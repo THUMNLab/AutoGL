@@ -314,7 +314,7 @@ class BenchSpace(BaseSpace):
         ops = [getattr(self, "op" + str(i)).name for i in range(4)]
         arch = Arch(lks, ops)
         h = arch.valid_hash()
-        if h == "88888":
+        if h == "88888" or h==88888:
             return 0
         return bench[h]['perf']
 
@@ -375,18 +375,52 @@ def run(data_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20):
     result=esti.infer(model._model,None)[0][0]
     return result
 
-import pandas as pd
-if __name__ == "__main__":
+def run_all():
     data_names='arxiv citeseer computers cora cs photo physics proteins pubmed'.split()
     algos='graphnas agnn'.split()
-
     results=[]
     for data_name in data_names:
         for algo in algos:
             print(f'data {data_name} algo {algo}')
             # metric=run(data_name,algo,2,2)
-            metric=run(data_name,algo,50,20)
-            results.append([algo,data_name,metric])
+            if data_name=='proteins':
+                metric=run(data_name,algo,8,5)
+            else:
+                metric=run(data_name,algo,50,10)
+            results.append([data_name,algo,metric])
+    return results
+import pandas as pd
+import argparse
+import torch
+import os
 
-    df=pd.DataFrame(results,columns='algo data v'.split()).pivot_table(values='v',index='algo',columns='data')
-    print(df.to_string())
+
+
+if __name__ == "__main__":
+    # results=run_all()
+    # df=pd.DataFrame(results,columns='data algo v'.split()).pivot_table(values='v',index='algo',columns='data')
+    # print(df.to_string())
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data', type=str, default='cora', help='datasets')
+    parser.add_argument('--algo', type=str, default='agnn')
+    parser.add_argument('--log_dir', type=str, default='./logs/')
+
+    args = parser.parse_args()
+    dname=args.data
+    algo=args.algo
+    log_dir= args.log_dir
+    if dname=='proteins':
+        # 40 archs in total
+        num_epochs=8
+        ctrl_steps_aggregate=5
+    else:
+        # 500 archs in total
+        num_epochs=50
+        ctrl_steps_aggregate=10
+    result=run(dname,algo,num_epochs,ctrl_steps_aggregate)
+    os.makedirs(log_dir,exist_ok=True)
+    with open(osp.join(log_dir,f'{dname,algo}.log'),'w') as f:
+        f.write(str(result))
+
+    
