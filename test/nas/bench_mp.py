@@ -67,12 +67,14 @@ def show():
     res=[]
     for r,ds,fs in os.walk(fdir):
         for f in fs:
-            data,algo=eval(os.path.splitext(f)[0])
-            with open(os.path.join(r,f)) as file:
-                metric=float(file.read())
-            res.append([data,algo,metric])
+            if 'log' in f:
+                data,algo=eval(os.path.splitext(f)[0])
+                with open(os.path.join(r,f)) as file:
+                    metric=float(file.read())
+                res.append([data,algo,metric])
     df=pd.DataFrame(res,columns='data algo v'.split()).pivot_table(values='v',index='algo',columns='data')
     print(df.to_string())
+    df.to_csv(os.path.join(fdir,'results.csv'))
 
 if __name__=='__main__':
     import argparse
