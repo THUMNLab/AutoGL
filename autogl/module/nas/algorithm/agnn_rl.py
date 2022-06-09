@@ -103,7 +103,7 @@ class AGNNRL(GraphNasRL):
             for tag in tags:
                 if tag in field.name:
                     groups[tag].append(field)
-        groups=list(groups.values())
+        groups=[x for x in groups.values() if x]
 
         # controller
         self.controller = AGNNActionGuider(
