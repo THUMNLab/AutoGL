@@ -87,6 +87,18 @@ def gnn_map(gnn_name, in_dim, out_dim, concat=False, bias=True) -> nn.Module:
         return ZeroConv()
     elif gnn_name == "identity":
         return Identity()
+    elif gnn_name == "gin": # ppi
+        from torch_geometric.nn import GINConv
+        from torch.nn import BatchNorm1d, Linear, ReLU, Sequential
+        class MBatchNorm1d(BatchNorm1d):
+            def forward(self,x):
+                s = x.shape
+                x = x.view(-1,s[-1])
+                x = super(MBatchNorm1d,self).forward(x)
+                x = x.view(s)
+                return x
+        MyGINConv = GINConv(Sequential(Linear(in_dim, out_dim), MBatchNorm1d(out_dim), ReLU(), Linear(out_dim, out_dim), ReLU()))
+        return MyGINConv
     elif hasattr(torch_geometric.nn, gnn_name):
         cls = getattr(torch_geometric.nn, gnn_name)
         assert isinstance(cls, type), "Only support modules, get %s" % (gnn_name)
@@ -385,7 +397,7 @@ class GeoLayer(MessagePassing):
         elif self.att_type == "gcn":
             if self.gcn_weight is None or self.gcn_weight.size(0) != x_j.size(
                 0
-            ):  # 对于不同的图gcn_weight需要重新计算
+            ): 
                 _, norm = self.norm(edge_index, num_nodes, None)
                 self.gcn_weight = norm
             neighbor = self.gcn_weight.view(-1, 1, 1) * x_j

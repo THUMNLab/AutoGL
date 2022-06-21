@@ -168,19 +168,21 @@ class GCLRandomSearch2(BaseNAS):
         Control whether show the progress bar.
     """
 
-    def __init__(self, batch, device="auto", num_epochs=400, disable_progress=False, hardware_metric_limit=None):
+    def __init__(self, batch_size, device="auto", num_epochs=400, max_epoch=500, lr=0.005, disable_progress=False, hardware_metric_limit=None):
         super().__init__(device)
         self.num_epochs = num_epochs
-        self.batch = batch
+        self.max_epoch = max_epoch
+        self.lr = lr
+        self.batch_size = batch_size
         self.disable_progress = disable_progress
         self.hardware_metric_limit = hardware_metric_limit
 
     def search(self, space: BaseSpace, dset, estimator):
+        # dset: folds
         self.estimator = estimator
         self.dataset = dset
-        # self.meta_data = meta_data
         self.space = space
-        # print("random_search_0")
+
         self.nas_modules = []
         k2o = get_module_order(self.space)
         replace_layer_choice(self.space, PathSamplingLayerChoice, self.nas_modules)
@@ -194,6 +196,7 @@ class GCLRandomSearch2(BaseNAS):
         # space_size=np.prod(list(selection_range.values()))
 
         arch_perfs = []
+        # define DFS process
         cache = {}
         with tqdm(range(self.num_epochs), disable=self.disable_progress) as bar:
             for i in bar:
@@ -201,7 +204,7 @@ class GCLRandomSearch2(BaseNAS):
                 vec = tuple(list(selection.values()))
                 if vec not in cache:
                     self.arch = space.parse_model(selection, self.device)
-                    metric, loss = self._infer(mask="test")
+                    metric, loss = self._infer(mask="val")
                     arch_perfs.append([metric, selection])
                     cache[vec] = metric
                 bar.set_postfix(acc=metric, max_acc=max(cache.values()))
@@ -217,5 +220,6 @@ class GCLRandomSearch2(BaseNAS):
         return selection
 
     def _infer(self, mask="train"):
-        metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask)
+        # dset: folds
+        metric, loss = self.estimator.infer(self.arch._model, self.dataset, mask=mask,batch_size=self.batch_size, max_epoch=self.max_epoch, lr=self.lr, device=self.device)
         return metric, loss

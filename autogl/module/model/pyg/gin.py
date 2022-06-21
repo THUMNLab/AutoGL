@@ -10,8 +10,6 @@ from ....utils import get_logger
 
 LOGGER = get_logger("GINModel")
 
-# Jie: device = torch.device('cuda:7' if torch.cuda.is_available() else 'cpu')
-
 def set_default(args, d):
     for k, v in d.items():
         if k not in args:
@@ -92,7 +90,6 @@ class GIN(torch.nn.Module):
         )
 
     def forward(self, data):
-        # Jie: x, edge_index, batch = data.x.to(device), data.edge_index.to(device), data.batch.to(device)
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
         if self.num_graph_features > 0:

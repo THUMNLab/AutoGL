@@ -25,7 +25,7 @@ def register_trainer(name):
     return register_trainer_cls
 
 
-from .graph_classification_full import GraphClassificationFullTrainer
+from .graph_classification_full import GraphClassificationFullTrainer, GraphClassificationFullTrainer_PPI
 from .node_classification_full import NodeClassificationFullTrainer
 from .link_prediction_full import LinkPredictionTrainer
 from .node_classification_het import NodeClassificationHetTrainer
