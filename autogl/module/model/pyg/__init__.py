@@ -8,6 +8,7 @@ from .graph_saint import GraphSAINTAggregationModel
 from .gcn import AutoGCN
 from .gat import AutoGAT
 from .gin import AutoGIN
+from .gin_gat_glf import AutoGATPooling
 
 __all__ = [
     "ModelUniversalRegistry",
@@ -19,4 +20,5 @@ __all__ = [
     "AutoGCN",
     "AutoGAT",
     "AutoGIN",
+    "AutoGATPooling"
 ]
