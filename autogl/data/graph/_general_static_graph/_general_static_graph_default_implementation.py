@@ -547,10 +547,15 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
             self, edge_t: _typing.Union[None, str, _typing.Tuple[str, str, str], _canonical_edge_type.CanonicalEdgeType] = ...
     ) -> HomogeneousEdgesContainer:
         if edge_t in (Ellipsis, None):
-            if len(self.__heterogeneous_edges_data_frame) == 1:
+            if len(self.__heterogeneous_edges_data_frame) == 0:
+                raise ValueError("The graph contains no edges")
+            elif len(self.__heterogeneous_edges_data_frame) == 1:
                 return self.__heterogeneous_edges_data_frame.iloc[0]['edges']
             else:
-                raise RuntimeError  # Undetermined
+                raise ValueError(
+                    "Unable to automatically determine edge type "
+                    "since the graph contains multiple edge types"
+                )
         elif isinstance(edge_t, str):
             if ' ' in edge_t:
                 raise ValueError
@@ -558,9 +563,13 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
                     self.__heterogeneous_edges_data_frame.loc[
                         self.__heterogeneous_edges_data_frame['r'] == edge_t
                     ]
-            ) != 1:
-                raise ValueError  # todo: Unable to determine
-            else:
+            ) == 0:
+                raise ValueError(f"The graph has NOT edge with relation type as {edge_t}")
+            elif len(
+                    self.__heterogeneous_edges_data_frame.loc[
+                        self.__heterogeneous_edges_data_frame['r'] == edge_t
+                    ]
+            ) == 1:
                 temp: HomogeneousEdgesContainer = self.__heterogeneous_edges_data_frame.loc[
                     self.__heterogeneous_edges_data_frame['r'] == edge_t, 'edges'
                 ]
@@ -568,6 +577,11 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
                     raise RuntimeError
                 else:
                     return temp
+            else:
+                raise ValueError(
+                    f"Unable to determine canonical edge type by relation type \"{edge_t}\", "
+                    f"since the graph contains multiple edge types with relation type as \"{edge_t}\""
+                )
         elif isinstance(edge_t, _typing.Tuple) or isinstance(edge_t, _canonical_edge_type.CanonicalEdgeType):
             if isinstance(edge_t, _typing.Tuple) and not (
                     len(edge_t) == 3 and
@@ -625,7 +639,10 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
                     else HomogeneousEdgesContainerImplementation(edges)
                 )
             else:
-                raise RuntimeError  # todo: Unable to determine error
+                raise ValueError(
+                    "Unable to set edges for heterogeneous graph consist of multiple edge types "
+                    "with automatically determined edge type"
+                )
         elif isinstance(edge_t, str):
             if ' ' in edge_t:
                 raise ValueError
@@ -696,7 +713,7 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
             else:
                 raise RuntimeError  # todo: Unable to determine error
         else:
-            raise RuntimeError
+            raise TypeError("Unsupported edge type")
 
     def _delete_edges(
             self, edge_t: _typing.Union[None, str, _typing.Tuple[str, str, str], _canonical_edge_type.CanonicalEdgeType] = ...
@@ -708,7 +725,38 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
                 )
             elif len(self.__heterogeneous_edges_data_frame) > 1:
                 raise ValueError("Edge Type must be specified for graph containing heterogeneous edges")
-        raise NotImplementedError  # todo: Complete this function
+        elif isinstance(edge_t, str):
+            if ' ' in edge_t:
+                raise ValueError
+            if len(self.__heterogeneous_edges_data_frame) > 0:
+                self.__heterogeneous_edges_data_frame: pd.DataFrame = (
+                    self.__heterogeneous_edges_data_frame[
+                        self.__heterogeneous_edges_data_frame['r'] != edge_t
+                        ].reset_index(drop=True)
+                )
+        elif isinstance(edge_t, _typing.Tuple) or isinstance(edge_t, _canonical_edge_type.CanonicalEdgeType):
+            if isinstance(edge_t, _typing.Tuple) and not (
+                    len(edge_t) == 3 and
+                    isinstance(edge_t[0], str) and
+                    isinstance(edge_t[1], str) and
+                    isinstance(edge_t[2], str) and
+                    ' ' not in edge_t[0] and ' ' not in edge_t[1] and ' ' not in edge_t[2]
+            ):
+                raise TypeError("Illegal canonical edge type")
+            __edge_t: _typing.Tuple[str, str, str] = (
+                (edge_t.source_node_type, edge_t.relation_type, edge_t.target_node_type)
+                if isinstance(edge_t, _canonical_edge_type.CanonicalEdgeType) else edge_t
+            )
+            if len(self.__heterogeneous_edges_data_frame) > 0:
+                self.__heterogeneous_edges_data_frame: pd.DataFrame = (
+                    self.__heterogeneous_edges_data_frame[
+                        (self.__heterogeneous_edges_data_frame['s'] != edge_t) |
+                        (self.__heterogeneous_edges_data_frame['r'] != edge_t) |
+                        (self.__heterogeneous_edges_data_frame['t'] != edge_t)
+                        ].reset_index(drop=True)
+                )
+        else:
+            raise TypeError("Unsupported edge type")
 
 
 class _HomogeneousEdgesDataView(_abstract_views.HomogeneousEdgesDataView):
