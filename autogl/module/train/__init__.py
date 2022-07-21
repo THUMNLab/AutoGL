@@ -35,6 +35,7 @@ if DependentBackend.is_pyg():
         NodeClassificationLayerDependentImportanceSamplingTrainer,
         NodeClassificationNeighborSamplingTrainer
     )
+    from .ssl import GraphCLSemisupervisedTrainer
 from .evaluation import get_feval, Acc, Auc, Logloss, Mrr, MicroF1
 
 __all__ = [
@@ -61,4 +62,5 @@ if DependentBackend.is_pyg():
         "NodeClassificationGraphSAINTTrainer",
         "NodeClassificationLayerDependentImportanceSamplingTrainer",
         "NodeClassificationNeighborSamplingTrainer",
+        "GraphCLSemisupervisedTrainer"
     ])
