@@ -9,6 +9,8 @@ from .gcn import AutoGCN
 from .gat import AutoGAT
 from .gin import AutoGIN
 
+from .robust.gcn_svd import AutoGCNSVD
+
 __all__ = [
     "ModelUniversalRegistry",
     "register_model",
@@ -19,4 +21,5 @@ __all__ = [
     "AutoGCN",
     "AutoGAT",
     "AutoGIN",
+    "AutoGCNSVD",
 ]
