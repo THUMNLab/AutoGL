@@ -21,7 +21,8 @@ from tqdm import trange
 from copy import deepcopy
 from dig.sslgraph.evaluation.eval_graph import k_fold
 
-from .base import BaseContrastiveTrainer, get_view_by_name
+from .base import BaseContrastiveTrainer
+from .utils import get_view_by_name
 from .. import register_trainer
 from ..base import EarlyStopping, _DummyModel
 from ..evaluation import Evaluation, get_feval, Acc
