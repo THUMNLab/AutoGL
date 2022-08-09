@@ -462,6 +462,7 @@ class GraphNasRL(BaseNAS):
         self.topk = topk
         self.disable_progress = disable_progress
         self.hardware_metric_limit = hardware_metric_limit
+        self.allhist=[]
 
     def search(self, space: BaseSpace, dset, estimator):
         self.model = space
@@ -554,6 +555,7 @@ class GraphNasRL(BaseNAS):
                     or hardware_metric[0] < self.hardware_metric_limit
                 ):
                     self.hist.append([-metric, self.selection])
+                    self.allhist.append([-metric, self.selection])
                     if len(self.hist) > self.topk:
                         self.hist.sort(key=lambda x: x[0])
                         self.hist.pop()

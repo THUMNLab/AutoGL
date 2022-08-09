@@ -28,13 +28,19 @@ def mp_exec(resources,configs,func):
     pool.close()
     pool.join()
 
+# grid_list={
+#     "data":'arxiv citeseer computers cora cs photo physics proteins pubmed'.split(),
+#     "algo":'graphnas agnn'.split()
+# }
+
 grid_list={
-    "data":'arxiv citeseer computers cora cs photo physics proteins pubmed'.split(),
+    "data":'cora photo arxiv'.split(),
     "algo":'graphnas agnn'.split()
 }
+
 param_names=list(grid_list.keys())
 
-resources=[0,2,7]*5+[1,4,5]
+resources=[0,1,2,3,4,5,6,7,8]
 
 def gen_config(ni,config,configs):
     if ni>=len(param_names):

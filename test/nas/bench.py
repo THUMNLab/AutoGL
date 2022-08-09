@@ -342,7 +342,7 @@ class BenchEstimator(BaseEstimator):
         perf=model(self.bench)
         return [perf],0
 
-def run(data_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20):
+def run(data_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20,log_dir='./logs/tmp'):
     print("Testing backend: {}".format("dgl" if DependentBackend.is_dgl() else "pyg"))
     if DependentBackend.is_dgl():
         from autogl.datasets.utils.conversion._to_dgl_dataset import to_dgl_dataset as convert_dataset
@@ -373,6 +373,22 @@ def run(data_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20):
         assert False,f'Not implemented algo {algo}'
     model = algo.search(space, dataset, esti)
     result=esti.infer(model._model,None)[0][0]
+
+    os.makedirs(log_dir,exist_ok=True)
+    with open(osp.join(log_dir,f'log.txt'),'w') as f:
+        f.write(str(result))
+
+    import json
+    archs=algo.allhist
+    json.dump(archs,open(osp.join(log_dir,f'archs.json'),'w'))
+
+    arch_strs=[str(x[1]) for x in archs]
+    print(f'number of archs: {len(arch_strs)} ; number of unique archs : {len(set(arch_strs))}')   
+
+    scores=[-x[0] for x in archs] # accs
+    idxs=np.argsort(scores) # increasing order
+    with open(osp.join(log_dir,f'idx.txt'),'w') as f:
+        f.write(str(idxs))
     return result
 
 def run_all():
@@ -409,7 +425,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dname=args.data
     algo=args.algo
-    log_dir= args.log_dir
+    log_dir= os.path.join(args.log_dir,f'{dname,algo}')
     if dname=='proteins':
         # 40 archs in total
         num_epochs=8
@@ -418,9 +434,7 @@ if __name__ == "__main__":
         # 500 archs in total
         num_epochs=50
         ctrl_steps_aggregate=10
-    result=run(dname,algo,num_epochs,ctrl_steps_aggregate)
-    os.makedirs(log_dir,exist_ok=True)
-    with open(osp.join(log_dir,f'{dname,algo}.log'),'w') as f:
-        f.write(str(result))
+    result=run(dname,algo,num_epochs,ctrl_steps_aggregate,log_dir)
+    
 
     
