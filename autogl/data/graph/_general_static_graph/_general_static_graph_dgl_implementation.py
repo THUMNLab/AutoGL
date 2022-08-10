@@ -426,6 +426,16 @@ class _HomogeneousEdgesView(_abstract_views.HomogeneousEdgesView):
             self.__dgl_graph_holder.graph.edges(etype=self.__get_canonical_edge_type())
         )
 
+    @connections.setter
+    def connections(self, edges: torch.LongTensor) -> None:
+        self.__dgl_graph_holder.graph.remove_edges(
+            self.__dgl_graph_holder.graph.edges(etype=self.__get_canonical_edge_type(), form='eid'),
+            etype=self.__get_canonical_edge_type()
+        )
+        self.__dgl_graph_holder.graph.add_edges(
+            edges[0], edges[1], etype=self.__get_canonical_edge_type()
+        )
+
     @property
     def data(self) -> _HomogeneousEdgesDataView:
         return _HomogeneousEdgesDataView(self.__dgl_graph_holder, self.__optional_edge_type)
@@ -463,7 +473,12 @@ class _HeterogeneousEdgesView(_abstract_views.HeterogeneousEdgesView):
 
     @property
     def connections(self) -> torch.Tensor:
-        return _HomogeneousEdgesView(self.__dgl_graph_holder, ...).connections
+        return self[...].connections
+
+    @connections.setter
+    def connections(self, edges: torch.LongTensor) -> None:
+        self[...].connections = edges
+
 
     @property
     def data(self) -> _HomogeneousEdgesDataView:
