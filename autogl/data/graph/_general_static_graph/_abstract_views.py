@@ -81,6 +81,10 @@ class HomogeneousEdgesView:
     def connections(self) -> torch.LongTensor:
         raise NotImplementedError
 
+    @connections.setter
+    def connections(self, edges: torch.LongTensor) -> None:
+        raise NotImplementedError
+
     @property
     def data(self) -> HomogeneousEdgesDataView:
         raise NotImplementedError
@@ -89,6 +93,10 @@ class HomogeneousEdgesView:
 class HeterogeneousEdgesView(_typing.Collection[_canonical_edge_type.CanonicalEdgeType]):
     @property
     def connections(self) -> torch.LongTensor:
+        raise NotImplementedError
+
+    @connections.setter
+    def connections(self, edges: torch.LongTensor) -> None:
         raise NotImplementedError
 
     @property
