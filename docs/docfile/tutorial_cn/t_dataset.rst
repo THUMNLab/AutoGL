@@ -1,25 +1,22 @@
-.. _dataset:
+.. _dataset_cn:
 
-AutoGL Dataset
+AutoGL 数据集
 ==============
 
-We provide various common datasets based on ``PyTorch-Geometric``, ``Deep Graph Library`` and ``OGB``.
-Besides, users are able to leverage a unified abstraction provided in AutoGL, ``GeneralStaticGraph``, which is towards both static homogeneous graph and static heterogeneous graph.
-
-
-A basic example to construct an instance of ``GeneralStaticGraph`` is shown as follows.
+我们基于PyTorch-Geometric (PyG)，Deep Graph Learning (DGL)及Open Graph Benchmark (OGB)等图学习库提供了多种多样的常用数据集。
+同时，用户可以使用AutoGL所提供的统一静态图容器``GeneralStaticGraph``自定义静态同构图及异构图，例如：
 
 .. code-block:: python
 
     from autogl.data.graph import GeneralStaticGraph, GeneralStaticGraphGenerator
 
-    ''' Construct a custom homogeneous graph '''
-    custom_static_homogeneous_graph: GeneralStaticGraph = GeneralStaticGraphGenerator.create_homogeneous_static_graph(
+    ''' 创建同构图 '''
+    custom_static_homogeneous_graph = GeneralStaticGraphGenerator.create_homogeneous_static_graph(
         {'x': torch.rand(2708, 3), 'y': torch.rand(2708, 1)}, torch.randint(0, 1024, (2, 10556))
     )
 
-    ''' Construct a custom heterogemneous graph '''
-    custom_static_heterogeneous_graph: GeneralStaticGraph = GeneralStaticGraphGenerator.create_heterogeneous_static_graph(
+    ''' 创建异构图 '''
+    custom_static_heterogeneous_graph = GeneralStaticGraphGenerator.create_heterogeneous_static_graph(
         {
             'author': {'x': torch.rand(1024, 3), 'y': torch.rand(1024, 1)},
             'paper': {'feat': torch.rand(2048, 10), 'z': torch.rand(2048, 13)}
@@ -30,14 +27,15 @@ A basic example to construct an instance of ``GeneralStaticGraph`` is shown as f
         }
     )
 
-Supporting datasets
--------------------
-AutoGL now supports the following benchmarks for different tasks:
 
-Semi-supervised node classification: Cora, Citeseer, Pubmed, Amazon Computers, Amazon Photo, Coauthor CS, Coauthor Physics, Reddit, etc.
+提供的常用数据集
+----------------
+AutoGL目前提供如下多种常用基准数据集：
+
+半监督节点分类：
 
 +------------------+------------+-----------+--------------------------------+
-|  Dataset         |  PyG       |  DGL      |  default train/val/test split  |
+| 数据集           |  PyG       |  DGL      |  默认train/val/test划分        |
 +==================+============+===========+================================+
 | Cora             | ✓          | ✓         | ✓                              |
 +------------------+------------+-----------+--------------------------------+
@@ -64,10 +62,11 @@ Semi-supervised node classification: Cora, Citeseer, Pubmed, Amazon Computers, A
 | ogbn-papers100M  | ✓          | ✓         | ✓                              |
 +------------------+------------+-----------+--------------------------------+
 
-Graph classification: MUTAG, IMDB-Binary, IMDB-Multi, PROTEINS, COLLAB, etc.
+
+图分类任务： MUTAG, IMDB-Binary, IMDB-Multi, PROTEINS, COLLAB等
 
 +-------------+------------+------------+--------------+------------+--------------------+
-|  Dataset    |  PyG       |  DGL       | Node Feature | Label      |  Edge Features     |
+|  数据集     | PyG        | DGL        | 节点特征     | 标签       | 边特征             |
 +=============+============+============+==============+============+====================+
 | MUTAG       | ✓          | ✓          |  ✓           | ✓          | ✓                  |
 +-------------+------------+------------+--------------+------------+--------------------+
@@ -88,14 +87,15 @@ Graph classification: MUTAG, IMDB-Binary, IMDB-Multi, PROTEINS, COLLAB, etc.
 | ogbg-code2  | ✓          | ✓          |  ✓           | ✓          | ✓                  |
 +-------------+------------+------------+--------------+------------+--------------------+
 
-Link Prediction: At present, AutoGL utilizes various homogeneous graphs towards node classification to conduct automatic link prediction.
 
-Construct custom dataset by instances of GeneralStaticGraph
-------------------------------------------------------------
-The following example shows the way to compose a custom dataset by a sequence of instances of ``GeneralStaticGraph``.
+链接预测任务：目前AutoGL可以使用针对节点分类任务的多种图数据进行自动链接预测。
+
+通过GeneralStaticGraph序列构建自定义数据集
+----------------------------------------------------------------
+如下代码片段展示了通过一个由``GeneralStaticGraph``序列构建自定义数据集的方法。
 
 .. code-block:: python
     from autogl.data import InMemoryDataset
-    ''' Suppose the graphs is a sequence of instances of GeneralStaticGraph '''
+    ''' graphs变量是一个由GeneralStaticGraph实例所构成的序列 '''
     graphs = [ ... ]
     custom_dataset = InMemoryDataset(graphs)

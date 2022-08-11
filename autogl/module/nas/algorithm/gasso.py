@@ -61,7 +61,6 @@ class Gasso(BaseNAS):
         device="auto",
     ):
         super().__init__(device=device)
-        self.device = device
         self.num_epochs = num_epochs
         self.warmup_epochs = warmup_epochs
         self.model_lr = model_lr

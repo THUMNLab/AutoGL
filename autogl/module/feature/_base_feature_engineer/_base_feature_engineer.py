@@ -29,7 +29,11 @@ class _ComposedFeatureEngineer(_AbstractBaseFeatureEngineer):
         return dataset
 
     def fit_transform(self, dataset, inplace: bool = True):
-        return self.fit_transform(dataset, inplace)
+        for fe in self.fe_components:
+            dataset = fe.fit(dataset)
+        for fe in self.fe_components:
+            dataset = fe.transform(dataset)
+        return dataset
 
     def __init__(self, feature_engineers: _typing.Iterable[_AbstractBaseFeatureEngineer]):
         self.__fe_components: _typing.List[_AbstractBaseFeatureEngineer] = []
