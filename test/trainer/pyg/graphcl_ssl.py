@@ -1,11 +1,28 @@
-from autogl.module.train.ssl import GraphCLSemisupervisedTrainer
+import random
+import torch
+import torch.nn as nn
+import numpy as np
+from autogl.module.train.ssl import GraphCLSemisupervisedTrainer, GraphCLUnsupervisedTrainer
 from autogl.datasets import build_dataset_from_name, utils
 from autogl.datasets.utils.conversion._to_pyg_dataset import to_pyg_dataset
 from autogl.module.model.encoders.base_encoder import AutoHomogeneousEncoderMaintainer
 from autogl.module.model.decoders import BaseDecoderMaintainer
 
+from torch_geometric.nn.glob import (
+    global_add_pool, global_max_pool, global_mean_pool
+)
+
+def set_rng_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+
 def test_graph_trainer():
-    dataset = build_dataset_from_name("nci1")
+    set_rng_seed(23)
+    dataset = build_dataset_from_name("proteins")
     utils.graph_random_splits(dataset, 0.1, 0)
     dataset = to_pyg_dataset(dataset)
 
@@ -15,10 +32,18 @@ def test_graph_trainer():
 
     trainer = GraphCLSemisupervisedTrainer(
         model=('gcn', 'sumpoolmlp'),
-        prediction_model_head='sumpoolmlp',
+        prediction_head="sumpoolmlp",
         views_fn=["random2", "random2"],
+        batch_size=128,
+        p_lr=5.6004725115062315e-05,  
+        p_weight_decay=0.00022810837622188083,
+        p_epoch=267, 
+        f_epoch=131,
+        f_lr=0.0005362155524564354,
+        f_weight_decay=0.0022069814932058804,
         p_early_stopping_round=50,
         f_early_stopping_round=50,
+        z_dim=128,
         init=False
     )
 
@@ -33,18 +58,18 @@ def test_graph_trainer():
     assert trainer.num_classes == num_classes
     assert trainer.num_graph_features == num_graph_features
     assert trainer.encoder.input_dimension == num_features
-    assert trainer.prediction_model_head.output_dimension == num_classes
+    assert trainer.prediction_head.output_dimension == num_classes
     print("Stage 1 over ...")
 
     print(trainer.encoder.encoder)
     print(trainer.decoder.decoder)
-    print(trainer.prediction_model_head.decoder)
+    print(trainer.prediction_head.decoder)
 
     print("Stage 2 ...")
     trainer.train(dataset, True)
     result = trainer.evaluate(dataset, "test", "acc")
     print("Stage 2 over ...")
-    print("Acc:", result)
+    print("Acc: ", result)
 
 if __name__ == "__main__":
     test_graph_trainer()
