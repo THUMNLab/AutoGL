@@ -12,7 +12,7 @@ with semi-supervised downstream tasks:
    semi-supervised downstream tasks, the main interfaces are shown below
 
    -  ``train(self, dataset, keep_valid_result=True)``: The function of
-      training on the given dataset and keeping valid result
+      training on the given dataset and keeping valid results
 
       -  ``dataset``: the graph dataset used to be trained
 
@@ -52,13 +52,13 @@ with semi-supervised downstream tasks:
          initiate
 
    -  ``get_valid_score(self, return_major=True)``: The function of
-      getting the valid scores after training.
+      getting valid scores after training.
 
       -  ``return_major``: if ``return_major`` is ``True``, then return
          only consists of the major result.
 
    -  ``get_valid_predict_proba(self)``: Get the prediction probability
-      of valid set after training.
+      of the valid set after training.
 
    -  ``get_valid_predict(self)``: Get the valid result after training
 
@@ -74,9 +74,9 @@ after all the hyper-parameters are set properly.
 
 For example, if you want to set ``gcn`` as encoder, a simple ``mlp`` as
 a decoder, and use ``mlp`` as a classifier to solve a graph
-classification problem, there is three steps you need to do.
+classification problem, there are three steps you need to do.
 
--  Firstly, import everything you need
+-  First, import everything you need
 
    .. code:: python
 
@@ -142,7 +142,7 @@ classification problem, there is three steps you need to do.
       )
 
       # call duplicate_from_hyper_parameter to set some information about
-      # model architecture and learning hyper parameters
+      # model architecture and learning hyperparameters
       trainer.initialize()
       trainer = trainer.duplicate_from_hyper_parameter(
       	{
@@ -159,10 +159,10 @@ Train and Predict
 After initializing a trainer, you can train it on the given datasets.
 
 We are given the training and testing functions for the tasks of graph
-classification. You can also create your own tasks following the similar
-patterns with ours.
+classification. You can also create your own tasks following similar
+patterns to ours.
 
-We provide some interface, and you can easily use them to train or test
+We provide some interfaces, and you can easily use them to train or test
 on the given datasets.
 
 -  Training: ``train()``
@@ -172,12 +172,12 @@ on the given datasets.
       trainer.train(dataset, keep_valid_result=False)
 
    ``train()`` is the method of training on the given dataset and
-   keeping valid result.
+   keeping valid results.
 
    It has two parameters, the first parameter is ``dataset``, which is
    the graph dataset used to be trained. And the second parameter is
    ``keep_valid_result``. It is a bool value, if true, the trainer will
-   save the validation result after training if the dataset has
+   save the validation result after training if the dataset has a
    validation set.
 
 -  Testing: ``predict()``
@@ -186,11 +186,11 @@ on the given datasets.
 
       trainer.predict(dataset, 'test').detach().cpu().numpy()
 
-   ``predict()`` is the method of predicting on the given dataset.
+   ``predict()`` is the method of predicting the given dataset.
 
    It has two parameters, the first parameter is ``dataset``, which is
    the graph dataset used to be predicted. And the second parameter is
-   ``mask``. It is a string which can be 'train', 'val' or 'test'. And
+   ``mask``. It is a string which can be 'train', 'val', or 'test'. And
    returns the prediction results.
 
 -  Evaluation: ``evaluate()``
@@ -200,12 +200,12 @@ on the given datasets.
       result = trainer.evaluate(dataset, 'test')    # return a list of metrics, the default metric is accuracy
 
    ``evaluate()`` is the method of evaluating the model on the given
-   dataset and keeping valid result.
+   dataset and keeping valid results.
 
    It has three parameters, the first parameter is ``dataset``, which is
    the graph dataset used to be evaluated. And the second parameter is
    ``mask``. It is a string which can be 'train', 'val' or 'test'. And
-   the last parameter is ``feval``, it can be a string, tuple of string
+   the last parameter is ``feval``, which can be a string, tuple of strings,
    or None, which means the used evaluation methods such ``Acc``.
 
    And you can write your own evaluation metrics and methods. Here is a
@@ -216,12 +216,12 @@ on the given datasets.
       from autogl.module.train.evaluation import Evaluation, register_evaluate
       from sklearn.metrics import accuracy_score
 
-      @register_evaluate("my_acc") # use method register_evaluate, and then you can use this class by it's register name 'my_acc'
+      @register_evaluate("my_acc") # use method register_evaluate, and then you can use this class by its register name 'my_acc'
       class MyAcc(Evaluation):
         @staticmethod
         def get_eval_name():
           '''
-          define the name, didn't need to same as the register name
+          define the name, didn't need to same as the registered name
           '''
           return "my_acc"
         
@@ -246,7 +246,7 @@ on the given datasets.
 Implement SSL Trainer
 ---------------------
 
-Next we will show how to implement your own ssl trainer. It is more
+Next, we will show how to implement your own ssl trainer. It is more
 difficult to implement the trainer than to use it, it needs to implement
 three main functions ``_train_only()``, ``_predict_only()`` and
 ``duplicate_from_hyper_parameter()``. Now we will implement GraphCL with
@@ -254,7 +254,7 @@ unsupervised downstream tasks step by step.
 
 -  initialize your trainer
 
-   Fisrt, We need to import some classes and methods, define a basic
+   First, We need to import some classes and methods, define a basic
    ``__init__()`` method, and register our trainer.
 
    .. code:: python
@@ -320,7 +320,7 @@ unsupervised downstream tasks step by step.
           self.num_workers = num_workers
           if self.num_workers > 0:
           	mp.set_start_method("fork", force=True)
-          # setup the hyperparameter when initialize
+          # setup the hyperparameter when initializing
           self.hyper_parameters = {
             "batch_size": self.batch_size,
             "p_epoch": self.p_epoch,
@@ -339,7 +339,7 @@ unsupervised downstream tasks step by step.
 
 -  ``_train_only(self, dataset)``
 
-   In this method, the trainer training the model on the given dataset.
+   In this method, the trainer trains the model on the given dataset.
    You can define several different methods for different training
    stages.
 
@@ -359,7 +359,7 @@ unsupervised downstream tasks step by step.
 
          for i, epoch in enumerate(super()._train_pretraining_only(dataset, per_epoch=True)):
            # you can define your own training process if you want
-           # for example, we will fine-tuning for every eval_interval epochs
+           # for example, we will fine-tune for every eval_interval epoch
            if (i + 1) % self.eval_interval == 0:
              # fine-tuning
              # get dataset
@@ -411,7 +411,7 @@ unsupervised downstream tasks step by step.
    -  ``duplicate_from_hyper_parameter`` is a method that could
       re-generate the trainer. However, if you don't want to use a
       solver to search a good hyper-parameters automatically, you don't
-      need to implemented it in fact.
+      need to implement it in fact.
 
       .. code:: python
 
