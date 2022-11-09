@@ -95,14 +95,14 @@ def test(adj, features, device, attention):
 def main_autogl(dataset, model_hp, adj, features, device):
     
     # Setup Surrogate model
-    surrogate = AutoGNNGuard_attack(
-                num_features=pyg_data.num_node_features,
-                num_classes=pyg_data.num_classes,
-                device=args.device,
-                init=False
-            ).from_hyper_parameter(model_hp).model
-    surrogate = surrogate.to(args.device)
-    surrogate.fit(features, adj, labels, idx_train, train_iters=201)  # change this train_iters to 201: train_iters=201
+    # surrogate = AutoGNNGuard_attack(
+    #             num_features=pyg_data.num_node_features,
+    #             num_classes=pyg_data.num_classes,
+    #             device=args.device,
+    #             init=False
+    #         ).from_hyper_parameter(model_hp).model
+    # surrogate = surrogate.to(args.device)
+    # surrogate.fit(features, adj, labels, idx_train, train_iters=201)  # change this train_iters to 201: train_iters=201
 
     # Setup Attack Model
     # model = Metattack(model=surrogate, nnodes=adj.shape[0], feature_shape=features.shape,  attack_structure=True, attack_features=False, device=args.device, lambda_=0.5) # lambda_ is used to weight the two objectives in Eq. (10) in the paper.
@@ -136,6 +136,7 @@ def test_autogl(adj, features, device, attention):
     """model_name could be 'GCN', 'GAT', 'GIN','JK'  """
     accs = []
     for seed in tqdm(range(5)):
+        # defense model
         gcn = AutoGNNGuard(
                     num_features=pyg_data.num_node_features,
                     num_classes=pyg_data.num_classes,
