@@ -39,6 +39,12 @@ class GCN4GNNGuard(GCN):
         self.nfeat = nfeat
         self.hidden_sizes = nhid
         self.drop = drop
+        if not with_relu:
+            self.weight_decay = 0
+        else:
+            self.weight_decay = weight_decay
+        self.with_relu = with_relu
+        self.with_bias = with_bias
 
         self.gc1 = GCNConv(nfeat, nhid[0], bias=True,)
         self.gc2 = GCNConv(nhid[0], nclass, bias=True, )
@@ -345,6 +351,235 @@ class GCN4GNNGuard(GCN):
                 self.adj_norm = utils.normalize_adj_tensor(adj)
             return self.forward(self.features, self.adj_norm)
 
+class GCN4GNNGuard_attack(GCN):
+    # Based on the existing GCN, add the robust part.
+    def __init__(self, nfeat, nclass, nhid, activation, dropout=0.5, lr=0.01, drop=False, weight_decay=5e-4, with_relu=True, with_bias=True, add_self_loops = True, normalize = True):
+        super(GCN4GNNGuard_attack, self).__init__(nfeat, nclass, nhid, activation, dropout=dropout, add_self_loops = add_self_loops, normalize = normalize)
+
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.dropout = dropout
+        self.nclass = nclass
+        self.nfeat = nfeat
+        self.hidden_sizes = nhid
+        self.drop = drop
+        if not with_relu:
+            self.weight_decay = 0
+        else:
+            self.weight_decay = weight_decay
+        self.with_relu = with_relu
+        self.with_bias = with_bias
+
+        self.gc1 = GCNConv(nfeat, nhid[0], bias=True,)
+        self.gc2 = GCNConv(nhid[0], nclass, bias=True, )
+
+    def forward(self, x, adj_lil):
+        """we don't change the edge_index, just update the edge_weight;
+        some edge_weight are regarded as removed if it equals to zero"""
+        x = x.to_dense()
+        adj = adj_lil.coalesce().indices()
+        edge_weight = adj_lil.coalesce().values()
+
+        x = F.relu(self.gc1(x, adj, edge_weight=edge_weight))
+        x = F.dropout(x, self.dropout, training=self.training)
+        x = self.gc2(x, adj, edge_weight=edge_weight)
+
+        return F.log_softmax(x, dim=1)
+
+    def add_loop_sparse(self, adj, fill_value=1):
+        # make identify sparse tensor
+        row = torch.range(0, int(adj.shape[0]-1), dtype=torch.int64)
+        i = torch.stack((row, row), dim=0)
+        v = torch.ones(adj.shape[0], dtype=torch.float32)
+        shape = adj.shape
+        I_n = torch.sparse.FloatTensor(i, v, shape)
+        return adj + I_n.to(self.device)
+
+    def initialize(self):
+        self.gc1.reset_parameters()
+        self.gc2.reset_parameters()
+
+    def fit(self, features, adj, labels, idx_train, idx_val=None, idx_test=None, train_iters=81, att_0=None, attention=False, model_name=None, initialize=True, verbose=False, normalize=False, patience=510, ):
+        '''
+            train the gcn model, when idx_val is not None, pick the best model
+            according to the validation loss
+        '''
+        sd = self.state_dict()
+        for v in sd.values():
+            self.device = v.device
+            break
+
+        self.sim = None
+        self.attention = attention
+        if self.attention:
+            att_0 = self.att_coef_1(features, adj)
+            adj = att_0 # update adj
+            self.sim = att_0 # update att_0
+
+        self.idx_test = idx_test
+        
+        if initialize:
+            self.initialize()
+
+        if type(adj) is not torch.Tensor:
+            features, adj, labels = utils.to_tensor(features, adj, labels, device=self.device)
+        else:
+            features = features.to(self.device)
+            adj = adj.to(self.device)
+            labels = labels.to(self.device)
+
+        normalize = False # we don't need normalize here, the norm is conducted in the GCN (self.gcn1) model
+        if normalize:
+            if utils.is_sparse_tensor(adj):
+                adj_norm = utils.normalize_adj_tensor(adj, sparse=True)
+            else:
+                adj_norm = utils.normalize_adj_tensor(adj)
+        else:
+            adj_norm = adj
+        # add self loop
+        # adj = self.add_loop_sparse(adj)
+
+
+        """Make the coefficient D^{-1/2}(A+I)D^{-1/2}"""
+        self.adj_norm = adj_norm
+        self.features = features
+        self.labels = labels
+
+        if idx_val is None:
+            self._train_without_val(labels, idx_train, train_iters, verbose)
+        else:
+            if patience < train_iters:
+                self._train_with_early_stopping(labels, idx_train, idx_val, train_iters, patience, verbose)
+            else:
+                self._train_with_val(labels, idx_train, idx_val, train_iters, verbose)
+
+    def _train_without_val(self, labels, idx_train, train_iters, verbose):
+        self.train()
+        optimizer = optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        for i in range(train_iters):
+            optimizer.zero_grad()
+            output = self.forward(self.features, self.adj_norm)
+            loss_train = F.nll_loss(output[idx_train], labels[idx_train], weight=None)   # this weight is the weight of each training nodes
+            loss_train.backward()
+            optimizer.step()
+            if verbose and i % 10 == 0:
+                print('Epoch {}, training loss: {}'.format(i, loss_train.item()))
+
+        self.eval()
+        output = self.forward(self.features, self.adj_norm)
+        self.output = output
+
+    def _train_with_val(self, labels, idx_train, idx_val, train_iters, verbose):
+        if verbose:
+            print('=== training gcn model ===')
+        optimizer = optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+
+        best_loss_val = 100
+        best_acc_val = 0
+
+        for i in range(train_iters):
+            # print('epoch', i)
+            self.train()
+            optimizer.zero_grad()
+            output = self.forward(self.features, self.adj_norm)
+            loss_train = F.nll_loss(output[idx_train], labels[idx_train])
+            loss_train.backward()
+            optimizer.step()
+
+            acc_test =accuracy(output[self.idx_test], labels[self.idx_test])
+
+            self.eval()
+            output = self.forward(self.features, self.adj_norm)
+            loss_val = F.nll_loss(output[idx_val], labels[idx_val])
+            acc_val = utils.accuracy(output[idx_val], labels[idx_val])
+
+            if verbose and i % 200 == 0:
+                print('Epoch {}, training loss: {}, test acc: {}'.format(i, loss_train.item(), acc_test))
+
+            if best_loss_val > loss_val:
+                best_loss_val = loss_val
+                self.output = output
+                weights = deepcopy(self.state_dict())
+
+            if acc_val > best_acc_val:
+                best_acc_val = acc_val
+                self.output = output
+                weights = deepcopy(self.state_dict())
+
+        if verbose:
+            print('=== picking the best model according to the performance on validation ===')
+        self.load_state_dict(weights)
+        
+
+    def _train_with_early_stopping(self, labels, idx_train, idx_val, train_iters, patience, verbose):
+        if verbose:
+            print('=== training gcn model ===')
+        optimizer = optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+
+        early_stopping = patience
+        best_loss_val = 100
+
+        for i in range(train_iters):
+            self.train()
+            optimizer.zero_grad()
+            output = self.forward(self.features, self.adj_norm)
+            loss_train = F.nll_loss(output[idx_train], labels[idx_train])
+            loss_train.backward()
+            optimizer.step()
+
+            self.eval()
+            output = self.forward(self.features, self.adj_norm)
+
+            if verbose and i % 10 == 0:
+                print('Epoch {}, training loss: {}'.format(i, loss_train.item()))
+
+
+            loss_val = F.nll_loss(output[idx_val], labels[idx_val])
+
+            if best_loss_val > loss_val:
+                best_loss_val = loss_val
+                self.output = output
+                weights = deepcopy(self.state_dict())
+                patience = early_stopping
+            else:
+                patience -= 1
+            if i > early_stopping and patience <= 0:
+                break
+
+        if verbose:
+             print('=== early stopping at {0}, loss_val = {1} ==='.format(i, best_loss_val) )
+        self.load_state_dict(weights)
+
+    def test(self, idx_test):
+        self.eval()
+        output = self.predict()  # here use the self.features and self.adj_norm in training stage
+        loss_test = F.nll_loss(output[idx_test], self.labels[idx_test])
+        acc_test = utils.accuracy(output[idx_test], self.labels[idx_test])
+        print("Test set results:",
+              "loss= {:.4f}".format(loss_test.item()),
+              "accuracy= {:.4f}".format(acc_test.item()))
+        return acc_test, output
+
+    def _set_parameters(self):
+        # TODO
+        pass
+
+    def predict(self, features=None, adj=None):
+        '''By default, inputs are unnormalized data'''
+        # self.eval()
+        if features is None and adj is None:
+            return self.forward(self.features, self.adj_norm)
+        else:
+            if type(adj) is not torch.Tensor:
+                features, adj = utils.to_tensor(features, adj, device=self.device)
+
+            self.features = features
+            if utils.is_sparse_tensor(adj):
+                self.adj_norm = utils.normalize_adj_tensor(adj, sparse=True)
+            else:
+                self.adj_norm = utils.normalize_adj_tensor(adj)
+            return self.forward(self.features, self.adj_norm)
+
 
 @register_model("gnnguard-model")
 class AutoGNNGuard(BaseAutoModel):
@@ -406,6 +641,75 @@ class AutoGNNGuard(BaseAutoModel):
 
     def _initialize(self):
         self._model = GCN4GNNGuard(
+            nfeat = self.input_dimension,
+            nclass = self.output_dimension,
+            nhid = self.hyper_parameters.get("hidden"),
+            activation = self.hyper_parameters.get("act"),
+            dropout = self.hyper_parameters.get("dropout", None),
+            add_self_loops = bool(self.hyper_parameters.get("add_self_loops", True)),
+            normalize = bool(self.hyper_parameters.get("normalize", True)),
+        ).to(self.device)
+
+@register_model("gnnguard-attack-model")
+class AutoGNNGuard_attack(BaseAutoModel):
+    def __init__(
+        self,
+        num_features: int = ...,
+        num_classes: int = ...,
+        device: _typing.Union[str, torch.device] = ...,
+        **kwargs
+    ) -> None:
+        super().__init__(num_features, num_classes, device, **kwargs)
+        self.hyper_parameter_space = [
+            {
+                "parameterName": "add_self_loops",
+                "type": "CATEGORICAL",
+                "feasiblePoints": [1],
+            },
+            {
+                "parameterName": "normalize",
+                "type": "CATEGORICAL",
+                "feasiblePoints": [1],
+            },
+            {
+                "parameterName": "num_layers",
+                "type": "DISCRETE",
+                "feasiblePoints": "2,3,4",
+            },
+            {
+                "parameterName": "hidden",
+                "type": "NUMERICAL_LIST",
+                "numericalType": "INTEGER",
+                "length": 3,
+                "minValue": [8, 8, 8],
+                "maxValue": [128, 128, 128],
+                "scalingType": "LOG",
+                "cutPara": ("num_layers",),
+                "cutFunc": lambda x: x[0] - 1,
+            },
+            {
+                "parameterName": "dropout",
+                "type": "DOUBLE",
+                "maxValue": 0.8,
+                "minValue": 0.2,
+                "scalingType": "LINEAR",
+            },
+            {
+                "parameterName": "act",
+                "type": "CATEGORICAL",
+                "feasiblePoints": ["leaky_relu", "relu", "elu", "tanh"],
+            },
+        ]
+
+        self.hyper_parameters = {
+            "num_layers": 3,
+            "hidden": [128, 64],
+            "dropout": 0,
+            "act": "relu",
+        }
+
+    def _initialize(self):
+        self._model = GCN4GNNGuard_attack(
             nfeat = self.input_dimension,
             nclass = self.output_dimension,
             nhid = self.hyper_parameters.get("hidden"),
