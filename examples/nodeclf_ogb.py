@@ -174,8 +174,8 @@ def main():
     num_classes = len(np.unique(labels.numpy()))
 
     if args.use_sage:
-        model = SAGE(data.num_features, args.hidden_channels,
-                     dataset.num_classes, args.num_layers,
+        model = SAGE(dataset[0].nodes.data[feat].size(1), args.hidden_channels,
+                     num_classes, args.num_layers,
                      args.dropout).to(device)
     else:
         model = GCN(dataset[0].nodes.data[feat].size(1), args.hidden_channels,

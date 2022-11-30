@@ -39,7 +39,7 @@ class _OGBNDatasetUtil(_OGBDatasetUtil):
         edge_index = SparseTensor(row=torch.tensor(edge_index[0]), col=torch.tensor(edge_index[1]), value=edge_feat, sparse_sizes=(num_nodes, num_nodes))
         edge_index = edge_index.to_symmetric()
         row, col, _ = edge_index.coo()
-        edge_index = [row.cpu().detach().numpy(), col.cpu().detach().numpy()]
+        edge_index = np.array([row.cpu().detach().numpy(), col.cpu().detach().numpy()])
         homogeneous_static_graph: GeneralStaticGraph = (
             GeneralStaticGraphGenerator.create_homogeneous_static_graph(
                 dict([
