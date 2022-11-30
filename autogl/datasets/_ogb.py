@@ -5,6 +5,8 @@ from ogb.nodeproppred import NodePropPredDataset
 from ogb.linkproppred import LinkPropPredDataset
 from ogb.graphproppred import GraphPropPredDataset
 
+from torch_sparse import SparseTensor
+
 from autogl import backend as _backend
 from autogl.data import InMemoryStaticGraphSet
 from autogl.data.graph import (
@@ -30,13 +32,21 @@ class _OGBNDatasetUtil(_OGBDatasetUtil):
             edges_data_key_mapping: _typing.Optional[_typing.Mapping[str, str]] = ...,
             graph_data_key_mapping: _typing.Optional[_typing.Mapping[str, str]] = ...
     ) -> GeneralStaticGraph:
+        # TODO
+        edge_index = ogbn_data['edge_index']
+        num_nodes = ogbn_data['node_feat'].shape[0]
+        edge_feat = ogbn_data['edge_feat']
+        edge_index = SparseTensor(row=torch.tensor(edge_index[0]), col=torch.tensor(edge_index[1]), value=edge_feat, sparse_sizes=(num_nodes, num_nodes))
+        edge_index = edge_index.to_symmetric()
+        row, col, _ = edge_index.coo()
+        edge_index = [row.cpu().detach().numpy(), col.cpu().detach().numpy()]
         homogeneous_static_graph: GeneralStaticGraph = (
             GeneralStaticGraphGenerator.create_homogeneous_static_graph(
                 dict([
                     (target_key, torch.from_numpy(ogbn_data[source_key]))
                     for source_key, target_key in nodes_data_key_mapping.items()
                 ]),
-                torch.from_numpy(ogbn_data['edge_index']),
+                torch.tensor(edge_index),
                 dict([
                     (target_key, torch.from_numpy(ogbn_data[source_key]))
                     for source_key, target_key in edges_data_key_mapping.items()
