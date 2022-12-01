@@ -34,8 +34,10 @@ class _OGBNDatasetUtil(_OGBDatasetUtil):
     ) -> GeneralStaticGraph:
         # TODO
         edge_index = ogbn_data['edge_index']
-        num_nodes = ogbn_data['node_feat'].shape[0]
+        num_nodes = ogbn_data['num_nodes']
         edge_feat = ogbn_data['edge_feat']
+        if edge_feat is not None:
+            edge_feat = torch.tensor(edge_feat)
         edge_index = SparseTensor(row=torch.tensor(edge_index[0]), col=torch.tensor(edge_index[1]), value=edge_feat, sparse_sizes=(num_nodes, num_nodes))
         edge_index = edge_index.to_symmetric()
         row, col, _ = edge_index.coo()
