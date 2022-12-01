@@ -183,7 +183,7 @@ def main():
                     args.dropout).to(device)
 
     evaluator = Evaluator(name='ogbn-arxiv')
-    # logger = Logger(args.runs, args)
+
     best_accs = []
     for run in range(args.runs):
         model.reset_parameters()
@@ -193,7 +193,6 @@ def main():
         for epoch in range(1, 1 + args.epochs):
             loss = train(model, x, y, edge_index, train_idx, optimizer)
             result = test(model, x, y, edge_index, split_idx, evaluator)
-            # logger.add_result(run, result)
 
             if epoch % args.log_steps == 0:
                 train_acc, valid_acc, test_acc = result
@@ -210,10 +209,6 @@ def main():
     print(best_accs)
     print(np.mean(best_accs))
     print(np.std(best_accs))
-
-        # logger.print_statistics(run)
-    # logger.print_statistics()
-
 
 if __name__ == "__main__":
     main()
