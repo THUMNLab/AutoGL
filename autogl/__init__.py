@@ -16,4 +16,4 @@ from .module import (
     train,
 )
 
-__version__ = "0.3.0-pre"
+__version__ = "0.3.1"
