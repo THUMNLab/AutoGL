@@ -39,7 +39,7 @@ models:
     - tanh
     parameterName: act
     type: CATEGORICAL
-  name: gat
+  name: gat-model
 trainer:
   hp_space:
   - maxValue: 400

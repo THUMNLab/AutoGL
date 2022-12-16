@@ -354,11 +354,11 @@ class _BaseClassificationTrainer(BaseTrainer):
         if isinstance(enc, str):
             if enc in EncoderUniversalRegistry:
                 self._encoder = EncoderUniversalRegistry.get_encoder(enc)(
-                    self.num_features, last_dim=self.last_dim, device=self.device, init=self.initialized
+                    self.num_features, final_dimension=self.last_dim, device=self.device, init=self.initialized
                 )
             else:
                 self._encoder = ModelUniversalRegistry.get_model(enc)(
-                    self.num_features, last_dim=self.last_dim, device=self.device
+                    self.num_features, final_dimension=self.last_dim, device=self.device
                 )
                 
         elif isinstance(enc, BaseEncoderMaintainer):
@@ -388,7 +388,7 @@ class _BaseClassificationTrainer(BaseTrainer):
             return
         if isinstance(dec, str):
             self._decoder = DecoderUniversalRegistry.get_decoder(dec)(
-                self.num_classes, input_dim=self.last_dim, device=self.device, init=self.initialized
+                self.num_classes, input_dimension=self.last_dim, device=self.device, init=self.initialized
             )
         elif isinstance(dec, BaseDecoderMaintainer):
             self._decoder = dec
