@@ -23,7 +23,7 @@ Secondly, train a victim model (GCN) on clearn/poinsed graph:
     print('=== testing GCN on perturbed graph (AutoGL) ===')
     print("acc_test:",test_autogl(modified_adj, features, device, attention=flag))
 
-For details in training GNN models
+For details in training GNN models:
 
 .. code-block:: python
     def test_autogl(adj, features, device, attention):
@@ -50,7 +50,7 @@ For details in training GNN models
     std = np.std(accs)
     return {"mean": mean, "std": std}
 
-Thirdly, train defense model GNNGuard on poinsed graph
+Thirdly, train defense model GNNGuard on poinsed graph:
 
 .. code-block:: python
     flag = True
