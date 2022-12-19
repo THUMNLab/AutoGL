@@ -12,9 +12,9 @@ During the evaluation, the adversarial attacks on graph are performed by DeepRob
 
 .. code-block:: bash
 
-git clone https://github.com/DSE-MSU/DeepRobust.git
-cd DeepRobust
-python setup.py install
+    git clone https://github.com/DSE-MSU/DeepRobust.git
+    cd DeepRobust
+    python setup.py install
 
 To better plugin GNNGuard to AutoGL, we slightly revised some functions in geometric. Please use the file AutoGL/autogl/module/model/pyg/robust/nn/conv/gcn_conv.py we provided to replace the corresponding file in the installed geometric folder (for example, the folder path could be /home/username/.local/lib/python3.5/site-packages/torch_geometric/nn/conv/).
 
@@ -26,6 +26,7 @@ Building GNNGuard Module
 Firstly, load pre-attacked graph data:
 
 .. code-block:: python
+
     perturbed_data = PrePtbDataset(root='/tmp/', name=dataset,attack_method='meta', ptb_rate=0.2)
     modified_adj = perturbed_data.adj
 
