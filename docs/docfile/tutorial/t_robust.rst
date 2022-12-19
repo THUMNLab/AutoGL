@@ -1,56 +1,34 @@
-<<<<<<< HEAD
-.. _fe:
+.. _robust:
 
-Graph Robustness
-==========================
-
-Graph robustness is an important research direction in the field of graph representation learning in recent years, 
-and we have integrated graph robustness-related algorithms in AutoGL, which can be easily used in conjunction with other modules.
-
-Preliminaries
------------
-In AutoGL, we divide the algorithms for graph robustness into three categories, which are placed in different modules for implementation.
-Robust graph feature engineering aims to generate robust graph features in the data pre-processing phase to enhance the robustness of downstream tasks.
-Robust graph neural networks, on the other hand, are designed at the model level to ensure the robustness of the model during the training process.
-Robust graph neural network architecture search aims to search for a robust graph neural network architecture.
-Each of these three types of graph robustness algorithms will be described in the following sections.
-
-Robust Graph Feature Engineering
------------
-
-Robust Graph Neural Networks
------------
-
-Robust Graph Neural Architecture Search
------------
-=======
-==========================
 Robust Model
-==========================
+============
 
 We provides a series of defense methods that aim to enhance the robustness of GNNs.
 
 Building GNNGuard Module
-------------------------------
+------------------------
 
-Firstly, load pre-attacked graph data
+Firstly, load pre-attacked graph data:
 
 .. code-block:: python
+
     perturbed_data = PrePtbDataset(root='/tmp/', name=dataset,attack_method='meta', ptb_rate=0.2)
     modified_adj = perturbed_data.adj
 
-Secondly, train a victim model (GCN) on clearn/poinsed graph
+Secondly, train a victim model (GCN) on clearn/poinsed graph:
 
 .. code-block:: python
+
     flag = False
     print('=== testing GNN on original(clean) graph (AutoGL) ===')
     print("acc_test:",test_autogl(adj, features, device, attention=flag))
     print('=== testing GCN on perturbed graph (AutoGL) ===')
     print("acc_test:",test_autogl(modified_adj, features, device, attention=flag))
 
-For details in training GNN models
+For details in training GNN models:
 
 .. code-block:: python
+
     def test_autogl(adj, features, device, attention):
     ''
     """test on GCN """
@@ -75,9 +53,10 @@ For details in training GNN models
     std = np.std(accs)
     return {"mean": mean, "std": std}
 
-Thirdly, train defense model GNNGuard on poinsed graph
+Thirdly, train defense model GNNGuard on poinsed graph:
 
 .. code-block:: python
+
     flag = True
     print('=== testing GNN on original(clean) graph (AutoGL) + GNNGuard ===')
     print("acc_test:",test_autogl(adj, features, device, attention=flag))
@@ -85,5 +64,3 @@ Thirdly, train defense model GNNGuard on poinsed graph
     print("acc_test:",test_autogl(modified_adj, features, device, attention=flag))
 
 
-
->>>>>>> 200a684ee5167c44f74d7ad704506ecbca7e11d6
