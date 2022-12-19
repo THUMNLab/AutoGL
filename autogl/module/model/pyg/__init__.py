@@ -9,6 +9,8 @@ from .gcn import AutoGCN
 from .gat import AutoGAT
 from .gin import AutoGIN
 
+from .robust.gnnguard import AutoGNNGuard, AutoGNNGuard_attack, GCN4GNNGuard, GCN4GNNGuard_attack
+
 __all__ = [
     "ModelUniversalRegistry",
     "register_model",
@@ -19,4 +21,8 @@ __all__ = [
     "AutoGCN",
     "AutoGAT",
     "AutoGIN",
+    "AutoGNNGuard",
+    "AutoGNNGuard_attack",
+    "GCN4GNNGuard",
+    "GCN4GNNGuard_attack",
 ]
