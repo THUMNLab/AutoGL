@@ -16,7 +16,7 @@ During the evaluation, the adversarial attacks on graph are performed by DeepRob
     cd DeepRobust
     python setup.py install
 
-To better plugin GNNGuard to AutoGL, we slightly revised some functions in geometric. Please use the file `AutoGL/autogl/module/model/pyg/robust/nn/conv/gcn_conv.py` we provided to replace the corresponding file in the installed geometric folder (for example, the folder path could be `/home/username/.local/lib/python3.5/site-packages/torch_geometric/nn/conv/`).
+To better plugin GNNGuard to AutoGL, we slightly revised some functions in geometric. Please use the file ``AutoGL/autogl/module/model/pyg/robust/nn/conv/gcn_conv.py`` we provided to replace the corresponding file in the installed geometric folder (for example, the folder path could be `/home/username/.local/lib/python3.5/site-packages/torch_geometric/nn/conv/`).
 
 *Note:* Don't forget to backup all the original files when you replacing anything, in case you need them at other places!
 
