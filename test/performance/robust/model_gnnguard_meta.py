@@ -176,7 +176,7 @@ if __name__ == '__main__':
     args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('cuda: %s' % args.device)
 
-    args.dataset = "pubmed"
+    args.dataset = "cora"
     args.modelname = "GCN"
 
     data = Dataset(root='/tmp/', name=args.dataset)
