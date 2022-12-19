@@ -22,6 +22,7 @@ elif DependentBackend.is_pyg():
     from autogl.module.model.pyg import BaseAutoModel
 from autogl.datasets import build_dataset_from_name
 import torch
+from torch import nn
 import torch.nn.functional as F
 #from autogl.module.nas.algorithm.agnn_rl import AGNNRL
 from autogl.module.nas.backend import bk_feat, bk_label
@@ -32,11 +33,9 @@ import numpy as np
 from autogl.solver.utils import set_seed
 from autogl.module.nas.space import BaseSpace
 import typing as _typ
-from torch import nn
 from nas_bench_graph import light_read, gnn_list, gnn_list_proteins, Arch
 import pandas as pd
 import argparse
-import torch
 import os
 import os.path as osp
 
