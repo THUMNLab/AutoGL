@@ -57,7 +57,7 @@ def main(dataset, adj, features, device):
     modified_adj = perturbed_data.adj
 
     # Check the performance of GCN under directed attack without defense
-    flag = False
+    # flag = False
     # print('=== testing GNN on original(clean) graph ===')
     # print("acc_test:",test(adj, features, device, attention=flag))
     # print('=== testing GCN on perturbed graph ===')
@@ -78,7 +78,6 @@ def test(adj, features, device, attention):
 
         classifier = classifier.to(device)
 
-        print(1)
         classifier.fit(features, adj, labels, idx_train, train_iters=201,
                     idx_val=idx_val,
                     idx_test=idx_test,
@@ -176,7 +175,7 @@ if __name__ == '__main__':
     args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print('cuda: %s' % args.device)
 
-    args.dataset = "pubmed"
+    args.dataset = "cora"
     args.modelname = "GCN"
 
     data = Dataset(root='/tmp/', name=args.dataset)
