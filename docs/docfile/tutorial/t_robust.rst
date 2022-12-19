@@ -1,12 +1,12 @@
 .. _robust:
 
 Robust Model
-==========================
+==============
 
 We provides a series of defense methods that aim to enhance the robustness of GNNs.
 
 Building GNNGuard Module
-------------------------------
+-------------------
 
 Firstly, load pre-attacked graph data:
 
