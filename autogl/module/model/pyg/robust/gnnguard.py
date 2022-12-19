@@ -19,7 +19,8 @@ import autogl.data
 from .. import register_model
 from . import utils
 from ..gcn import GCN
-from torch_geometric.nn.conv import GCNConv
+#from torch_geometric.nn.conv import GCNConv
+from .nn import GCNConv
 from ..base import BaseAutoModel
 from .....utils import get_logger
 from .utils import accuracy
