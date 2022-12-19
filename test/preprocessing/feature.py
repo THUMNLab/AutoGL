@@ -16,7 +16,7 @@ def func(dev,env):
     from autogl.module.preprocessing.feature_engineering import FilterConstant, GBDTFeatureSelector
     from autogl.module.preprocessing.feature_engineering import NetLSD,NXLargeCliqueSize
     
-    fes=[OneHotFeatureGenerator,EigenFeatureGenerator,GraphletGenerator,PageRankFeatureGenerator,LocalDegreeProfileGenerator,NormalizeFeatures,OneHotDegreeGenerator]
+    fes=[OneHotFeatureGenerator,EigenFeatureGenerator,GraphletGenerator,LocalDegreeProfileGenerator,NormalizeFeatures,OneHotDegreeGenerator]
     exceptions=[]
     for fe in fes:
         try:
@@ -25,7 +25,7 @@ def func(dev,env):
             data=fe.fit_transform(data,inplace=False)
         except Exception as e:
             print(e)
-            exceptions.append(e)
+            exceptions.append([fe,e])
     if len(exceptions)==0:
         return 'Test OK'
     return exceptions

@@ -2,10 +2,9 @@ import torch.multiprocessing as mp
 from queue import Queue
 import time 
 import random
-import os
 
 def dummy_func(dev,cfg):
-        time.sleep(random.random()*2)
+    time.sleep(random.random()*2)
 def dummy_config():
     return list(range(20))
 

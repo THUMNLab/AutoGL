@@ -1,10 +1,10 @@
 envs='dgl pyg'.split()
 forbids=dict(zip(envs,"torch_geometric dgl".split()))
-import os
-from utils import *
-import sys
 
+from utils import *
 def func(dev,env):
+    import os
+    import sys
     sys.modules[forbids[env]]=None
     os.environ['AUTOGL_BACKEND']=env
     from autogl.backend import DependentBackend
@@ -21,7 +21,6 @@ def func(dev,env):
 
     return 'Test OK'
 
-# func(0,'dgl')
 results=mp_exec([0,1],envs,func)
 print(results)
 
