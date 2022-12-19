@@ -1,4 +1,5 @@
-==========================
+.. _robust:
+
 Robust Model
 ==========================
 
@@ -7,13 +8,13 @@ We provides a series of defense methods that aim to enhance the robustness of GN
 Building GNNGuard Module
 ------------------------------
 
-Firstly, load pre-attacked graph data
+Firstly, load pre-attacked graph data:
 
 .. code-block:: python
     perturbed_data = PrePtbDataset(root='/tmp/', name=dataset,attack_method='meta', ptb_rate=0.2)
     modified_adj = perturbed_data.adj
 
-Secondly, train a victim model (GCN) on clearn/poinsed graph
+Secondly, train a victim model (GCN) on clearn/poinsed graph:
 
 .. code-block:: python
     flag = False
@@ -57,6 +58,8 @@ Thirdly, train defense model GNNGuard on poinsed graph
     print("acc_test:",test_autogl(adj, features, device, attention=flag))
     print('=== testing GCN on perturbed graph (AutoGL) + GNNGuard ===')
     print("acc_test:",test_autogl(modified_adj, features, device, attention=flag))
+
+
 
 
 
