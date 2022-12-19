@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import math
 import torch
 import torch.optim as optim
-from deeprobust.graph.defense.basicfunction import att_coef
+#from deeprobust.graph.defense.basicfunction import att_coef
 import typing as _typing
 from torch_geometric.data import Data
 from sklearn.metrics.pairwise import euclidean_distances, cosine_similarity
