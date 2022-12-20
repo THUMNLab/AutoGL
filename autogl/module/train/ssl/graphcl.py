@@ -1,4 +1,3 @@
-# codes in this file are reproduced from <https://github.com/divelab/DIG> with some changes.
 import os
 import torch
 import logging
@@ -14,7 +13,6 @@ from typing import Union, Tuple, Sequence, Type, Callable
 
 from tqdm import trange
 from copy import deepcopy
-from dig.sslgraph.evaluation.eval_graph import k_fold
 
 from .base import BaseContrastiveTrainer
 
@@ -54,7 +52,6 @@ class GraphCLSemisupervisedTrainer(BaseContrastiveTrainer):
         ] = None,
         aug_ratio: Union[float, Sequence[float]] = 0.2,
         z_dim: Union[int, None] = 128,
-        neg_by_crpt: bool = False,
         tau: int = 0.5,
         model_path: Union[str, None] = "./models",
         num_workers: int = 0,
@@ -105,10 +102,8 @@ class GraphCLSemisupervisedTrainer(BaseContrastiveTrainer):
             If aug_ratio is set as a list of float, the value of this list and views_fn one to one correspondence.
         z_dim: `int`
             The dimension of graph-level representations
-        neg_by_crpt: `bool`
-            The mode to obtain negative samples. Only required when `loss` = "JSE"
         tau: `int`
-            The temperature parameter in InfoNCE loss. Only used when `loss` = "NCE"
+            The temperature parameter in NT_Xent loss. Only used when `loss` = "NT_Xent"
         model_path: `str` or None
             The directory to restore the saved model.
             If `model_path` = None, the model will not be saved.
@@ -165,9 +160,10 @@ class GraphCLSemisupervisedTrainer(BaseContrastiveTrainer):
             feval=feval,
             z_dim=z_dim,
             z_node_dim=None,
-            neg_by_crpt=neg_by_crpt,
             tau=tau,
-            model_path=model_path
+            model_path=model_path,
+            *args,
+            **kwargs
         )
         self.views_fn = views_fn
         self.aug_ratio = aug_ratio
@@ -438,7 +434,6 @@ class GraphCLSemisupervisedTrainer(BaseContrastiveTrainer):
             views_fn=self.views_fn_opt,
             aug_ratio=self.aug_ratio,
             z_dim=self.last_dim,
-            neg_by_crpt=self.neg_by_crpt,
             tau=self.tau,
             model_path=self.model_path,
             num_workers=self.num_workers,
@@ -530,10 +525,8 @@ class GraphCLUnsupervisedTrainer(BaseContrastiveTrainer):
             If aug_ratio is set as a list of float, the value of this list and views_fn one to one correspondence.
         z_dim: `int`
             The dimension of graph-level representations
-        neg_by_crpt: `bool`
-            The mode to obtain negative samples. Only required when `loss` = "JSE"
         tau: `int`
-            The temperature parameter in InfoNCE loss. Only used when `loss` = "NCE"
+            The temperature parameter in NT_Xent loss. Only used when `loss` = "NT_Xent"
         model_path: `str` or None
             The directory to restore the saved model.
             If `model_path` = None, the model will not be saved.
@@ -894,7 +887,6 @@ class GraphCLUnsupervisedTrainer(BaseContrastiveTrainer):
             views_fn=self.views_fn_opt,
             aug_ratio=self.aug_ratio,
             z_dim=self.last_dim,
-            neg_by_crpt=self.neg_by_crpt,
             tau=self.tau,
             model_path=self.model_path,
             num_workers=self.num_workers,

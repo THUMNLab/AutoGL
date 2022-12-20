@@ -40,7 +40,10 @@ class _OGBNDatasetUtil(_OGBDatasetUtil):
             edge_feat = torch.tensor(edge_feat)
         edge_index = SparseTensor(row=torch.tensor(edge_index[0]), col=torch.tensor(edge_index[1]), value=edge_feat, sparse_sizes=(num_nodes, num_nodes))
         _, _, value = edge_index.coo()
-        ogbn_data['edge_feat'] = value.cpu().detach().numpy()
+        if value is not None:
+            ogbn_data['edge_feat'] = value.cpu().detach().numpy()
+        else:
+            ogbn_data['edge_feat'] = edge_feat
         edge_index = edge_index.to_symmetric()
         row, col, _ = edge_index.coo()
         edge_index = np.array([row.cpu().detach().numpy(), col.cpu().detach().numpy()])

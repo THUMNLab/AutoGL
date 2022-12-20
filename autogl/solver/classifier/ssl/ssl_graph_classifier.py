@@ -302,7 +302,7 @@ class SSLGraphClassifier(BaseClassifier):
             num_classes=num_classes,
             feval=evaluator_list,
             device=self.runtime_device,
-            loss="NCE" if not hasattr(dataset, "loss") else dataset.loss,
+            loss="NT_Xent" if not hasattr(dataset, "loss") else dataset.loss,
             num_graph_features=(0
             if not hasattr(dataset[0], "gf")
             else dataset[0].gf.size(1)) if BACKEND == 'pyg' else 
