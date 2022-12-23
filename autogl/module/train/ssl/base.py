@@ -18,7 +18,7 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
 )
 
-from dig.sslgraph.method.contrastive.objectives import NCE_loss, JSE_loss
+from .losses import NTXent_loss
 from .utils import get_view_by_name
 
 from autogl.module.model.encoders.base_encoder import AutoHomogeneousEncoderMaintainer
@@ -49,7 +49,7 @@ class BaseContrastiveTrainer(BaseTrainer):
         feval: _typing.Union[
             _typing.Sequence[str], _typing.Sequence[_typing.Type[Evaluation]]
         ] = (Acc,),
-        loss: Union[str, Callable] = "NCE",
+        loss: Union[str, Callable] = "NT_Xent",
         f_loss: Union[str, Callable] = "nll_loss",
         views_fn: _typing.Union[
             _typing.Sequence[_typing.Callable], None
@@ -59,7 +59,6 @@ class BaseContrastiveTrainer(BaseTrainer):
         node_level: bool = False,
         z_dim: _typing.Union[int, None] = None,
         z_node_dim: _typing.Union[int, None] = None,
-        neg_by_crpt: bool = False,
         tau: int = 0.5,
         p_optim: Union[torch.optim.Optimizer, str] = "Adam",
         p_lr: float = 0.0001,
@@ -110,16 +109,13 @@ class BaseContrastiveTrainer(BaseTrainer):
             The dimension of graph-level representations
         z_node_dim: `int`, Optional
             The dimension of node-level representations
-        neg_by_crpt: `bool`, Optional
-            The mode to obtain negative samples
         tau: `int`, Optional
-            The temperature parameter in InfoNCE loss. Only used when `loss` = "NCE"
+            The temperature parameter in NT_Xent loss. Only used when `loss` = "NT_Xent"
         model_path: `str` or None, Optional
             The directory to restore the saved model.
             If `model_path` = None, the model will not be saved.
         """
         assert (node_level or graph_level) is True
-        assert not (loss == "NCE" and neg_by_crpt)
         assert isinstance(encoder, BaseEncoderMaintainer) or isinstance(encoder, str) or encoder is None
         self.loss = self._get_loss(loss)
         self.node_level = node_level
@@ -141,7 +137,6 @@ class BaseContrastiveTrainer(BaseTrainer):
         self.last_dim = z_dim if graph_level else z_node_dim
         self.num_features = num_features
         self.num_graph_features = num_graph_features
-        self.neg_by_crpt = neg_by_crpt
         self.tau = tau
         self.model_path = model_path
         if isinstance(device, str):
@@ -195,8 +190,8 @@ class BaseContrastiveTrainer(BaseTrainer):
         if callable(loss):
             return loss
         elif isinstance(loss, str):
-            assert loss in ['JSE', 'NCE']
-            return {'JSE': JSE_loss, 'NCE': NCE_loss}[loss]
+            assert loss in ['NT_Xent']
+            return {'NT_Xent': NTXent_loss}[loss]
         else:
             raise NotImplementedError("The argument `loss` should be str or callable which returns a loss tensor")
 
@@ -453,7 +448,7 @@ class BaseContrastiveTrainer(BaseTrainer):
                 for view in views:
                     z = self._get_embed(view.to(self.device))
                     zs.append(self.decoder.decoder(z, view.to(self.device)))
-                loss = self.loss(zs, neg_by_crpt=self.neg_by_crpt, tau=self.tau)
+                loss = self.loss(zs, tau=self.tau)
                 loss.backward()
                 optimizer.step()
                 if self.p_lr_scheduler_type:
@@ -474,7 +469,7 @@ class BaseContrastiveTrainer(BaseTrainer):
                 for view in views:
                     z = self._get_embed(view.to(self.device))
                     zs.append(self.decoder.decoder(z, view.to(self.device)))
-                loss = self.loss(zs, neg_by_crpt=self.neg_by_crpt, tau=self.tau)
+                loss = self.loss(zs, tau=self.tau)
                 epoch_loss += loss.item()
                 last_loss = loss.item()
         return epoch_loss, last_loss
@@ -534,19 +529,7 @@ class BaseContrastiveTrainer(BaseTrainer):
             return self.encoder.encoder.to(self.device)
 
     def _get_embed(self, view):
-        if self.neg_by_crpt:
-            view_crpt = self._corrupt_graph(view)
-            if self.node_level and self.graph_level:
-                z_g, z_n = self.encoder.encoder(view)
-                z_g_crpt, z_n_crpt = self.encoder.encoder(view_crpt)
-                z = (torch.cat([z_g, z_g_crpt], 0),
-                     torch.cat([z_n, z_n_crpt], 0))
-            else:
-                z = self.encoder.encoder(view)
-                z_crpt = self.encoder.encoder(view_crpt)
-                z = torch.cat([z, z_crpt], 0)
-        else:
-            z = self.encoder.encoder(view)
+        z = self.encoder.encoder(view)
         return z
 
     def predict(self, dataset, mask="test"):
