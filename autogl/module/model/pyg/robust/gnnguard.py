@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import math
 import torch
 import torch.optim as optim
-from deeprobust.graph.defense.basicfunction import att_coef
+#from deeprobust.graph.defense.basicfunction import att_coef
 import typing as _typing
 from torch_geometric.data import Data
 from sklearn.metrics.pairwise import euclidean_distances, cosine_similarity
@@ -19,7 +19,8 @@ import autogl.data
 from .. import register_model
 from . import utils
 from ..gcn import GCN
-from torch_geometric.nn.conv import GCNConv
+#from torch_geometric.nn.conv import GCNConv
+from .nn import GCNConv
 from ..base import BaseAutoModel
 from .....utils import get_logger
 from .utils import accuracy

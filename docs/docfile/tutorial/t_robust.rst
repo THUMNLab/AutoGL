@@ -78,7 +78,3 @@ Thirdly, train defense model GNNGuard on poinsed graph:
     print('=== testing GCN on perturbed graph (AutoGL) + GNNGuard ===')
     print("acc_test:",test_autogl(modified_adj, features, device, attention=flag))
 
-
-
-
-

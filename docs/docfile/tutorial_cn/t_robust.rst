@@ -1,4 +1,5 @@
-==========================
+.. _robust:
+
 鲁棒模型
 ==========================
 
@@ -10,12 +11,14 @@
 首先，加载预先攻击的图数据：
 
 .. code-block:: python
+
     perturbed_data = PrePtbDataset(root='/tmp/', name=dataset,attack_method='meta', ptb_rate=0.2)
     modified_adj = perturbed_data.adj
 
 然后，在原图 / 扰动图上训练图神经网络模型：
 
 .. code-block:: python
+
     flag = False
     print('=== testing GNN on original(clean) graph (AutoGL) ===')
     print("acc_test:",test_autogl(adj, features, device, attention=flag))
@@ -25,6 +28,7 @@
 训练图神经网络的细节如下：
 
 .. code-block:: python
+
     def test_autogl(adj, features, device, attention):
     ''
     """test on GCN """
@@ -52,6 +56,7 @@
 最后，在扰动图上训练防御模型GNNGuard
 
 .. code-block:: python
+
     flag = True
     print('=== testing GNN on original(clean) graph (AutoGL) + GNNGuard ===')
     print("acc_test:",test_autogl(adj, features, device, attention=flag))

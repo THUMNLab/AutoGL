@@ -4,7 +4,7 @@ from torch_scatter import scatter_add
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.utils import add_remaining_self_loops, to_undirected
 
-from ..inits import glorot, zeros
+from .inits import glorot, zeros
 
 @torch.jit._overload
 def gcn_norm(edge_index, edge_weight=None, num_nodes=None, improved=False,
