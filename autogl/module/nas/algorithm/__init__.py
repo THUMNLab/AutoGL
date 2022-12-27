@@ -32,6 +32,7 @@ from .rl import RL, GraphNasRL
 from ..backend import *
 if not is_dgl():
     from .gasso import Gasso
+    from .grna import GRNA
 from .spos import Spos
 
 def build_nas_algo_from_name(name: str) -> BaseNAS:
