@@ -43,4 +43,4 @@ def build_nas_estimator_from_name(name: str) -> BaseEstimator:
     return NAS_ESTIMATOR_DICT[name]()
 
 
-__all__ = ["BaseEstimator", "OneShotEstimator", "TrainEstimator", "OneShotEstimator_HardwareAware", "TrainEstimator_HardwareAware"]
+__all__ = ["BaseEstimator", "OneShotEstimator", "TrainEstimator", "OneShotEstimator_HardwareAware", "TrainEstimator_HardwareAware", "GRNAEstimator"]
