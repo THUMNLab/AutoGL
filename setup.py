@@ -54,6 +54,6 @@ setup(
         'tabulate',
         'torch',
         'tqdm',
-        'nni'
+        'nni==2.8'
     ]
 )
