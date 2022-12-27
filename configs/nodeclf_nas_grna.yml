@@ -10,13 +10,15 @@ nas:
   algorithm:
     name: grna
     n_warmup: 1000   # 1000
-    cycles: 20000      
+    cycles: 5000      
     population_size: 50 
     sample_size: 20    
     mutation_prob: 0.05
   estimator:
     name: grna
-    lambda_: 0.0
+    lambda_: 0.05
+    adv_sample_num: 10
+    ptbr: 0.05
 ensemble:
   name: null
 feature:
