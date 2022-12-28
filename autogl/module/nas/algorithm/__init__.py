@@ -59,3 +59,4 @@ def build_nas_algo_from_name(name: str) -> BaseNAS:
 __all__ = ["BaseNAS", "Darts", "Enas", "RandomSearch", "RL", "GraphNasRL","Spos"]
 if not is_dgl():
     __all__.append("Gasso")
+    __all__.append("GRNA")

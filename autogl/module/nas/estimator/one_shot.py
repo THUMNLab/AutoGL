@@ -117,7 +117,7 @@ class GRNAEstimator(BaseEstimator):
     def __init__(self, 
                  loss_f="nll_loss", 
                  evaluation=[Acc()], 
-                 lambda_=0.1, 
+                 lambda_=0.05, 
                  perturb_type='random',
                  adv_sample_num=10,  
                  dis_type='ce',
