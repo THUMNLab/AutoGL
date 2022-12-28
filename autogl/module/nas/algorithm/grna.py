@@ -1,4 +1,4 @@
-# "Graph differentiable architecture search with structure optimization" NeurIPS 21'
+# "Adversarially Robust Neural Architecture Search for Graph Neural Networks"
 
 import logging
 
@@ -89,7 +89,7 @@ class GRNA(Spos):
             self.model.parameters(), lr=self.model_lr, weight_decay=self.model_wd
         )
         # controller
-        self.controller=UniformSampler(self.nas_modules)
+        self.controller = UniformSampler(self.nas_modules)
 
         # Evolution
         self.evolve = Evolution(
