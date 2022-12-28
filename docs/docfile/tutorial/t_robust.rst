@@ -22,7 +22,7 @@ Robust Graph Neural Networks
 
 Robust Graph Neural Architecture Search
 ---------------------------------------
-Robust Graph Neural Architecture Search aims to search for adversarial robust Graph Neural Networks under attacks.
+Robust Graph Neural Architecture Search aims to search for adversarial robust Graph Neural Networks under attack.
 In AutoGL, this module is the code realization of G-RNA. 
 
 Specifically, we design a robust search space for the message-passing mechanism by adding the adjacency mask operations into the search space, 
@@ -33,19 +33,136 @@ G-RNA allows us to effectively search for optimal robust GNNs and understand GNN
 
 Adjacency Mask Operations
 >>>>>>>>>>>>>>>>>>>>>>>>>
-Inspired from the success of current defensive approaches, we conclude the properties of operations on graph structure for robustness and 
+Inspired by the success of current defensive approaches, we conclude the properties of operations on graph structure for robustness and 
 design representative defensive operators in our search space accordingly.
-In this way, we can choose the most appropriate defensive strategies when confronting perturbed graphs. 
-To our best knowledge, this is the first time for the search space to be designed with a specific purpose to enhance the robustness of GNNs.
-Specifically, we include five mask operations in the search space. 
+This way, we can choose the most appropriate defensive strategies when confronting perturbed graphs. 
+To our knowledge, this is the first time the search space to be designed with a specific purpose to enhance the robustness of GNNs.
 
+Specifically, we include five mask operations in the search space. 
 - Identity keeps the same adjacency matrix as previous layer
 - Low Rank Approximation (LRA) reconstructs the adjacency matrix from the top-k components of singular value decomposition.
 - Node Feature Similarity (NFS) deletes edges that have small jaccard similarities among node features.
 - Neighbor Importance Estimation (NIE) updates mask values with a pruning strategy base on quantifying the relevance among nodes.
-- Variable Power Operator (VPO) forms a variable power graph from the original adjacency matrix weighted by the parameters of influence strengths
+- Variable Power Operator (VPO) forms a variable power graph from the original adjacency matrix weighted by the parameters of influence strengths.
 
-Measuring Robustnes
->>>>>>>>>>>>>>>>>>>
+Measuring Robustness
+>>>>>>>>>>>>>>>>>>>>
 Intuitively, the performance of a robust GNN should not deteriorate too much when confronting various perturbed
 graph data.
+we use KL distance to measure the prediction difference between clean and perturbed data.
+A larger robustness score indicates a smaller distance between the prediction of clean data and the perturbed data, and consequently, more robust GNN architectures.
+
+
+Robust Neural Architecture search framework for GNNs: G-RNA
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+G-RNA is able to search for robust Graph Neural Networks based on clean graph data and gain high robustness on perturbed data for searched architectures.
+
+Specifically, G-RNA design a robust search space for the message-passing mechanism by adding the adjacency matrix mask operations into the search space, 
+which comprises various defensive operation candidates and allows us to search for defensive GNNs. 
+Furthermore, it define a robustness metric to guide the search procedure, which helps to filter robust architectures. 
+In this way, G-RNA helps to understand GNN robustness from an architectural perspective and meanwhile effectively search for optimal adversarial robust GNNs.
+
+Here is an example for G-RNA's implementation.
+
+First, set autogl backend and load dataset.
+.. code-block:: python
+    # set autogl-backend
+    import os
+    os.environ["AUTOGL_BACKEND"] = "pyg"
+
+    # load dataset
+    from autogl.datasets import build_dataset_from_name
+    dataset = build_dataset_from_name('Cora', path='./')
+
+Then, you could define your own GRNA space and GRNA estimator.
+.. code-block:: python
+    from autogl.module.nas.space import GRNASpace
+    from autogl.module.nas.estimator import GRNAEstimator
+    from autogl.module.nas.algorithm import GRNA
+    space = GRNASpace(
+        dropout=0.6,
+        input_dim = dataset[0].x.size(1),
+        output_dim = dataset[0].y.max().item()+1,
+        ops = ['gcn', "gat_2"],
+        rob_ops = ["identity","svd","jaccard","gnnguard"],  # graph structure mask operation
+        act_ops = ['relu','elu','leaky_relu','tanh']
+    )
+    estimator = GRNAEstimator(
+        lambda_=0.05, 
+        perturb_type='random',
+        adv_sample_num=10,  
+        dis_type='ce',
+        ptbr=0.05
+    )
+    algorithm = GRNA(
+        n_warmup=1000,
+        population_size=100, 
+        sample_size=50, 
+        cycles=5000,
+        mutation_prob=0.05,
+    )
+
+Or, you could simply use GRNA's default parameters.
+
+.. code-block:: python
+    from autogl.solver import AutoNodeClassifier
+    solver = AutoNodeClassifier(
+        graph_models = (),
+        ensemble_module = None,
+        hpo_module = None, 
+        nas_spaces=['grnaspace'],
+        nas_algorithms=['grna'],
+        nas_estimators=['grna']
+        )
+
+Next, search for best robust architecture.
+.. code-block:: python
+    device = 'cuda'
+    solver.fit(dataset)
+    solver.get_leaderboard().show()
+    orig_acc = solver.evaluate(metric="acc")
+    trainer = solver.graph_model_list[0]
+    trainer.device = device
+
+
+
+After getting the best architecture, we could evaluate on clean/perturbed graph data.
+
+.. code-block:: python
+    def metattack(data):
+        print('Meta-attack...')
+        adj, features, labels = to_scipy_sparse_matrix(data.edge_index, num_nodes=data.num_nodes), data.x.numpy(), data.y.numpy()
+        idx = np.arange(data.num_nodes)
+        idx_train, idx_val, idx_test = idx[data.train_mask], idx[data.val_mask], idx[data.test_mask]
+        idx_unlabeled = np.union1d(idx_val, idx_test)
+        # Setup Surrogate model
+        surrogate = GCN(nfeat=features.shape[1], nclass=labels.max().item()+1,
+                        nhid=16, dropout=0, with_relu=False, with_bias=False, device=device).to(device)
+        surrogate.fit(features, adj, labels, idx_train, idx_val, patience=30)
+        # Setup Attack Model
+        model = Metattack(surrogate, nnodes=adj.shape[0], feature_shape=features.shape,
+                attack_structure=True, attack_features=False, device=device, lambda_=0).to(device)
+        # Attack
+        n_perturbations = int(data.edge_index.size(1)/2 * 0.05)
+        n_perturbations = 1
+        model.attack(features, adj, labels, idx_train, idx_unlabeled, n_perturbations=n_perturbations, ll_constraint=False)
+        perturbed_adj = model.modified_adj
+        perturbed_data = data.clone()
+        perturbed_data.edge_index = torch.LongTensor(perturbed_adj.nonzero().T)
+
+        return perturbed_data
+
+    from autogl.solver.utils import set_seed
+    def test_from_data(trainer, dataset):
+        set_seed(0)
+        trainer.train(dataset)
+        acc = trainer.evaluate(dataset, mask='test')
+        return acc
+        
+    ## test searched model on clean data
+    acc = test_from_data(trainer, dataset)
+
+    ## test searched model on perturbed data
+    data = dataset[0].cpu()
+    dataset[0] = metattack(data).to(device)
+    ptb_acc = test_from_data(trainer, dataset)
