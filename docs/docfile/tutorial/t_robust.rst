@@ -1,27 +1,31 @@
 .. _robust:
 
+Graph Robustness
+==========================
+
+Graph robustness is an important research direction in the field of graph representation learning in recent years, 
+and we have integrated graph robustness-related algorithms in AutoGL, which can be easily used in conjunction with other modules.
+
+Preliminaries
+-----------
+In AutoGL, we divide the algorithms for graph robustness into three categories, which are placed in different modules for implementation.
+Robust graph feature engineering aims to generate robust graph features in the data pre-processing phase to enhance the robustness of downstream tasks.
+Robust graph neural networks, on the other hand, are designed at the model level to ensure the robustness of the model during the training process.
+Robust graph neural network architecture search aims to search for a robust graph neural network architecture.
+Each of these three types of graph robustness algorithms will be described in the following sections.
+
+Robust Graph Feature Engineering
+-----------
+
+We provide structure engineering methods to enhance robustness, please refer to `preprocessing` part for more information.
+
 Robust Model
-============
+-----------
 
 We provides a series of defense methods that aim to enhance the robustness of GNNs.
 
-Requirements
-------------
-
-During the evaluation, the adversarial attacks on graph are performed by DeepRobust from MSU, please install it by
-
-.. code-block:: bash
-
-    git clone https://github.com/DSE-MSU/DeepRobust.git
-    cd DeepRobust
-    python setup.py install
-
-To better plugin GNNGuard to AutoGL, we slightly revised some functions in geometric. Please use the file ``AutoGL/autogl/module/model/pyg/robust/nn/conv/gcn_conv.py`` we provided to replace the corresponding file in the installed geometric folder (for example, the folder path could be `/home/username/.local/lib/python3.5/site-packages/torch_geometric/nn/conv/`).
-
-*Note:* Don't forget to backup all the original files when you replacing anything, in case you need them at other places!
-
 Building GNNGuard Module
-------------------------
+>>>>>>>>>>>>>>>>>>>
 
 Firstly, load pre-attacked graph data:
 
@@ -81,7 +85,7 @@ Thirdly, train defense model GNNGuard on poinsed graph:
 
 Robust Graph Neural Architecture Search
 ---------------------------------------
-Robust Graph Neural Architecture Search aims to search for adversarial robust Graph Neural Networks under attack.
+Robust Graph Neural Architecture Search aims to search for adversarial robust Graph Neural Networks under attacks.
 In AutoGL, this module is the code realization of G-RNA. 
 
 Specifically, we design a robust search space for the message-passing mechanism by adding the adjacency mask operations into the search space, 
@@ -190,8 +194,6 @@ Next, search for best robust architecture.
     orig_acc = solver.evaluate(metric="acc")
     trainer = solver.graph_model_list[0]
     trainer.device = device
-
-
 
 After getting the best architecture, we could evaluate on clean/perturbed graph data.
 
