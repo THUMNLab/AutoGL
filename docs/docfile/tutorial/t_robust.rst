@@ -39,6 +39,7 @@ This way, we can choose the most appropriate defensive strategies when confronti
 To our knowledge, this is the first time the search space to be designed with a specific purpose to enhance the robustness of GNNs.
 
 Specifically, we include five mask operations in the search space. 
+
 - Identity keeps the same adjacency matrix as previous layer
 - Low Rank Approximation (LRA) reconstructs the adjacency matrix from the top-k components of singular value decomposition.
 - Node Feature Similarity (NFS) deletes edges that have small jaccard similarities among node features.
