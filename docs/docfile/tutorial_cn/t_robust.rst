@@ -57,7 +57,7 @@ G-RNA 使我们能够有效地搜索最优的鲁棒性GNN，并从架构的角�
 
 鲁棒图神经网络家沟搜索：G-RNA
 >>>>>>>>>>>>>>>>>>>>>>>>>>>
-G-RNA能够基于干净的图数据搜索鲁棒的图神经网络，并搜索到的架构在扰动图数据上可以获得高对抗鲁棒性。
+G-RNA能够基于干净的图数据搜索鲁棒的图神经网络，并搜索到的架构在扰动图数据上可以获得``高对抗鲁棒性``。
 
 具体来说，G-RNA过将邻接矩阵掩码算子添加到搜索空间中，允许我们搜索鲁棒GNN。
 此外，它定义了一个鲁棒性度量来指导搜索过程，这有助于过滤鲁棒架构。
@@ -66,7 +66,9 @@ G-RNA能够基于干净的图数据搜索鲁棒的图神经网络，并搜索到
 以下是G-RNA实现的一个例子。
 
 首先，加载相关数据集。
+
 .. code-block:: python
+
     import os
     os.environ["AUTOGL_BACKEND"] = "pyg"
 
@@ -76,7 +78,9 @@ G-RNA能够基于干净的图数据搜索鲁棒的图神经网络，并搜索到
 
 
 接着，你可以定义自己的GRNA搜索空间和GRNA估计器。
+
 .. code-block:: python
+
     from autogl.module.nas.space import GRNASpace
     from autogl.module.nas.estimator import GRNAEstimator
     from autogl.module.nas.algorithm import GRNA
@@ -104,7 +108,9 @@ G-RNA能够基于干净的图数据搜索鲁棒的图神经网络，并搜索到
     )
 
 或者，直接在节点分类器`AutoNodeClassifier`中输入GRNA字符串，使用默认搜索参数。
+
 .. code-block:: python
+
     from autogl.solver import AutoNodeClassifier
     solver = AutoNodeClassifier(
         graph_models = (),
@@ -116,7 +122,9 @@ G-RNA能够基于干净的图数据搜索鲁棒的图神经网络，并搜索到
         )
 
 定义好节点分类器之后，可以进行最佳鲁棒架构搜索。
+
 .. code-block:: python
+
     device = 'cuda'
     solver.fit(dataset)
     solver.get_leaderboard().show()
@@ -126,8 +134,8 @@ G-RNA能够基于干净的图数据搜索鲁棒的图神经网络，并搜索到
 
 最后，针对干净/扰动图进行架构的结果评估。
 
-
 .. code-block:: python
+
     def metattack(data):
         print('Meta-attack...')
         adj, features, labels = to_scipy_sparse_matrix(data.edge_index, num_nodes=data.num_nodes), data.x.numpy(), data.y.numpy()

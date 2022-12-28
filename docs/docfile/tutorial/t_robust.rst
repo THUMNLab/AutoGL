@@ -57,14 +57,15 @@ Robust Neural Architecture search framework for GNNs: G-RNA
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 G-RNA is able to search for robust Graph Neural Networks based on clean graph data and gain high robustness on perturbed data for searched architectures.
 
-Specifically, G-RNA design a robust search space for the message-passing mechanism by adding the adjacency matrix mask operations into the search space, 
+Specifically, G-RNA designs a robust search space for the message-passing mechanism by adding the adjacency matrix mask operations into the search space, 
 which comprises various defensive operation candidates and allows us to search for defensive GNNs. 
-Furthermore, it define a robustness metric to guide the search procedure, which helps to filter robust architectures. 
-In this way, G-RNA helps to understand GNN robustness from an architectural perspective and meanwhile effectively search for optimal adversarial robust GNNs.
+Furthermore, it defines a robustness metric to guide the search procedure, which helps to filter robust architectures. 
+In this way, G-RNA helps understand GNN robustness from an architectural perspective and effectively searches for optimal adversarial robust GNNs.
 
-Here is an example for G-RNA's implementation.
+Here is an example of G-RNA's implementation.
 
-First, set autogl backend and load dataset.
+First, set autogl backend and load the dataset.
+
 .. code-block:: python
     # set autogl-backend
     import os
@@ -75,6 +76,7 @@ First, set autogl backend and load dataset.
     dataset = build_dataset_from_name('Cora', path='./')
 
 Then, you could define your own GRNA space and GRNA estimator.
+
 .. code-block:: python
     from autogl.module.nas.space import GRNASpace
     from autogl.module.nas.estimator import GRNAEstimator
@@ -116,6 +118,7 @@ Or, you could simply use GRNA's default parameters.
         )
 
 Next, search for best robust architecture.
+
 .. code-block:: python
     device = 'cuda'
     solver.fit(dataset)
