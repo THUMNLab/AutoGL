@@ -26,14 +26,13 @@ def metattack(data):
     idx_unlabeled = np.union1d(idx_val, idx_test)
     # Setup Surrogate model
     surrogate = GCN(nfeat=features.shape[1], nclass=labels.max().item()+1,
-                    nhid=16, dropout=0, with_relu=False, with_bias=False, device='cpu').to('cpu')
+                    nhid=16, dropout=0, with_relu=False, with_bias=False, device=device).to(device)
     surrogate.fit(features, adj, labels, idx_train, idx_val, patience=30)
     # Setup Attack Model
     model = Metattack(surrogate, nnodes=adj.shape[0], feature_shape=features.shape,
-            attack_structure=True, attack_features=False, device='cpu', lambda_=0).to('cpu')
+            attack_structure=True, attack_features=False, device=device, lambda_=0).to(device)
     # Attack
     n_perturbations = int(data.edge_index.size(1)/2 * 0.05)
-    n_perturbations = 1
     model.attack(features, adj, labels, idx_train, idx_unlabeled, n_perturbations=n_perturbations, ll_constraint=False)
     perturbed_adj = model.modified_adj
     perturbed_data = data.clone()
