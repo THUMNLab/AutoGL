@@ -67,6 +67,7 @@ Here is an example of G-RNA's implementation.
 First, set autogl backend and load the dataset.
 
 .. code-block:: python
+
     # set autogl-backend
     import os
     os.environ["AUTOGL_BACKEND"] = "pyg"
@@ -78,6 +79,7 @@ First, set autogl backend and load the dataset.
 Then, you could define your own GRNA space and GRNA estimator.
 
 .. code-block:: python
+
     from autogl.module.nas.space import GRNASpace
     from autogl.module.nas.estimator import GRNAEstimator
     from autogl.module.nas.algorithm import GRNA
@@ -107,6 +109,7 @@ Then, you could define your own GRNA space and GRNA estimator.
 Or, you could simply use GRNA's default parameters.
 
 .. code-block:: python
+
     from autogl.solver import AutoNodeClassifier
     solver = AutoNodeClassifier(
         graph_models = (),
@@ -120,6 +123,7 @@ Or, you could simply use GRNA's default parameters.
 Next, search for best robust architecture.
 
 .. code-block:: python
+
     device = 'cuda'
     solver.fit(dataset)
     solver.get_leaderboard().show()
@@ -132,6 +136,7 @@ Next, search for best robust architecture.
 After getting the best architecture, we could evaluate on clean/perturbed graph data.
 
 .. code-block:: python
+
     def metattack(data):
         print('Meta-attack...')
         adj, features, labels = to_scipy_sparse_matrix(data.edge_index, num_nodes=data.num_nodes), data.x.numpy(), data.y.numpy()
