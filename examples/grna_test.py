@@ -73,8 +73,8 @@ if __name__ == '__main__':
 
     ## test searched model on perturbed data
     data = dataset[0].cpu()
-    dataset[0] = metattack(data).to(args.device)
+    dataset[0] = metattack(data).to(device)
     ptb_acc = test_from_data(trainer, dataset, args)
-
+    
 
 
