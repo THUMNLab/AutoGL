@@ -12,16 +12,18 @@
 % [![Documentation Status](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)-->
 
 ## 最新消息
-
-- 2022.4.19 v0.3.1版本更新！首次更新中文教程！
-- 2021.12.31 v0.3.0-pre版本更新!
-    - 智图目前支持[__Deep Graph Library (DGL)__](https://www.dgl.ai/)作为后端，以方便DGL的用户使用。目前在DGL后端已经支持同构图的节点分类、链接预测以及图分类等任务。智图现在也可兼容PyG 2.0版本。
-    - 智图可以支持__异构图__节点分类任务!详情请参考[异构图教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html)。
-    - 为了使智图算法更灵活，`model`模块目前支持__解耦__为两个子模块，即编码器`encoder`和解码器`decoder`。在__解耦__设计中，一个`encoder`可以被用来处理不同任务，以减少重复开发的负担，
-    - 我们扩展了支持的[神经架构搜索算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，例如[AutoAttend](https://proceedings.mlr.press/v139/guan21a.html)，[GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html)， [硬件感知算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware)等。 
-- 2021.07.11 智图更新v0.2.0-pre版本! 在新版本中，智图支持[神经架构搜索(NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，可以对给定的数据集和架构定制化神经网络架构。智图也支持了[采样](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling)功能以处理大规模图数据集，包括节点采样、层采样和子图采样。链接预测任务也已经支持。详情请参考我们的[教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/index.html).
-- 2021.04.16 我们关于图自动机器学习的综述文章已经被IJCAI 2021接受! 详情见[这里](http://arxiv.org/abs/2103.00742)。
-- 2021.04.10 我们的论文[__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987)已经被 _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_ 接受! 
+- 2021.12.31 新版本！智图v0.4.0-pre 版本发布!
+    - 提出了__NAS-Bench-Graph__ ([paper](https://openreview.net/pdf?id=bBff294gqLp),[code](https://github.com/THUMNLab/NAS-Bench-Graph), [tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas_bench_graph.html))，并发表于NeurIPS'22上！其是首个针对图数据的神经架构搜索Benchmark。将AutoGL与NAS-Bench-Graph一起使用可以极大加快图神经架构搜索算法的性能评估过程
+    - 支持图自动机器学习的__鲁棒性__算法!包括图结构特征工程、鲁棒图神经网络模型和鲁棒图神经架构搜索，详情参见[图鲁棒性教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial_cn/t_robustness.html) 
+    - 支持图自动机器学习的__自监督__算法！详情参见[图自监督教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial_cn/t_ssl_trainer.html)
+- 2021.12.31 智图发布v0.3.0-pre版本：
+    - 支持[__Deep Graph Library (DGL)__](https://www.dgl.ai/)作为后端，包括同构图的节点分类、链接预测以及图分类等任务。智图现在也可兼容PyG 2.0版本。
+    - 支持__异构图__节点分类任务!详情请参考[异构图教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html)。
+    - `model`模块目前支持__解耦__为两个子模块，即编码器`encoder`和解码器`decoder`。在__解耦__设计中，一个`encoder`可以被用来处理不同任务。
+    - 扩展了支持的[神经架构搜索算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，例如[AutoAttend](https://proceedings.mlr.press/v139/guan21a.html)，[GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html)， [硬件感知算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware)等。 
+- 2021.07.11 智图v0.2.0-pre版本发布，并支持了[神经架构搜索(NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，可以对给定的数据集和架构定制化神经网络架构；[采样](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling)以处理大规模图数据集；和链接预测任务。
+- 2021.04.16 我们在IJCAI 2021发表了关于图自动机器学习的首个综述文章! 详情见[这里](http://arxiv.org/abs/2103.00742)。
+- 2021.04.10 我们的论文[__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987)已经发表于 _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_ ! 
 
 ## 介绍
 
