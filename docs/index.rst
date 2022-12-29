@@ -101,9 +101,11 @@ In AutoGL, the tasks are solved by corresponding solvers, which in general do th
    docfile/tutorial/t_fe
    docfile/tutorial/t_model
    docfile/tutorial/t_trainer
+   docfile/tutorial/t_ssl_trainer
    docfile/tutorial/t_hpo
    docfile/tutorial/t_nas
    docfile/tutorial/t_nas_bench_graph
+   docfile/tutorial/t_robust
    docfile/tutorial/t_ensemble
    docfile/tutorial/t_solver
 
@@ -119,9 +121,11 @@ In AutoGL, the tasks are solved by corresponding solvers, which in general do th
    docfile/tutorial_cn/t_fe
    docfile/tutorial_cn/t_model
    docfile/tutorial_cn/t_trainer
+   docfile/tutorial_cn/t_ssl_trainer
    docfile/tutorial_cn/t_hpo
    docfile/tutorial_cn/t_nas
    docfile/tutorial_cn/t_nas_bench_graph
+   docfile/tutorial_cn/t_robust
    docfile/tutorial_cn/t_ensemble
    docfile/tutorial_cn/t_solver
 
