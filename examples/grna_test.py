@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     device = 'cuda'    
-    dataset = build_dataset_from_name(args.dataset, path='./')
+    dataset = build_dataset_from_name(args.dataset)
     
     print('architecture search')
     solver = AutoNodeClassifier.from_config(args.config)

@@ -1,10 +1,10 @@
 import pkg_resources
 import autogl
 from autogl.datasets import build_dataset_from_name
-cora_dataset = build_dataset_from_name('cora', path = '~/')
+cora_dataset = build_dataset_from_name('cora')
 
 import torch
-device = torch.device('cuda:5' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 from autogl.solver import AutoNodeClassifier
 solver = AutoNodeClassifier(
     feature_module='deepgl',
