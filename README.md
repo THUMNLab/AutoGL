@@ -14,6 +14,10 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 
 ## News!
 
+- 2022.12.29 New version! v0.4.0 is here!
+    - AutoGL can now be easily used in conjunction with __NAS-Bench-Graph__ ([paper](https://openreview.net/pdf?id=bBff294gqLp),[code](https://github.com/THUMNLab/NAS-Bench-Graph)), greatly speeding up the performance estimation process of GraphNAS algorithms.
+    - We have extended the graph __robustness__ algorithms in AutoGL, including structure engineering, robust GNN and robust GraphNAS. See [robustness tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_robustness.html) for more details.
+    - Graph __self-supervised learning__ is now supported! See [ssl tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_ssl_trainer.html) for more details.
 - 2022.4.19 New version v0.3.1！We have released Chinese tutorial for the first time!
 - 2021.12.31 New Version! v0.3.0-pre is here!
     - AutoGL now support [__Deep Graph Library (DGL)__](https://www.dgl.ai/) backend to be interface-friendly for DGL users! All the homogeneous node classification task, link prediction task, and graph classification task are currently supported under DGL backend. AutoGL is also compatible with PyG 2.0 now.
