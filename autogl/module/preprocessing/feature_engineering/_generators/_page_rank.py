@@ -26,4 +26,4 @@ class PageRankFeatureGenerator(BaseFeatureGenerator):
         pr = np.zeros(num_nodes)
         for i, v in page_rank.items():
             pr[i] = v
-        return torch.from_numpy(pr)
+        return torch.from_numpy(pr).unsqueeze(-1)
