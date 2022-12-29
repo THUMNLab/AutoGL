@@ -1,0 +1,50 @@
+nas:
+  space:
+    name: grnaspace
+    hidden_dim: 64
+    layer_number: 2
+    dropout: 0.6
+    ops: ["gcn", "gat_2","sage", "gin"]
+    rob_ops: ["identity", "jaccard", "gnnguard"]
+    act_ops: ['relu','elu','leaky_relu','tanh']
+  algorithm:
+    name: grna
+    n_warmup: 1000   # 1000
+    cycles: 5000      
+    population_size: 50 
+    sample_size: 20    
+    mutation_prob: 0.05
+  estimator:
+    name: grna
+    lambda_: 0.05
+    adv_sample_num: 10
+    ptbr: 0.05
+ensemble:
+  name: null
+feature:
+- name: NormalizeFeatures
+hpo:
+  name: null
+models: []
+trainer:
+  hp_space:
+  - maxValue: 300  # 300
+    minValue: 100  # 100
+    parameterName: max_epoch
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 30
+    minValue: 10
+    parameterName: early_stopping_round
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 0.05
+    minValue: 0.005
+    parameterName: lr
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 0.0005
+    minValue: 1.0e-05
+    parameterName: weight_decay
+    scalingType: LOG
+    type: DOUBLE

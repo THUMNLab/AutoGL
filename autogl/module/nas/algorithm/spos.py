@@ -22,9 +22,6 @@ from ..utils import (
 from tqdm import tqdm, trange
 from ....utils import get_logger
 
-from nni.algorithms.nas.pytorch.random import RandomMutator
-from nni.retiarii.strategy import RegularizedEvolution
-
 import numpy as np
 LOGGER = get_logger("SPOS")
 

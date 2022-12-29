@@ -1,7 +1,7 @@
 
 import autogl
 from autogl.datasets import build_dataset_from_name
-cora_dataset = build_dataset_from_name('cora', path = '/home/qinyj/AGL/')
+cora_dataset = build_dataset_from_name('cora', path = '~/')
 
 import torch
 device = torch.device('cuda:5' if torch.cuda.is_available() else 'cpu')

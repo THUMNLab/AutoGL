@@ -9,6 +9,8 @@ from .link_predictor import AutoLinkPredictor
 from autogl.backend import DependentBackend
 if DependentBackend.is_dgl():
     from .hetero import AutoHeteroNodeClassifier
+if DependentBackend.is_pyg():
+    from .ssl import SSLGraphClassifier
 
 __all__ = [
     "BaseClassifier",
@@ -19,3 +21,6 @@ __all__ = [
 
 if DependentBackend.is_dgl():
     __all__.extend(['AutoHeteroNodeClassifier'])
+
+if DependentBackend.is_pyg():
+    __all__.extend(['SSLGraphClassifier'])

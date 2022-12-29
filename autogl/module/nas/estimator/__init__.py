@@ -19,7 +19,8 @@ def register_nas_estimator(name):
     return register_nas_estimator_cls
 
 
-from .one_shot import OneShotEstimator, OneShotEstimator_HardwareAware
+from .one_shot import OneShotEstimator, OneShotEstimator_HardwareAware 
+from .grna_estimator import GRNAEstimator
 from .train_scratch import TrainEstimator, TrainEstimator_HardwareAware
 
 def build_nas_estimator_from_name(name: str) -> BaseEstimator:
@@ -43,4 +44,4 @@ def build_nas_estimator_from_name(name: str) -> BaseEstimator:
     return NAS_ESTIMATOR_DICT[name]()
 
 
-__all__ = ["BaseEstimator", "OneShotEstimator", "TrainEstimator", "OneShotEstimator_HardwareAware", "TrainEstimator_HardwareAware"]
+__all__ = ["BaseEstimator", "OneShotEstimator", "TrainEstimator", "OneShotEstimator_HardwareAware", "TrainEstimator_HardwareAware", "GRNAEstimator"]

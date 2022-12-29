@@ -26,6 +26,7 @@ from ..backend import *
 if not is_dgl():
     from .gasso import GassoSpace
     from .autoattend import AutoAttendNodeClassificationSpace
+    from .grna import GRNASpace
 
 def build_nas_space_from_name(name: str) -> BaseSpace:
     """
@@ -57,5 +58,6 @@ __all__ = [
 
 if not is_dgl():
     __all__.append("GassoSpace")
+    __all__.append("GRNASpace")
     __all__.append("AutoAttendNodeClassificationSpace")
 

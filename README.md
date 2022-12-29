@@ -3,6 +3,9 @@
 用于图数据的自动机器学习框架和工具包。
 
 *由清华大学媒体与网络实验室进行开发与维护*
+[Chinese Introduction](README_cn.md)
+
+An autoML framework & toolkit for machine learning on graphs.
 
 若有任何意见或建议，欢迎通过<a href="https://www.gitlink.org.cn/THUMNLab/AutoGL/issues">issues</a> 或邮件<a href="mailto:autogl@tsinghua.edu.cn">autogl@tsinghua.edu.cn</a>与我们联系。
 
@@ -10,16 +13,20 @@
  [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 % [![Documentation Status](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)-->
 
-## 最新消息
-- 2021.4.19 v0.3.1版本更新！首次更新中文教程！
-- 2021.12.31 v0.3.0-pre版本更新!
-    - 智图目前支持[__Deep Graph Library (DGL)__](https://www.dgl.ai/)作为后端，以方便DGL的用户使用。目前在DGL后端已经支持同构图的节点分类、链接预测以及图分类等任务。智图现在也可兼容PyG 2.0版本。
-    - 智图可以支持__异构图__节点分类任务!详情请参考[异构图教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html)。
-    - 为了使智图算法更灵活，`model`模块目前支持__解耦__为两个子模块，即编码器`encoder`和解码器`decoder`。在__解耦__设计中，一个`encoder`可以被用来处理不同任务，以减少重复开发的负担，
-    - 我们扩展了支持的[神经架构搜索算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，例如[AutoAttend](https://proceedings.mlr.press/v139/guan21a.html)，[GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html)， [硬件感知算法](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware)等。 
-- 2021.07.11 智图更新v0.2.0-pre版本! 在新版本中，智图支持[神经架构搜索(NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html)，可以对给定的数据集和架构定制化神经网络架构。智图也支持了[采样](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling)功能以处理大规模图数据集，包括节点采样、层采样和子图采样。链接预测任务也已经支持。详情请参考我们的[教程](http://mn.cs.tsinghua.edu.cn/autogl/documentation/index.html).
-- 2021.04.16 我们关于图自动机器学习的综述文章已经被IJCAI 2021接受! 详情见[这里](http://arxiv.org/abs/2103.00742)。
-- 2021.04.10 我们的论文[__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987)已经被 _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_ 接受! 
+## News!
+
+- 2022.12.29 New version! v0.4.0-pre is here!
+    - We have proposed __NAS-Bench-Graph__ ([paper](https://openreview.net/pdf?id=bBff294gqLp), [code](https://github.com/THUMNLab/NAS-Bench-Graph), [tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas_bench_graph.html)), the first NAS-benchmark for graphs published in NeurIPS'22. By using AutoGL together with NAS-Bench-Graph, the performance estimation process of GraphNAS algorithms can be greatly speeded up. 
+    - We have supported the graph __robustness__ algorithms in AutoGL, including graph structure engineering, robust GNNs and robust GraphNAS. See [robustness tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_robust.html) for more details.
+    - We have supported graph __self-supervised learning__! See [self-supervised learning tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_ssl_trainer.html) for more details.
+- 2021.12.31 Version v0.3.0-pre is released
+    - Support [__Deep Graph Library (DGL)__](https://www.dgl.ai/) backend including homogeneous node classification, link prediction, and graph classification tasks. AutoGL is also compatible with PyG 2.0 now.
+    - Support __heterogeneous__ node classification! See [hetero tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html) .
+    - The module `model` now supports __decoupled__ to two additional sub-modules named `encoder` and `decoder`. Under the __decoupled__ design, one `encoder` can be used to solve all kinds of tasks.
+    - Enrich [NAS algorithms](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) such as [AutoAttend](https://proceedings.mlr.press/v139/guan21a.html), [GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html), [hardware-aware algorithm](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware), etc. 
+- 2021.07.11 Version 0.2.0-pre is released, which supports [neural architecture search (NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) to customize architectures, [sampling (http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling) to perform tasks on large datasets, and link prediction. 
+- 2021.04.16 Our survey paper about automated machine learning on graphs is accepted by IJCAI! See more [here](http://arxiv.org/abs/2103.00742).
+- 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987) is accepted by _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
 
 ## 介绍
 
