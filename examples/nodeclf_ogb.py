@@ -149,7 +149,7 @@ def main():
     # print(oedge_index)
     
 
-    dataset = build_dataset_from_name('ogbn_arxiv', path='./dataset/')
+    dataset = build_dataset_from_name('ogbn_arxiv')
 
     data = dataset[0]
     x = data.nodes.data[feat].to(device)
