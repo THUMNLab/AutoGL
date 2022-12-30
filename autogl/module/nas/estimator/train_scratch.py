@@ -36,7 +36,7 @@ class TrainEstimator(BaseEstimator):
             weight_decay=5e-4,
             device="auto",
             init=False,
-            feval='acc',
+            feval=self.evaluation,
             loss=self.loss_f,
             lr_scheduler_type=None,
         )
