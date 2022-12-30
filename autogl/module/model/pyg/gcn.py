@@ -66,7 +66,6 @@ class GCN(ClassificationSupportedSequentialModel):
                 or edge_index.size() != (2, edge_weight.size(0))
             ):
                 edge_weight: _typing.Optional[torch.Tensor] = None
-
             x: torch.Tensor = self._convolution.forward(x, edge_index, edge_weight)
             if self._activation_name is not None and enable_activation:
                 x: torch.Tensor = activate_func(x, self._activation_name)
@@ -200,6 +199,7 @@ class GCN(ClassificationSupportedSequentialModel):
             _edge_weight: _typing.Optional[torch.Tensor] = None,
         ) -> _typing.Tuple[torch.LongTensor, _typing.Optional[torch.Tensor]]:
             if type(_edge_index) != torch.Tensor or _edge_index.dtype != torch.int64:
+                print(type(_edge_index))
                 raise TypeError
             if _edge_weight is not None and (
                 type(_edge_weight) != torch.Tensor

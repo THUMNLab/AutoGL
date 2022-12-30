@@ -1,0 +1,59 @@
+ensemble:
+  name: null
+feature:
+- name: NormalizeFeatures
+hpo:
+  max_evals: 10
+  name: random
+models:
+- hp_space:
+  - feasiblePoints: 2,3
+    parameterName: num_layers
+    type: DISCRETE
+  - cutFunc: lambda x:x[0] - 1
+    cutPara:
+    - num_layers
+    length: 2
+    maxValue:
+    - 256
+    - 256
+    minValue:
+    - 256
+    - 256
+    numericalType: INTEGER
+    parameterName: hidden
+    scalingType: LOG
+    type: NUMERICAL_LIST
+  - maxValue: 0.505
+    minValue: 0.495
+    parameterName: dropout
+    scalingType: LINEAR
+    type: DOUBLE
+  - feasiblePoints:
+    - leaky_relu
+    - relu
+    parameterName: act
+    type: CATEGORICAL
+  name: gcn-model
+trainer:
+  hp_space:
+  - maxValue: 500
+    minValue: 500
+    parameterName: max_epoch
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 500
+    minValue: 500
+    parameterName: early_stopping_round
+    scalingType: LINEAR
+    type: INTEGER
+  - maxValue: 0.0105
+    minValue: 0.0095
+    parameterName: lr
+    scalingType: LOG
+    type: DOUBLE
+  - maxValue: 0.0000001
+    minValue: 0.00000001
+    parameterName: weight_decay
+    scalingType: LOG
+    type: DOUBLE

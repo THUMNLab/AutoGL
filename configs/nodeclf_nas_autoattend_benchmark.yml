@@ -15,8 +15,8 @@ nas:
     name: spos
     n_warmup: 2000  #2000
     population_size: 500
-    cycles: 50 #　5
-    sample_size : 100
+    cycles: 50 #5
+    sample_size: 100
   estimator:
     name: oneshot
 models: []

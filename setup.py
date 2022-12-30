@@ -40,10 +40,12 @@ setup(
         'bayesian-optimization',
         'chocolate',
         'dill',
+        'deeprobust',
         'hyperopt',
         'lightgbm',
         'networkx',
         'numpy',
+        'numba',
         'netlsd',
         'ogb',
         'psutil',
@@ -54,6 +56,6 @@ setup(
         'tabulate',
         'torch',
         'tqdm',
-        'nni'
+        'nni==2.8'
     ]
 )

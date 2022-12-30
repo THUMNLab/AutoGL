@@ -6,7 +6,7 @@ hpo:
   max_evals: 10
   name: random
 models:
-- name: gat
+- name: gat-model
   hp_space:
   - feasiblePoints: 2,3
     parameterName: num_layers
