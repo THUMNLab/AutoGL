@@ -16,7 +16,7 @@ with open("README.md", 'r') as fh:
 ''' https://setuptools.readthedocs.io/en/latest/ '''
 setup(
     name='autogl',
-    version='0.3.1',
+    version='0.4.0',
     author='THUMNLab/aglteam',
     maintainer='THUMNLab/aglteam',
     author_email='autogl@tsinghua.edu.cn',
@@ -54,7 +54,6 @@ setup(
         'scikit-learn',
         'scipy',
         'tabulate',
-        'torch',
         'tqdm',
         'nni==2.8'
     ]
