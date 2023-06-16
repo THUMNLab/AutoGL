@@ -2,13 +2,13 @@ import yaml
 import random
 import torch.backends.cudnn
 import numpy as np
+import torch_geometric.transforms as T
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
 from autogl.module import Acc
 from autogl.backend import DependentBackend
 
 if __name__ == "__main__":
-
     from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
     parser = ArgumentParser(
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # following arguments will override parameters in the config file
     parser.add_argument("--hpo", type=str, default="tpe", help="hpo methods")
     parser.add_argument(
-        "--max_eval", type=int, default=50, help="max hpo evaluation times"
+        "--max_eval", type=int, default=5, help="max hpo evaluation times"
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed")
     parser.add_argument("--device", default=0, type=int, help="GPU device")
@@ -57,7 +57,10 @@ if __name__ == "__main__":
         torch.backends.cudnn.benchmark = False
 
     dataset = build_dataset_from_name(args.dataset)
-    label = dataset[0].nodes.data["y" if DependentBackend.is_pyg() else "label"]
+    if DependentBackend.is_pyg():
+        label = dataset[0].y
+    else:
+        label = dataset[0].ndata['label']
     num_classes = len(np.unique(label.numpy()))
 
     configs = yaml.load(open(args.configs, "r").read(), Loader=yaml.FullLoader)
@@ -73,10 +76,10 @@ if __name__ == "__main__":
             dataset,
             time_limit=3600,
             evaluation_method=[Acc],
-            seed=seed,
             train_split=20 * num_classes,
             val_split=30 * num_classes,
-            balanced=False,
+            balanced=True,
+            seed=seed
         )
     autoClassifier.get_leaderboard().show()
     acc = autoClassifier.evaluate(metric="acc")

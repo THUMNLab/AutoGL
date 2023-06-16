@@ -1,4 +1,3 @@
-from this import d
 import numpy as np
 from copy import deepcopy
 from numba import njit

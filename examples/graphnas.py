@@ -13,7 +13,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     dataset = build_dataset_from_name(args.dataset)
-    label = dataset[0].nodes.data["y" if DependentBackend.is_pyg() else "label"][dataset[0].nodes.data["test_mask"]].cpu().numpy()
+    if DependentBackend.is_pyg():
+        label = dataset[0].y
+    else:
+        print(type(dataset))
+        label = dataset[0].ndata['label']
     solver = AutoNodeClassifier.from_config(args.config)
     solver.fit(dataset)
     solver.get_leaderboard().show()

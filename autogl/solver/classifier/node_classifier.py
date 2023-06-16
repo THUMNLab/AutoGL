@@ -19,7 +19,7 @@ from ...module.train import get_feval
 from ...module.nas.space import NAS_SPACE_DICT
 from ...module.nas.algorithm import NAS_ALGO_DICT
 from ...module.nas.estimator import NAS_ESTIMATOR_DICT, BaseEstimator
-from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_labels, get_graph_masks, get_graph_node_features, get_graph_node_number, set_seed, convert_dataset
+from ..utils import LeaderBoard, get_graph_from_dataset, get_graph_labels, get_graph_masks, get_graph_node_features, get_graph_node_number, set_seed
 from ...datasets import utils
 from ...utils import get_logger
 
@@ -275,8 +275,6 @@ class AutoNodeClassifier(BaseClassifier):
             [e.get_eval_name() for e in evaluator_list],
             {e.get_eval_name(): e.is_higher_better() for e in evaluator_list},
         )
-
-
         # set up the dataset
         if train_split is not None and val_split is not None:
             size = get_graph_node_number(graph_data)
@@ -285,7 +283,7 @@ class AutoNodeClassifier(BaseClassifier):
                     train_split if train_split > 1 else int(train_split * size)
                 )
                 val_split = val_split if val_split > 1 else int(val_split * size)
-                utils.random_splits_mask_class(
+                dataset = utils.random_splits_mask_class(
                     dataset,
                     num_train_per_class=train_split // num_classes,
                     num_val_per_class=val_split // num_classes,
@@ -294,7 +292,7 @@ class AutoNodeClassifier(BaseClassifier):
             else:
                 train_split = train_split if train_split < 1 else train_split / size
                 val_split = val_split if val_split < 1 else val_split / size
-                utils.random_splits_mask(
+                dataset = utils.random_splits_mask(
                     dataset, train_ratio=train_split, val_ratio=val_split
                 )
         else:
@@ -305,8 +303,8 @@ class AutoNodeClassifier(BaseClassifier):
             LOGGER.info("Use the default train/val/test ratio in given dataset")
 
         # feature engineering
-        if self.feature_module is not None:
-            dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
+        # if self.feature_module is not None:
+        #     dataset = self.feature_module.fit_transform(dataset, inplace=inplace)
 
         self.dataset = dataset
 
@@ -354,7 +352,7 @@ class AutoNodeClassifier(BaseClassifier):
             for algo, space, estimator in zip(
                 self.nas_algorithms, self.nas_spaces, self.nas_estimators
             ):
-                model = algo.search(space, convert_dataset(self.dataset), estimator)
+                model = algo.search(space, self.dataset, estimator)
                 # insert model into default trainer
                 if isinstance(self._default_trainer, list):
                     train_name = self._default_trainer[idx_trainer]
@@ -395,11 +393,11 @@ class AutoNodeClassifier(BaseClassifier):
             )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(convert_dataset(self.dataset), True)
+                model.train(self.dataset, True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=convert_dataset(self.dataset), time_limit=time_for_each_model
+                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
@@ -573,8 +571,8 @@ class AutoNodeClassifier(BaseClassifier):
             assert dataset is not None, (
                 "Please execute fit() first before" " predicting on remembered dataset"
             )
-        elif not inplaced and self.feature_module is not None:
-            dataset = self.feature_module.transform(dataset, inplace=inplace)
+        # elif not inplaced and self.feature_module is not None:
+        #     dataset = self.feature_module.transform(dataset, inplace=inplace)
 
         if use_ensemble:
             LOGGER.info("Ensemble argument on, will try using ensemble model.")
@@ -622,7 +620,7 @@ class AutoNodeClassifier(BaseClassifier):
     def _predict_proba_by_name(self, dataset, name, mask="test"):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
-            self.trained_models[name].predict_proba(convert_dataset(dataset), mask=mask).cpu().numpy()
+            self.trained_models[name].predict_proba(dataset, mask=mask).cpu().numpy()
         )
         self.trained_models[name].to(torch.device("cpu"))
         return predicted

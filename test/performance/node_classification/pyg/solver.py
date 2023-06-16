@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     # seed = 100
     dataset = build_dataset_from_name(args.dataset.lower())
-    label = dataset[0].nodes.data['y'][dataset[0].nodes.data['test_mask']].numpy()
+    label = dataset[0].y
     accs = []
 
     model_hp, decoder_hp = get_encoder_decoder_hp(args.model, decoupled=True)
@@ -62,7 +62,6 @@ if __name__ == '__main__':
         )
 
         solver.fit(dataset, seed=seed)
-        output = solver.predict(dataset)
-        acc = (output == label).astype('float').mean()
+        acc = solver.evaluate(metric='acc')
         accs.append(acc)
     print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))

@@ -32,7 +32,8 @@ def split_edges(
         )
         if isinstance(dataset, Dataset)
         else
-        InMemoryDataset(
-            [split_edges_for_data(item, train_ratio, val_ratio) for item in dataset]
-        )
+            InMemoryDataset(
+                [split_edges_for_data(item, train_ratio, val_ratio) for item in dataset]
+            ) if len(dataset) > 1 else
+            InMemoryDataset([split_edges_for_data(dataset[0], train_ratio, val_ratio)])
     )

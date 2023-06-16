@@ -10,7 +10,8 @@ class DatasetUniversalRegistry(universal_registry.UniversalRegistryBase):
         [_typing.Type[Dataset]], _typing.Type[Dataset]
     ]:
         def register_dataset_cls(dataset: _typing.Type[Dataset]):
-            if not issubclass(dataset, Dataset):
+            # print(dataset_name)
+            if (not callable(dataset)) and (not issubclass(dataset, Dataset)):
                 raise TypeError
             else:
                 cls[dataset_name] = dataset
@@ -20,10 +21,11 @@ class DatasetUniversalRegistry(universal_registry.UniversalRegistryBase):
 
     @classmethod
     def get_dataset(cls, dataset_name: str) -> _typing.Type[Dataset]:
+        # print(dataset_name)
         return cls[dataset_name]
 
 
-def build_dataset_from_name(dataset_name: str, path: str = "~/.cache-autogl/"):
+def build_dataset_from_name(dataset_name: str, path: str = "~/.cache-autogl/", *args, **kwargs):
     """
 
     Parameters
@@ -39,4 +41,4 @@ def build_dataset_from_name(dataset_name: str, path: str = "~/.cache-autogl/"):
     """
     path = os.path.expanduser(os.path.join(path, "data", dataset_name))
     _dataset = DatasetUniversalRegistry.get_dataset(dataset_name)
-    return _dataset(path)
+    return _dataset(path, *args, **kwargs)

@@ -13,4 +13,4 @@ solver = AutoGraphClassifier(
 
 solver.fit(mutag, evaluation_method=["acc"])
 result = solver.predict(mutag)
-print("Acc:", sum([d.data["y"].item() == r for d, r in zip(mutag.test_split, result)]) / len(result))
+print("Acc:", sum([d[1].item() == r for d, r in zip(mutag.test_split, result)]) / len(result))

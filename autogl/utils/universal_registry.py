@@ -19,7 +19,7 @@ class _UniversalRegistryMetaclass(type):
             raise KeyError(k)
 
     def __setitem__(cls, k: str, v: type) -> None:
-        if not (isinstance(k, str) and isinstance(v, type)):
+        if not (isinstance(k, str) and callable(v)) and not (isinstance(k, str) and isinstance(v, type)):
             raise TypeError
         __identifier: str = _UniversalRegistryUtility.to_unique_identifier(k)
         if __identifier in cls.__universal_registry:

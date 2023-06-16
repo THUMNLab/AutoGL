@@ -1,5 +1,5 @@
 import os
-os.environ["AUTOGL_BACKEND"] = "dgl"
+os.environ["AUTOGL_BACKEND"] = "pyg"
 
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
@@ -9,9 +9,10 @@ from autogl.backend import DependentBackend
 key = "y" if DependentBackend.is_pyg() else "label"
 
 cora = build_dataset_from_name("cora")
+# print(cora.__class__)
 
 solver = AutoNodeClassifier(
-    graph_models=("gin",),
+    graph_models=("gcn",),
     default_trainer=NodeClassificationFullTrainer(
         decoder=None,
         init=False,
@@ -26,4 +27,5 @@ solver = AutoNodeClassifier(
 
 solver.fit(cora, evaluation_method=["acc"])
 result = solver.predict(cora)
-print((result == cora[0].nodes.data[key][cora[0].nodes.data["test_mask"]].cpu().numpy()).astype('float').mean())
+if DependentBackend.is_pyg():
+    print((result == cora[0].y[cora[0].test_mask].cpu().numpy()).astype('float').mean())

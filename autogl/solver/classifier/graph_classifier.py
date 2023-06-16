@@ -273,9 +273,9 @@ class AutoGraphClassifier(BaseClassifier):
             )
 
         # feature engineering
-        if self.feature_module is not None:
-            self.feature_module.fit(dataset.train_split)
-            dataset = self.feature_module.transform(dataset, inplace=inplace)
+        # if self.feature_module is not None:
+        #     self.feature_module.fit(dataset.train_split)
+        #     dataset = self.feature_module.transform(dataset, inplace=inplace)
 
         self.dataset = dataset
         
@@ -290,6 +290,13 @@ class AutoGraphClassifier(BaseClassifier):
         )
         num_features = feat.size(-1)
 
+        num_graph_features= 0
+        if hasattr(dataset[0], "gf"):
+            if BACKEND == 'pyg':
+                num_graph_features = dataset[0].gf.size(1)
+            else:
+                num_graph_features = dataset[0].data['gf'].size(1)
+
         # initialize graph networks
         self._init_graph_module(
             self.gml,
@@ -298,10 +305,7 @@ class AutoGraphClassifier(BaseClassifier):
             feval=evaluator_list,
             device=self.runtime_device,
             loss="cross_entropy" if not hasattr(dataset, "loss") else dataset.loss,
-            num_graph_features=(0
-            if not hasattr(dataset[0], "gf")
-            else dataset[0].gf.size(1)) if BACKEND == 'pyg' else 
-            (0 if 'gf' not in dataset[0].data else dataset[0].data['gf'].size(1)),
+            num_graph_features=num_graph_features,
         )
 
         # train the models and tune hpo

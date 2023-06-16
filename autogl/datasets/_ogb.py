@@ -1,9 +1,17 @@
 import numpy as np
 import torch
 import typing as _typing
-from ogb.nodeproppred import NodePropPredDataset
-from ogb.linkproppred import LinkPropPredDataset
-from ogb.graphproppred import GraphPropPredDataset
+
+from autogl import backend as _backend
+
+if _backend.DependentBackend.is_pyg():
+    from ogb.nodeproppred import PygNodePropPredDataset as NodePropPredDataset
+    from ogb.linkproppred import PygLinkPropPredDataset as LinkPropPredDataset
+    from ogb.graphproppred import PygGraphPropPredDataset as GraphPropPredDataset
+elif _backend.DependentBackend.is_dgl():
+    from ogb.nodeproppred import DglNodePropPredDataset as NodePropPredDataset
+    from ogb.linkproppred import DglLinkPropPredDataset as LinkPropPredDataset
+    from ogb.graphproppred import DglGraphPropPredDataset as GraphPropPredDataset
 
 from torch_sparse import SparseTensor
 
@@ -105,105 +113,24 @@ class _OGBNDatasetUtil(_OGBDatasetUtil):
             graph_data_key_mapping
         )
 
-
 @DatasetUniversalRegistry.register_dataset("ogbn-products")
-class OGBNProductsDataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbn_dataset = NodePropPredDataset("ogbn-products", path)
-        if _backend.DependentBackend.is_dgl():
-            super(OGBNProductsDataset, self).__init__([
-                _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
-                    ogbn_dataset, "label",
-                    {"node_feat": "feat"},
-                    {"edge_feat": "edge_feat"}
-                )
-            ])
-        elif _backend.DependentBackend.is_pyg():
-            super(OGBNProductsDataset, self).__init__([
-                _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
-                    ogbn_dataset, "y",
-                    {"node_feat": "x"}
-                )
-            ])
-
+def get_ogbn_products_dataset(path, *args, **kwargs):
+    return NodePropPredDataset('ogbn-products', path, *args, **kwargs)
 
 @DatasetUniversalRegistry.register_dataset("ogbn-proteins")
-class OGBNProteinsDataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbn_dataset = NodePropPredDataset("ogbn-proteins", path)
-        if _backend.DependentBackend.is_dgl():
-            super(OGBNProteinsDataset, self).__init__([
-                _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
-                    ogbn_dataset, "label",
-                    {"node_species": "species"},
-                    {"edge_feat": "edge_feat"}
-                )
-            ])
-        elif _backend.DependentBackend.is_pyg():
-            super(OGBNProteinsDataset, self).__init__([
-                _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
-                    ogbn_dataset, "y",
-                    {"node_species": "species"},
-                    {"edge_feat": "edge_feat"}
-                )
-            ])
-
+def get_ogbn_proteins_dataset(path, *args, **kwargs):
+    return NodePropPredDataset('ogbn-proteins', path, *args, **kwargs)
 
 @DatasetUniversalRegistry.register_dataset("ogbn-arxiv")
-class OGBNArxivDataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbn_dataset = NodePropPredDataset("ogbn-arxiv", path)
-        if _backend.DependentBackend.is_dgl():
-            super(OGBNArxivDataset, self).__init__([
-                _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
-                    ogbn_dataset, "label",
-                    {
-                        "node_feat": "feat",
-                        "node_year": "year"
-                    }
-                )
-            ])
-        elif _backend.DependentBackend.is_pyg():
-            super(OGBNArxivDataset, self).__init__([
-                _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
-                    ogbn_dataset, "y",
-                    {
-                        "node_feat": "x",
-                        "node_year": "year"
-                    }
-                )
-            ])
-
+def get_ogbn_arxiv_dataset(path, *args, **kwargs):
+    return NodePropPredDataset("ogbn-arxiv", path, *args, **kwargs)
 
 @DatasetUniversalRegistry.register_dataset("ogbn-papers100M")
-class OGBNPapers100MDataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbn_dataset = NodePropPredDataset("ogbn-papers100M", path)
-        if _backend.DependentBackend.is_dgl():
-            super(OGBNPapers100MDataset, self).__init__([
-                _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
-                    ogbn_dataset, "label",
-                    {
-                        "node_feat": "feat",
-                        "node_year": "year"
-                    }
-                )
-            ])
-        elif _backend.DependentBackend.is_pyg():
-            super(OGBNPapers100MDataset, self).__init__([
-                _OGBNDatasetUtil.ogbn_dataset_to_general_static_graph(
-                    ogbn_dataset, "y",
-                    {
-                        "node_feat": "x",
-                        "node_year": "year"
-                    }
-                )
-            ])
+def get_ogbn_papers_hm(path, *args, **kwargs):
+    return NodePropPredDataset("ogbn-papers100M", path, *args, **kwargs)
 
 
 # todo: currently homogeneous dataset `ogbn-mag` NOT supported
-
-
 class _OGBLDatasetUtil(_OGBDatasetUtil):
     @classmethod
     def ogbl_data_to_general_static_graph(
@@ -234,108 +161,26 @@ class _OGBLDatasetUtil(_OGBDatasetUtil):
 
 
 @DatasetUniversalRegistry.register_dataset("ogbl-ppa")
-class OGBLPPADataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbl_dataset = LinkPropPredDataset("ogbl-ppa", path)
-        edge_split = ogbl_dataset.get_edge_split()
-        super(OGBLPPADataset, self).__init__([
-            _OGBLDatasetUtil.ogbl_data_to_general_static_graph(
-                ogbl_dataset[0], {
-                    ('', '', ''): torch.from_numpy(ogbl_dataset[0]['edge_index']),
-                    ('', 'train_pos_edge', ''): torch.from_numpy(edge_split['train']['edge']),
-                    ('', 'val_pos_edge', ''): torch.from_numpy(edge_split['valid']['edge']),
-                    ('', 'val_neg_edge', ''): torch.from_numpy(edge_split['valid']['edge_neg']),
-                    ('', 'test_pos_edge', ''): torch.from_numpy(edge_split['test']['edge']),
-                    ('', 'test_neg_edge', ''): torch.from_numpy(edge_split['test']['edge_neg'])
-                },
-                {'node_feat': 'feat'} if _backend.DependentBackend.is_dgl() else {'node_feat': 'x'}
-            )
-        ])
+def get_ogbl_ppa_dataset(path, *args, **kwargs):
+    return LinkPropPredDataset("ogbl-ppa", path, *args, **kwargs)
+
 
 
 @DatasetUniversalRegistry.register_dataset("ogbl-collab")
-class OGBLCOLLABDataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbl_dataset = LinkPropPredDataset("ogbl-collab", path)
-        edge_split = ogbl_dataset.get_edge_split()
-        super(OGBLCOLLABDataset, self).__init__([
-            _OGBLDatasetUtil.ogbl_data_to_general_static_graph(
-                ogbl_dataset[0], {
-                    ('', '', ''): torch.from_numpy(ogbl_dataset[0]['edge_index']),
-                    ('', 'train_pos_edge', ''): (
-                        torch.from_numpy(edge_split['train']['edge']),
-                        {
-                            'weight': torch.from_numpy(edge_split['train']['weight']),
-                            'year': torch.from_numpy(edge_split['train']['year'])
-                        }
-                    ),
-                    ('', 'val_pos_edge', ''): (
-                        torch.from_numpy(edge_split['valid']['edge']),
-                        {
-                            'weight': torch.from_numpy(edge_split['valid']['weight']),
-                            'year': torch.from_numpy(edge_split['valid']['year'])
-                        }
-                    ),
-                    ('', 'val_neg_edge', ''): torch.from_numpy(edge_split['valid']['edge_neg']),
-                    ('', 'test_pos_edge', ''): (
-                        torch.from_numpy(edge_split['test']['edge']),
-                        {
-                            'weight': torch.from_numpy(edge_split['test']['weight']),
-                            'year': torch.from_numpy(edge_split['test']['year'])
-                        }
-                    ),
-                    ('', 'test_neg_edge', ''): torch.from_numpy(edge_split['test']['edge_neg'])
-                },
-                {'node_feat': 'feat'} if _backend.DependentBackend.is_dgl() else {'node_feat': 'x'}
-            )
-        ])
+def get_ogbl_collab_dataset(path, *args, **kwargs):
+    return LinkPropPredDataset("ogbl-collab", path, *args, **kwargs)
+
+
 
 
 @DatasetUniversalRegistry.register_dataset("ogbl-ddi")
-class OGBLDDIDataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbl_dataset = LinkPropPredDataset("ogbl-ddi", path)
-        edge_split = ogbl_dataset.get_edge_split()
-        super(OGBLDDIDataset, self).__init__([
-            GeneralStaticGraphGenerator.create_heterogeneous_static_graph(
-                {'': {'_NID': torch.arange(ogbl_dataset[0]['num_nodes'])}},
-                {
-                    ('', '', ''): torch.from_numpy(ogbl_dataset[0]['edge_index']),
-                    ('', 'train_pos_edge', ''): torch.from_numpy(edge_split['train']['edge']),
-                    ('', 'val_pos_edge', ''): torch.from_numpy(edge_split['valid']['edge']),
-                    ('', 'val_neg_edge', ''): torch.from_numpy(edge_split['valid']['edge_neg']),
-                    ('', 'test_pos_edge', ''): torch.from_numpy(edge_split['test']['edge']),
-                    ('', 'test_neg_edge', ''): torch.from_numpy(edge_split['test']['edge_neg'])
-                }
-            )
-        ])
-
+def get_ogbl_ddi_dataset(path, *args, **kwargs):
+    return LinkPropPredDataset("ogbl-ddi", path, *args, **kwargs)
 
 @DatasetUniversalRegistry.register_dataset("ogbl-citation")
 @DatasetUniversalRegistry.register_dataset("ogbl-citation2")
-class OGBLCitation2Dataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbl_dataset = LinkPropPredDataset("ogbl-citation2", path)
-        edge_split = ogbl_dataset.get_edge_split()
-        super(OGBLCitation2Dataset, self).__init__([
-            _OGBLDatasetUtil.ogbl_data_to_general_static_graph(
-                ogbl_dataset[0],
-                {
-                    ('', '', ''): torch.from_numpy(ogbl_dataset[0]['edge_index']),
-                    ('', 'train_pos_edge', ''): torch.from_numpy(edge_split['train']['edge']),
-                    ('', 'val_pos_edge', ''): torch.from_numpy(edge_split['valid']['edge']),
-                    ('', 'val_neg_edge', ''): torch.from_numpy(edge_split['valid']['edge_neg']),
-                    ('', 'test_pos_edge', ''): torch.from_numpy(edge_split['test']['edge']),
-                    ('', 'test_neg_edge', ''): torch.from_numpy(edge_split['test']['edge_neg'])
-                },
-                (
-                    {'node_feat': 'feat', 'node_year': 'year'}
-                    if _backend.DependentBackend.is_dgl()
-                    else {'node_feat': 'x', 'node_year': 'year'}
-                )
-            )
-        ])
-
+def get_ogbl_citation_dataset(path, *args, **kwargs):
+    return LinkPropPredDataset("ogbl-citation2", path, *args, **kwargs)
 
 # todo: currently homogeneous dataset `ogbl-wikikg2` and `ogbl-biokg` NOT supported
 
@@ -345,118 +190,19 @@ class _OGBGDatasetUtil:
 
 
 @DatasetUniversalRegistry.register_dataset("ogbg-molhiv")
-class OGBGMOLHIVDataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbl_dataset = GraphPropPredDataset("ogbg-molhiv", path)
-        idx_split: _typing.Mapping[str, np.ndarray] = ogbl_dataset.get_idx_split()
-        train_index: _typing.Any = idx_split['train'].tolist()
-        test_index: _typing.Any = idx_split['test'].tolist()
-        val_index: _typing.Any = idx_split['valid'].tolist()
-        super(OGBGMOLHIVDataset, self).__init__(
-            [
-                GeneralStaticGraphGenerator.create_homogeneous_static_graph(
-                    (
-                        {"feat": torch.from_numpy(data['node_feat'])}
-                        if _backend.DependentBackend.is_dgl()
-                        else {"x": torch.from_numpy(data['node_feat'])}
-                    ),
-                    torch.from_numpy(data['edge_index']),
-                    {'edge_feat': torch.from_numpy(data['edge_feat'])},
-                    (
-                        {'label': torch.from_numpy(label)}
-                        if _backend.DependentBackend.is_dgl()
-                        else {'y': torch.from_numpy(label)}
-                    )
-                ) for data, label in ogbl_dataset
-            ],
-            train_index, val_index, test_index
-        )
-
+def get_ogbg_molhiv_dataset(path, *args, **kwargs):
+    return GraphPropPredDataset("ogbg-molhiv", path, *args, **kwargs)
 
 @DatasetUniversalRegistry.register_dataset("ogbg-molpcba")
-class OGBGMOLPCBADataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbl_dataset = GraphPropPredDataset("ogbg-molhiv", path)
-        idx_split: _typing.Mapping[str, np.ndarray] = ogbl_dataset.get_idx_split()
-        train_index: _typing.Any = idx_split['train'].tolist()
-        test_index: _typing.Any = idx_split['test'].tolist()
-        val_index: _typing.Any = idx_split['valid'].tolist()
-        super(OGBGMOLPCBADataset, self).__init__(
-            [
-                GeneralStaticGraphGenerator.create_homogeneous_static_graph(
-                    (
-                        {"feat": torch.from_numpy(data['node_feat'])}
-                        if _backend.DependentBackend.is_dgl()
-                        else {"x": torch.from_numpy(data['node_feat'])}
-                    ),
-                    torch.from_numpy(data['edge_index']),
-                    {'edge_feat': torch.from_numpy(data['edge_feat'])},
-                    (
-                        {'label': torch.from_numpy(label)}
-                        if _backend.DependentBackend.is_dgl()
-                        else {'y': torch.from_numpy(label)}
-                    )
-                ) for data, label in ogbl_dataset
-            ],
-            train_index, val_index, test_index
-        )
-
+def get_ogbg_molpcba_dataset(path, *args, **kwargs):
+    return GraphPropPredDataset("ogbg-molpcba", path, *args, **kwargs)
 
 @DatasetUniversalRegistry.register_dataset("ogbg-ppa")
-class OGBGPPADataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbl_dataset = GraphPropPredDataset("ogbg-molhiv", path)
-        idx_split: _typing.Mapping[str, np.ndarray] = ogbl_dataset.get_idx_split()
-        train_index: _typing.Any = idx_split['train'].tolist()
-        test_index: _typing.Any = idx_split['test'].tolist()
-        val_index: _typing.Any = idx_split['valid'].tolist()
-        super(OGBGPPADataset, self).__init__(
-            [
-                GeneralStaticGraphGenerator.create_homogeneous_static_graph(
-                    {'_NID': torch.arange(data['num_nodes'])},
-                    torch.from_numpy(data['edge_index']),
-                    {'edge_feat': torch.from_numpy(data['edge_feat'])},
-                    (
-                        {'label': torch.from_numpy(label)}
-                        if _backend.DependentBackend.is_dgl()
-                        else {'y': torch.from_numpy(label)}
-                    )
-                ) for data, label in ogbl_dataset
-            ],
-            train_index, val_index, test_index
-        )
+def get_ogbg_ppa_dataset(path, *args, **kwargs):
+    return GraphPropPredDataset("ogbg-ppa", path, *args, **kwargs)
 
 
 @DatasetUniversalRegistry.register_dataset("ogbg-code")
 @DatasetUniversalRegistry.register_dataset("ogbg-code2")
-class OGBGCode2Dataset(InMemoryStaticGraphSet):
-    def __init__(self, path: str):
-        ogbl_dataset = GraphPropPredDataset("ogbg-molhiv", path)
-        idx_split: _typing.Mapping[str, np.ndarray] = ogbl_dataset.get_idx_split()
-        train_index: _typing.Any = idx_split['train'].tolist()
-        test_index: _typing.Any = idx_split['test'].tolist()
-        val_index: _typing.Any = idx_split['valid'].tolist()
-        super(OGBGCode2Dataset, self).__init__(
-            [
-                GeneralStaticGraphGenerator.create_homogeneous_static_graph(
-                    (
-                        {
-                            "feat": torch.from_numpy(data['node_feat']),
-                            "node_is_attributed": torch.from_numpy(data["node_is_attributed"]),
-                            "node_dfs_order": torch.from_numpy(data["node_dfs_order"]),
-                            "node_depth": torch.from_numpy(data["node_depth"])
-                        }
-                        if _backend.DependentBackend.is_dgl()
-                        else
-                        {
-                            "x": torch.from_numpy(data['node_feat']),
-                            "node_is_attributed": torch.from_numpy(data["node_is_attributed"]),
-                            "node_dfs_order": torch.from_numpy(data["node_dfs_order"]),
-                            "node_depth": torch.from_numpy(data["node_depth"])
-                        }
-                    ),
-                    torch.from_numpy(data['edge_index'])
-                ) for data, label in ogbl_dataset
-            ],
-            train_index, val_index, test_index
-        )
+def get_ogbg_code_dataset(path, *args, **kwargs):
+    return GraphPropPredDataset("ogbg-code", path, *args, **kwargs)

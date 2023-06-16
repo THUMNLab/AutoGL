@@ -38,6 +38,7 @@ def random_splits_mask(
         raise ValueError("the sum of provided train_ratio and val_ratio is larger than 1")
 
     def __random_split_masks(
+            data,
             num_nodes: int
     ) -> _typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         _rng_state: torch.Tensor = torch.get_rng_state()
@@ -48,32 +49,21 @@ def random_splits_mask(
         val_index = perm[int(num_nodes * train_ratio): int(num_nodes * (train_ratio + val_ratio))]
         test_index = perm[int(num_nodes * (train_ratio + val_ratio)):]
         torch.set_rng_state(_rng_state)
-        return (
-            index_to_mask(train_index, num_nodes),
-            index_to_mask(val_index, num_nodes),
-            index_to_mask(test_index, num_nodes)
-        )
+        data.train_mask = index_to_mask(train_index, num_nodes)
+        data.val_mask = index_to_mask(val_index, num_nodes)
+        data.test_mask = index_to_mask(test_index, num_nodes)
+        return data
 
-    for index in range(len(dataset)):
-        for node_type in dataset[index].nodes:
-            data_keys = [data_key for data_key in dataset[index].nodes.data]
-            if len(data_keys) > 0:
-                _num_nodes: int = dataset[index].nodes[node_type].data[data_keys[0]].size(0)
-                _masks: _typing.Tuple[torch.Tensor, torch.Tensor, torch.Tensor] = (
-                    __random_split_masks(_num_nodes)
-                )
-                dataset[index].nodes[node_type].data["train_mask"] = _masks[0]
-                dataset[index].nodes[node_type].data["val_mask"] = _masks[1]
-                dataset[index].nodes[node_type].data["test_mask"] = _masks[2]
+    if _backend.DependentBackend.is_pyg():
+        dataset = [__random_split_masks(data, data.num_nodes) for data in dataset]
+    else:
+        pass
     return dataset
-
 
 def random_splits_mask_class(
         dataset: InMemoryDataset,
         num_train_per_class: int = 20,
         num_val_per_class: int = 30,
-        total_num_val: _typing.Optional[int] = ...,
-        total_num_test: _typing.Optional[int] = ...,
         seed: _typing.Optional[int] = ...
 ):
     r"""If the data has masks for train/val/test, return the splits with specific number of samples from every class for training as suggested in Pitfalls of graph neural network evaluation [#]_ for semi-supervised learning.
@@ -90,39 +80,29 @@ def random_splits_mask_class(
         instance of ``InMemoryDataset``
     num_train_per_class : int
         the number of samples from every class used for training.
-
     num_val_per_class : int
         the number of samples from every class used for validation.
-
-    total_num_val : int
-        the total number of nodes that used for validation as alternative.
-
-    total_num_test : int
-        the total number of nodes that used for testing as alternative. The rest of the data will be seleted as test set if num_test set to None.
-
     seed : int
         random seed for splitting dataset.
     """
-    for graph_index in range(len(dataset)):
-        for node_type in dataset[graph_index].nodes:
+
+    if _backend.DependentBackend.is_pyg():
+        import torch_geometric.transforms as T
+        transform = T.RandomNodeSplit(
+            split='test_rest',
+            num_train_per_class=num_train_per_class,
+            num_val=num_val_per_class
+        )
+        dataset = [transform(data) for data in dataset]
+    else:
+        import dgl
+        def __split_data(data):
             if (
-                    'y' in dataset[graph_index].nodes[node_type].data and
-                    'label' in dataset[graph_index].nodes[node_type].data
+                    'label' not in data.ndata
             ):
-                raise ValueError(
-                    f"Both 'y' and 'label' data exist "
-                    f"for node type [{node_type}] in "
-                    f"graph with index [{graph_index}]."
-                )
-            elif (
-                    'y' not in dataset[graph_index].nodes[node_type].data and
-                    'label' not in dataset[graph_index].nodes[node_type].data
-            ):
-                continue
-            elif 'y' in dataset[graph_index].nodes[node_type].data:
-                label: torch.Tensor = dataset[graph_index].nodes[node_type].data['y']
-            elif 'label' in dataset[graph_index].nodes[node_type].data:
-                label: torch.Tensor = dataset[graph_index].nodes[node_type].data['label']
+                return data
+            elif 'label' in data.ndata:
+                label: torch.Tensor = data.ndata['label']
             else:
                 raise RuntimeError
             num_nodes: int = label.size(0)
@@ -139,8 +119,7 @@ def random_splits_mask_class(
                 assert num_train_per_class + num_val_per_class < idx.size(0), (
                     f"the total number of samples from every class "
                     f"used for training and validation is larger than "
-                    f"the total samples in class [{class_index}] for node type [{node_type}] "
-                    f"in graph with index [{graph_index}]"
+                    f"the total samples in class [{class_index}]"
                 )
                 randomized_index: torch.Tensor = torch.randperm(idx.size(0))
                 train_idx = idx[randomized_index[:num_train_per_class]]
@@ -149,25 +128,22 @@ def random_splits_mask_class(
                 ]
                 train_mask[train_idx] = True
                 val_mask[val_idx] = True
-
-            if isinstance(total_num_val, int) and total_num_val > 0:
-                remaining = (~train_mask).nonzero().view(-1)
-                remaining = remaining[torch.randperm(remaining.size(0))]
-                val_mask[remaining[:total_num_val]] = True
-                if isinstance(total_num_test, int) and total_num_test > 0:
-                    test_mask[remaining[total_num_val: (total_num_val + total_num_test)]] = True
-                else:
-                    test_mask[remaining[total_num_val:]] = True
             else:
                 remaining = (~(train_mask + val_mask)).nonzero().view(-1)
                 test_mask[remaining] = True
 
             torch.set_rng_state(_rng_state)
-            dataset[graph_index].nodes[node_type].data["train_mask"] = train_mask
-            dataset[graph_index].nodes[node_type].data["val_mask"] = val_mask
-            dataset[graph_index].nodes[node_type].data["test_mask"] = test_mask
+            data.ndata["train_mask"] = train_mask
+            data.ndata["val_mask"] = val_mask
+            data.ndata["test_mask"] = test_mask
+            if not torch.all(data.in_degrees() == 0):
+                data = dgl.add_self_loop(data)
+            return data
+        new_dataset = []
+        for graph_index in range(len(dataset)):
+            new_dataset.append(__split_data(dataset[graph_index]))
+        dataset = new_dataset
     return dataset
-
 
 def graph_cross_validation(
         dataset: InMemoryDataset,
@@ -285,9 +261,15 @@ def graph_random_splits(
         perm[int(len(dataset) * train_ratio): int(len(dataset) * (train_ratio + val_ratio))]
     )
     test_index = perm[int(len(dataset) * (train_ratio + val_ratio)):]
-    dataset.train_index = train_index.tolist()
-    dataset.val_index = val_index.tolist()
-    dataset.test_index = test_index.tolist()
+    train_index = train_index.tolist()
+    val_index = val_index.tolist()
+    test_index = test_index.tolist()
+    dataset.train_index = train_index
+    dataset.val_index = val_index
+    dataset.test_index = test_index
+    dataset.train_split = [dataset[i] for i in train_index]
+    dataset.val_split = [dataset[i] for i in val_index]
+    dataset.test_split = [dataset[i] for i in test_index]
     torch.set_rng_state(_rng_state)
     return dataset
 
@@ -368,7 +350,7 @@ def graph_get_split(
         if not (_backend.DependentBackend.is_dgl() or _backend.DependentBackend.is_pyg()):
             raise RuntimeError("Unsupported backend")
         elif _backend.DependentBackend.is_dgl():
-            from dgl.dataloading.pytorch import GraphDataLoader
+            from dgl.dataloading import GraphDataLoader
             return GraphDataLoader(
                 sub_dataset,
                 **{"batch_size": batch_size, "num_workers": num_workers},

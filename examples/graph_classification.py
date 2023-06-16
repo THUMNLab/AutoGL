@@ -53,27 +53,21 @@ if __name__ == "__main__":
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    dataset = build_dataset_from_name(args.dataset)
-    _converted_dataset = convert_dataset(dataset)
-    if args.dataset.startswith("imdb"):
-        from autogl.module.feature import OneHotDegreeGenerator
-
+    if args.dataset.startswith("imdb-b") or args.dataset.startswith("collab") or args.dataset.startswith("reddit"):
         if DependentBackend.is_pyg():
             from torch_geometric.utils import degree
+            dataset = build_dataset_from_name(args.dataset)
             max_degree = 0
-            for data in _converted_dataset:
+            for data in dataset:
                 deg_max = int(degree(data.edge_index[0], data.num_nodes).max().item())
                 max_degree = max(max_degree, deg_max)
+            from torch_geometric.transforms import OneHotDegree
+            # dataset = build_dataset_from_name(args.dataset, transform=OneHotDegree(max_degree))
+            dataset = [OneHotDegree(data) for data in dataset]
         else:
-            max_degree = 0
-            for data, _ in _converted_dataset:
-                deg_max = data.in_degrees().max().item()
-                max_degree = max(max_degree, deg_max)
-        dataset = OneHotDegreeGenerator(max_degree).fit_transform(dataset, inplace=False)
-    elif args.dataset == "collab":
-        from autogl.module.feature._auto_feature import OnlyConstFeature
-
-        dataset = OnlyConstFeature().fit_transform(dataset, inplace=False)
+            dataset = build_dataset_from_name(args.dataset)
+    else:
+        dataset = build_dataset_from_name(args.dataset)
     utils.graph_random_splits(dataset, train_ratio=0.8, val_ratio=0.1, seed=args.seed)
 
     autoClassifier = AutoGraphClassifier.from_config(args.configs)

@@ -1,4 +1,5 @@
 import os
+os.environ['AUTOGL_BACKEND'] = 'pyg'
 import tqdm
 import argparse
 import numpy as np
@@ -6,6 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from torch_geometric.nn import GCNConv, SAGEConv
+import torch_geometric.transforms as T
 
 from ogb.nodeproppred import Evaluator
 from autogl.datasets import build_dataset_from_name
@@ -83,32 +85,35 @@ class SAGE(torch.nn.Module):
         return x.log_softmax(dim=-1)
 
 
-def train(model, x, y, edge_index, train_idx, optimizer):
+def train(model, data, train_idx, optimizer):
     model.train()
+
     optimizer.zero_grad()
-    out = model(x, edge_index)[train_idx]
-    loss = F.nll_loss(out, y[train_idx])
+    out = model(data.x, data.adj_t)[train_idx]
+    loss = F.nll_loss(out, data.y.squeeze(1)[train_idx])
     loss.backward()
     optimizer.step()
+
     return loss.item()
 
 
 @torch.no_grad()
-def test(model, x, y, edge_index, split_idx, evaluator):
+def test(model, data, split_idx, evaluator):
     model.eval()
-    out = model(x, edge_index)
+
+    out = model(data.x, data.adj_t)
     y_pred = out.argmax(dim=-1, keepdim=True)
 
     train_acc = evaluator.eval({
-        'y_true': y[split_idx['train']].view(-1, 1),
+        'y_true': data.y[split_idx['train']],
         'y_pred': y_pred[split_idx['train']],
     })['acc']
     valid_acc = evaluator.eval({
-        'y_true': y[split_idx['valid']].view(-1, 1),
+        'y_true': data.y[split_idx['valid']],
         'y_pred': y_pred[split_idx['valid']],
     })['acc']
     test_acc = evaluator.eval({
-        'y_true': y[split_idx['test']].view(-1, 1),
+        'y_true': data.y[split_idx['test']],
         'y_pred': y_pred[split_idx['test']],
     })['acc']
 
@@ -147,39 +152,22 @@ def main():
     device = f'cuda:{args.device}' if torch.cuda.is_available() else 'cpu'
     device = torch.device(device)
     # print(oedge_index)
-    
 
-    dataset = build_dataset_from_name('ogbn_arxiv')
+    dataset = build_dataset_from_name('ogbn-arxiv', transform=T.ToSparseTensor())
 
     data = dataset[0]
-    x = data.nodes.data[feat].to(device)
-    y = data.nodes.data[label].to(device)
-    edge_index = data.edges.connections.to(device)
-    # edge_index = data_transfer(edge_index, row, col)
-    print(edge_index)
-    # print(edge_index.shape)
-
-    train_mask = data.nodes.data['train_mask']
-    val_mask = data.nodes.data['val_mask']
-    test_mask = data.nodes.data['test_mask']
-    split_idx = {
-        'train': train_mask,
-        'valid': val_mask,
-        'test': test_mask
-    }
-
-    # split_idx = dataset.get_idx_split()
+    data.adj_t = data.adj_t.to_symmetric()
+    data = data.to(device)
+    split_idx = dataset.get_idx_split()
     train_idx = split_idx['train'].to(device)
-    labels = dataset[0].nodes.data[label]
-    num_classes = len(np.unique(labels.numpy()))
 
     if args.use_sage:
-        model = SAGE(dataset[0].nodes.data[feat].size(1), args.hidden_channels,
-                     num_classes, args.num_layers,
+        model = SAGE(data.num_features, args.hidden_channels,
+                     dataset.num_classes, args.num_layers,
                      args.dropout).to(device)
     else:
-        model = GCN(dataset[0].nodes.data[feat].size(1), args.hidden_channels,
-                    num_classes, args.num_layers,
+        model = GCN(data.num_features, args.hidden_channels,
+                    dataset.num_classes, args.num_layers,
                     args.dropout).to(device)
 
     evaluator = Evaluator(name='ogbn-arxiv')
@@ -191,8 +179,8 @@ def main():
         best_valid = 0.0
         best_test = 0.0
         for epoch in range(1, 1 + args.epochs):
-            loss = train(model, x, y, edge_index, train_idx, optimizer)
-            result = test(model, x, y, edge_index, split_idx, evaluator)
+            loss = train(model, data, train_idx, optimizer)
+            result = test(model, data, split_idx, evaluator)
 
             if epoch % args.log_steps == 0:
                 train_acc, valid_acc, test_acc = result

@@ -59,7 +59,7 @@ else:
 from autogl.datasets.utils import split_edges
 
 cora = build_dataset_from_name("cora")
-cora = convert_dataset(cora)
+# cora = convert_dataset(cora)
 cora = split_edges(cora, 0.8, 0.05)
 
 solver = AutoLinkPredictor(
