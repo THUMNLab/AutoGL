@@ -13,7 +13,9 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 % [![Documentation Status](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)-->
 
 ## News!
-
+- 2023.09.08 New version! v0.4.1 is here!
+    - We have simplified the dataset module so that users can build their own datasets more easily! 
+    - We have developed an extended library: [AutoGL-light](https://github.com/THUMNLab/AutoGL-light), which is a lightweight version of AutoGL. Users can customize their own AutoML pipeline for graphs more easily!
 - 2022.12.30 New version! v0.4.0-pre is here!
     - We have proposed __NAS-Bench-Graph__ ([paper](https://openreview.net/pdf?id=bBff294gqLp), [code](https://github.com/THUMNLab/NAS-Bench-Graph), [tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas_bench_graph.html)), the first NAS-benchmark for graphs published in NeurIPS'22. By using AutoGL together with NAS-Bench-Graph, the performance estimation process of GraphNAS algorithms can be greatly speeded up. 
     - We have supported the graph __robustness__ algorithms in AutoGL, including graph structure engineering, robust GNNs and robust GraphNAS. See [robustness tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_robust.html) for more details.
@@ -23,7 +25,7 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
     - Support __heterogeneous__ node classification! See [hetero tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html) .
     - The module `model` now supports __decoupled__ to two additional sub-modules named `encoder` and `decoder`. Under the __decoupled__ design, one `encoder` can be used to solve all kinds of tasks.
     - Enrich [NAS algorithms](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) such as [AutoAttend](https://proceedings.mlr.press/v139/guan21a.html), [GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html), [hardware-aware algorithm](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware), etc. 
-- 2021.07.11 Version 0.2.0-pre is released, which supports [neural architecture search (NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) to customize architectures, [sampling] (http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling) to perform tasks on large datasets, and link prediction. 
+- 2021.07.11 Version 0.2.0-pre is released, which supports [neural architecture search (NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) to customize architectures, [sampling](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling) to perform tasks on large datasets, and link prediction. 
 - 2021.04.16 Our survey paper about automated machine learning on graphs is accepted by IJCAI! See more [here](http://arxiv.org/abs/2103.00742).
 - 2021.04.10 Our paper [__AutoGL: A Library for Automated Graph Learning__](https://arxiv.org/abs/2104.04987) is accepted by _ICLR 2021 Workshop on Geometrical and Topological Representation Learning_! You can cite our paper following methods [here](#Cite).
 
