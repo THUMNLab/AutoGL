@@ -87,7 +87,7 @@ class LeaderBoard:
             # we just add a new row
             performance["name"] = name
             new = pd.DataFrame(performance, index=[0])
-            self.perform_dict = self.perform_dict.append(new, ignore_index=True)
+            self.perform_dict = pd.concat([self.perform_dict, new], ignore_index=True)
         else:
             LOGGER.warning(
                 "model already in the leaderboard, will override current result."
@@ -186,12 +186,16 @@ class LeaderBoard:
 
 def get_graph_from_dataset(dataset, graph_id=0):
     if isinstance(dataset, Dataset):
-        return dataset[graph_id]
+        if BACKEND == 'dgl':
+            return dataset[graph_id][0]
+        else:
+            return dataset[graph_id]
     if BACKEND == 'pyg': return dataset[graph_id]
     if BACKEND == 'dgl':
         from dgl import DGLGraph
         data = dataset[graph_id]
-        if isinstance(data, DGLGraph): return data
+        if isinstance(data, DGLGraph):
+            return data
         return data[0]
     
 def get_graph_node_number(graph):
@@ -199,7 +203,7 @@ def get_graph_node_number(graph):
     if isinstance(graph, GeneralStaticGraph):
         if BACKEND == 'pyg':
             return graph.nodes.data['x'].size(0)
-        return graph.nodes.data['feat'].size(0)
+        return graph.nodes.data['attr'].size(0)
     if BACKEND == 'pyg':
         size = graph.x.shape[0]
     else:
@@ -215,8 +219,11 @@ def get_graph_node_features(graph):
         return None
     if BACKEND == 'pyg' and hasattr(graph, 'x'):
         return graph.x
-    elif BACKEND == 'dgl' and 'feat' in graph.ndata:
-        return graph.ndata['feat']
+    elif BACKEND == 'dgl':
+        if 'feat' in graph.ndata:
+            return graph.ndata['feat']
+        else:
+            return graph.ndata['attr']
     return None
 
 def get_graph_masks(graph, mask='train'):

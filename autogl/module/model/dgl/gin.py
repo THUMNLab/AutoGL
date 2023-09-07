@@ -201,7 +201,10 @@ class GIN(torch.nn.Module):
             raise NotImplementedError
 
     def forward(self, data):
-        x = data.ndata.pop('feat')
+        if 'feat' in data.ndata:
+            x = data.ndata.pop('feat')
+        else:
+            x = data.ndata.pop('attr')
 
         if self.num_graph_features > 0:
             graph_feature = data.gf

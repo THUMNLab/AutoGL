@@ -75,7 +75,10 @@ class GAT(torch.nn.Module):
 
     def forward(self, data):
         try:
-            x = data.ndata['feat']
+            if 'feat' in data.ndata:
+                x = data.ndata['feat']
+            else:
+                x = data.ndata['attr']
         except:
             print("no x")
             pass

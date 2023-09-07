@@ -60,7 +60,6 @@ if __name__=='__main__':
 
     dataset = build_dataset_from_name("hetero-acm-hgt")
     G = dataset[0].to(args.device)
-    print(G)
 
     target_field = dataset.schema["target_node_type"]
     labels = G.nodes[target_field].data["label"].to(args.device)

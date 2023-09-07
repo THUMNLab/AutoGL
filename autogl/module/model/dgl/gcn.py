@@ -63,7 +63,10 @@ class GCN(torch.nn.Module):
         )
 
     def forward(self, data):
-        x = data.ndata['feat']
+        if 'feat' in data.ndata:
+            x = data.ndata['feat']
+        else:
+            x = data.ndata['attr']
         for i in range(len(self.convs)):
             if i!=0:
                 x = F.dropout(x, p=self.args["dropout"], training=self.training)

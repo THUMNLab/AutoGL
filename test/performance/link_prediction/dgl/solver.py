@@ -6,7 +6,6 @@ import dgl
 from tqdm import tqdm
 from autogl.datasets import build_dataset_from_name
 from autogl.solver.classifier.link_predictor import AutoLinkPredictor
-from autogl.datasets.utils.conversion import to_dgl_dataset
 from autogl.datasets.utils import split_edges
 from helper import get_encoder_decoder_hp
 
@@ -56,7 +55,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dataset = build_dataset_from_name(args.dataset.lower())
-    dataset = to_dgl_dataset(dataset)
 
     res = []
     for seed in tqdm(range(1234, 1234+args.repeat)):

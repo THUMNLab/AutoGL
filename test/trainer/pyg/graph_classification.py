@@ -1,12 +1,10 @@
 from autogl.module.train import GraphClassificationFullTrainer
 from autogl.datasets import build_dataset_from_name, utils
-from autogl.datasets.utils.conversion._to_pyg_dataset import to_pyg_dataset
 
 def test_graph_trainer():
 
     dataset = build_dataset_from_name("mutag")
     utils.graph_random_splits(dataset, 0.8, 0.1)
-    dataset = to_pyg_dataset(dataset)
     
     lp_trainer = GraphClassificationFullTrainer(model='gin', init=False)
 

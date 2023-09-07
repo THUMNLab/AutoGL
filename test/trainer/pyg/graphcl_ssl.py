@@ -4,7 +4,6 @@ import torch.nn as nn
 import numpy as np
 from autogl.module.train.ssl import GraphCLSemisupervisedTrainer, GraphCLUnsupervisedTrainer
 from autogl.datasets import build_dataset_from_name, utils
-from autogl.datasets.utils.conversion._to_pyg_dataset import to_pyg_dataset
 from autogl.module.model.encoders.base_encoder import AutoHomogeneousEncoderMaintainer
 from autogl.module.model.decoders import BaseDecoderMaintainer
 
@@ -23,8 +22,7 @@ def set_rng_seed(seed):
 def test_graph_trainer():
     set_rng_seed(23)
     dataset = build_dataset_from_name("proteins")
-    utils.graph_random_splits(dataset, 0.1, 0)
-    dataset = to_pyg_dataset(dataset)
+    utils.graph_random_splits(dataset, 0.1, 0.1)
 
     num_features = dataset[0].x.size(1)
     num_classes = max([d.y for d in dataset]).item() + 1

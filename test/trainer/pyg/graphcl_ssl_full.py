@@ -6,7 +6,6 @@ import numpy as np
 
 from autogl.module.train.ssl import GraphCLSemisupervisedTrainer
 from autogl.datasets import build_dataset_from_name, utils
-from autogl.datasets.utils.conversion import to_pyg_dataset as convert_dataset
 from autogl.module.model.encoders.base_encoder import AutoHomogeneousEncoderMaintainer
 from autogl.module.model.decoders import BaseDecoderMaintainer
 from autogl.solver.utils import set_seed
@@ -40,7 +39,6 @@ if __name__ == "__main__":
 
     # split dataset 
     dataset = build_dataset_from_name(args.dataset)
-    dataset = convert_dataset(dataset)
     utils.graph_random_splits(dataset, train_ratio=0.1, val_ratio=0.1, seed=2022)
 
     accs = [[],[],[]]

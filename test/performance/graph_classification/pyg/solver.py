@@ -48,12 +48,13 @@ if __name__ == '__main__':
     random.shuffle(dataids)
     
     fold = int(len(dataset) * 0.1)
-    dataset.train_index = dataids[:fold * 8]
-    dataset.val_index = dataids[fold * 8: fold * 9]
-    dataset.test_index = dataids[fold * 9: ]
-    dataset.loss = 'nll_loss'
+    # dataset.train_index = dataids[:fold * 8]
+    # dataset.val_index = dataids[fold * 8: fold * 9]
+    # dataset.test_index = dataids[fold * 9: ]
+    # dataset.loss = 'nll_loss'
+    utils.graph_random_splits(dataset, train_ratio=0.8, val_ratio=0.1, seed=23)
 
-    labels = np.array([x.data['y'].item() for x in dataset.test_split])
+    labels = np.array([x.y.item() for x in dataset.test_split])
 
     model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
 

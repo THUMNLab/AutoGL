@@ -53,7 +53,10 @@ class GAT(torch.nn.Module):
             self, graph: dgl.DGLGraph, *__args, **__kwargs
     ) -> _typing.Iterable[torch.Tensor]:
         num_layers = len(self.__convolutions)
-        x: torch.Tensor = graph.ndata['feat']
+        if 'feat' in graph.ndata:
+            x: torch.Tensor = graph.ndata['feat']
+        else:
+            x: torch.Tensor = graph.ndata['attr']
         results = [x]
         for layer in range(num_layers):
             if layer < num_layers - 1 or self.__concat_last:

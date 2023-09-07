@@ -3,6 +3,7 @@ Performance check of AutoGL trainer + PYG dataset
 """
 import os
 import torch
+os.environ["AUTOGL_BACKEND"] = "pyg"
 
 import numpy as np
 from tqdm import tqdm

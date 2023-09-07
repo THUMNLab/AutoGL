@@ -15,7 +15,7 @@ from .base import BaseClassifier
 from ...module.feature import FEATURE_DICT
 from ...module.train import TRAINER_DICT, get_feval, BaseGraphClassificationTrainer
 from ..base import _initialize_single_model, _parse_hp_space, _parse_model_hp
-from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features, convert_dataset
+from ..utils import LeaderBoard, get_dataset_labels, set_seed, get_graph_from_dataset, get_graph_node_features
 from ...datasets import utils
 from ..utils import get_logger
 from ...backend import DependentBackend
@@ -281,8 +281,8 @@ class AutoGraphClassifier(BaseClassifier):
         
         # check whether the dataset has features.
         # currently we only support graph classification with features.
-        
-        feat = get_graph_node_features(get_graph_from_dataset(dataset))
+        graph = get_graph_from_dataset(dataset)
+        feat = get_graph_node_features(graph)
         assert feat is not None, (
             "Does not support fit on non node-feature dataset!"
             " Please add node features to dataset or specify feature engineers that generate"
@@ -320,11 +320,11 @@ class AutoGraphClassifier(BaseClassifier):
                 )
             if self.hpo_module is None:
                 model.initialize()
-                model.train(convert_dataset(dataset), True)
+                model.train(dataset, True)
                 optimized = model
             else:
                 optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=convert_dataset(dataset), time_limit=time_for_each_model
+                    trainer=model, dataset=dataset, time_limit=time_for_each_model
                 )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
@@ -545,7 +545,7 @@ class AutoGraphClassifier(BaseClassifier):
         self.trained_models[name].to(self.runtime_device)
         predicted = (
             self.trained_models[name]
-            .predict_proba(convert_dataset(dataset), mask=mask)
+            .predict_proba(dataset, mask=mask)
             .detach()
             .cpu()
             .numpy()

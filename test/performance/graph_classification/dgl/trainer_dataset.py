@@ -38,18 +38,10 @@ if __name__ == '__main__':
     dataids = list(range(len(dataset)))
     random.seed(args.dataset_seed)
     random.shuffle(dataids)
-    
-    fold = int(len(dataset) * 0.1)
-    train_index = dataids[:fold * 8]
-    val_index = dataids[fold * 8: fold * 9]
-    test_index = dataids[fold * 9: ]
-    dataset.train_index = train_index
-    dataset.val_index = val_index
-    dataset.test_index = test_index
 
-    labels = np.array([data.data['label'].item() for data in dataset.test_split])
+    utils.graph_random_splits(dataset, train_ratio=0.8, val_ratio=0.1, seed=23)
 
-    dataset = utils.conversion.to_dgl_dataset(dataset)
+    labels = np.array([x[1].item() for x in dataset.test_split])
 
     accs = []
 
@@ -68,7 +60,7 @@ if __name__ == '__main__':
             model=(args.model, decoder),
             device=args.device,
             init=False,
-            num_features=dataset[0][0].ndata['feat'].size(1),
+            num_features=dataset[0][0].ndata['attr'].size(1),
             num_classes=max([graph[1].item() for graph in dataset]) + 1,
             loss='cross_entropy',
             feval=('acc'),

@@ -1,5 +1,5 @@
 import os
-os.environ["AUTOGL_BACKEND"] = "pyg"
+os.environ["AUTOGL_BACKEND"] = "dgl"
 
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
@@ -29,3 +29,5 @@ solver.fit(cora, evaluation_method=["acc"])
 result = solver.predict(cora)
 if DependentBackend.is_pyg():
     print((result == cora[0].y[cora[0].test_mask].cpu().numpy()).astype('float').mean())
+else:
+    print((result == cora[0].ndata['label'][cora[0].ndata['test_mask']].cpu().numpy()).astype('float').mean())

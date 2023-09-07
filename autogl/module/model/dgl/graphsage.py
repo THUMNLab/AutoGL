@@ -68,7 +68,10 @@ class GraphSAGE(torch.nn.Module):
         )
 
     def lp_encode(self, data):
-        x: torch.Tensor = data.ndata['feat']
+        if 'feat' in data.ndata:
+            x = data.ndata['feat']
+        else:
+            x = data.ndata['attr']
         for i in range(len(self.convs) - 2):
             x = self.convs[i](data, x)
             x = activate_func(x, self.args["act"])

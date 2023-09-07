@@ -233,12 +233,18 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
             except:
                 from torch_geometric.utils import negative_sampling
                 # from ...datasets.utils import negative_sampling
-
-                neg_edge_index = negative_sampling(
-                    edge_index=data.train_pos_edge_index,
-                    num_nodes=data.num_nodes,
-                    num_neg_samples=data.train_pos_edge_index.size(1),
-                ).to(data.train_pos_edge_index.device)
+                try:
+                    neg_edge_index = negative_sampling(
+                        edge_index=data.train_pos_edge_index,
+                        num_nodes=data.num_nodes,
+                        num_neg_samples=data.train_pos_edge_index.size(1),
+                    ).to(data.train_pos_edge_index.device)
+                except:
+                    neg_edge_index = negative_sampling(
+                        edge_index=data.train_pos_edge_index[0],
+                        num_nodes=data.num_nodes,
+                        num_neg_samples=data.train_pos_edge_index[0].size(1),
+                    ).to(data.train_pos_edge_index[0].device)
             
             optimizer.zero_grad()
             link_logits = model.encode(data)
@@ -367,6 +373,8 @@ class LinkPredictionTrainer(BaseLinkPredictionTrainer):
         """
         if self.pyg_dgl == 'pyg':
             data = dataset[0]
+            if isinstance(data.train_pos_edge_index, list) or isinstance(data.train_pos_edge_index, tuple):
+                data.train_pos_edge_index = data.train_pos_edge_index[0]
             data.edge_index = data.train_pos_edge_index
             self._train_only_pyg(data)
             if keep_valid_result:

@@ -305,9 +305,9 @@ class GraphCLSemisupervisedTrainer(BaseContrastiveTrainer):
         try:
             fine_val_loader = utils.graph_get_split(dataset, "val", batch_size=self.batch_size, num_workers=self.num_workers)
         except ValueError:
-            fine_val_loader = utils.graph_get_split(dataset, "train", batch_size=self.batch_size, num_workers=self.num_workers)
+            fine_val_loader = fine_train_loader
         except AttributeError:
-            fine_val_loader = utils.graph_get_split(dataset, "train", batch_size=self.batch_size, num_workers=self.num_workers)
+            fine_val_loader = fine_train_loader
         optimizer = self.f_optimizer(model.parameters(), lr=self.f_lr, weight_decay=self.f_weight_decay)
         scheduler = self._get_scheduler("finetune", optimizer)
         with trange(self.f_epoch) as t:

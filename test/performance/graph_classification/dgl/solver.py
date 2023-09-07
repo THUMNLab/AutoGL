@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from autogl.solver import AutoGraphClassifier
-from autogl.datasets import build_dataset_from_name
+from autogl.datasets import build_dataset_from_name, utils
 from autogl.solver.utils import set_seed
 from helper import get_encoder_decoder_hp
 import logging
@@ -48,11 +48,11 @@ if __name__ == '__main__':
     random.shuffle(dataids)
     
     fold = int(len(dataset) * 0.1)
-    dataset.train_index = dataids[:fold * 8]
-    dataset.val_index = dataids[fold * 8: fold * 9]
-    dataset.test_index = dataids[fold * 9: ]
 
-    labels = np.array([x.data['label'].item() for x in dataset.test_split])
+    utils.graph_random_splits(dataset, train_ratio=0.8, val_ratio=0.1, seed=23)
+    # print(dataset.test_split[0])
+
+    labels = np.array([x[1].item() for x in dataset.test_split])
 
     if args.model == "gin":
         decoder = "JKSumPoolMLP"

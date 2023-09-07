@@ -29,7 +29,10 @@ class _SAGE(torch.nn.Module):
         self._dropout: _typing.Optional[float] = dropout
 
     def forward(self, graph: dgl.DGLGraph, *args, **kwargs):
-        x: torch.Tensor = graph.ndata['attr']
+        if 'feat' in graph.ndata:
+            x: torch.Tensor = graph.ndata['feat']
+        else:
+            x: torch.Tensor = graph.ndata['attr']
         x = torch.nn.functional.dropout(x, self._dropout, self.training)
         results: _typing.MutableSequence[torch.Tensor] = [x]
         for _layer in range(len(self.__convolution_layers)):

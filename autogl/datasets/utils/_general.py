@@ -192,16 +192,20 @@ def graph_cross_validation(
         kf = KFold(
             n_splits=n_splits, shuffle=shuffle, random_state=_random_seed
         )
-    dataset_y = [g.data['y' if 'y' in g.data else 'label'].item() for g in dataset]
+    if _backend.DependentBackend.is_pyg():
+        dataset_y = np.array([x['y'].item() for x in dataset])
+    else:
+        dataset_y = np.array([x[1].item() for x in dataset])
     idx_list = [
         (train_index.tolist(), test_index.tolist())
         for train_index, test_index
         in kf.split(np.zeros(len(dataset)), np.array(dataset_y))
     ]
 
-    dataset.folds = idx_list
-    dataset.train_index = idx_list[0][0]
-    dataset.val_index = idx_list[0][1]
+    # dataset.folds = idx_list
+    setattr(dataset, 'folds', idx_list)
+    setattr(dataset, 'train_index', idx_list[0][0])
+    setattr(dataset, 'val_index', idx_list[0][1])
     return dataset
 
 
@@ -226,8 +230,10 @@ def set_fold(dataset: InMemoryDataset, fold_id: int) -> InMemoryDataset:
         raise ValueError(
             f"Fold id {fold_id} exceed total cross validation split number {len(dataset.folds)}"
         )
-    dataset.train_index = dataset.folds[fold_id].train_index
-    dataset.val_index = dataset.folds[fold_id].val_index
+    dataset.train_index = dataset.folds[fold_id][0]
+    dataset.val_index = dataset.folds[fold_id][1]
+    setattr(dataset, 'cross_train_split', [dataset[i] for i in dataset.train_index])
+    setattr(dataset, 'cross_val_split', [dataset[i] for i in dataset.val_index])
     return dataset
 
 
@@ -267,9 +273,10 @@ def graph_random_splits(
     dataset.train_index = train_index
     dataset.val_index = val_index
     dataset.test_index = test_index
-    dataset.train_split = [dataset[i] for i in train_index]
-    dataset.val_split = [dataset[i] for i in val_index]
-    dataset.test_split = [dataset[i] for i in test_index]
+    if not isinstance(dataset, InMemoryDataset):
+        dataset.train_split = [dataset[i] for i in train_index]
+        dataset.val_split = [dataset[i] for i in val_index]
+        dataset.test_split = [dataset[i] for i in test_index]
     torch.set_rng_state(_rng_state)
     return dataset
 
@@ -316,7 +323,10 @@ def graph_get_split(
     if mask.lower() not in ("train", "val", "test"):
         raise ValueError
     elif mask.lower() == "train":
-        optional_dataset_split = dataset.train_split
+        try:
+            optional_dataset_split = dataset.train_split
+        except AttributeError:
+            optional_dataset_split = dataset.cross_train_split
         if optional_dataset_split is None:
             raise ValueError(f"Provided dataset do NOT have {mask} split")
         else:
@@ -324,7 +334,10 @@ def graph_get_split(
                 optional_dataset_split, train_index=list(range(len(optional_dataset_split)))
             )
     elif mask.lower() == "val":
-        optional_dataset_split = dataset.val_split
+        try:
+            optional_dataset_split = dataset.val_split
+        except AttributeError:
+            optional_dataset_split = dataset.cross_val_split
         if optional_dataset_split is None:
             raise ValueError(f"Provided dataset do NOT have {mask} split")
         else:

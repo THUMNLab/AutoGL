@@ -73,7 +73,7 @@ def show():
     res=[]
     for r,ds,fs in os.walk(fdir):
         for f in fs:
-            if 'log' in f:
+            if 'logs' in f:
                 data,algo=eval(os.path.splitext(f)[0])
                 with open(os.path.join(r,f)) as file:
                     metric=float(file.read())

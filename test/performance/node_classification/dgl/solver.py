@@ -3,6 +3,7 @@ Performance check of AutoGL solver
 """
 import os
 import numpy as np
+import torch
 from tqdm import tqdm
 
 os.environ["AUTOGL_BACKEND"] = "dgl"
@@ -37,7 +38,7 @@ if __name__ == '__main__':
 
     # seed = 100
     dataset = build_dataset_from_name(args.dataset.lower())
-    label = dataset[0].nodes.data['label'][dataset[0].nodes.data['test_mask']].numpy()
+    label = dataset[0].ndata['label'][dataset[0].ndata['test_mask']]
     accs = []
 
     model_hp, decoder_hp = get_encoder_decoder_hp(args.model)
@@ -48,7 +49,7 @@ if __name__ == '__main__':
             feature_module=None,
             graph_models=(args.model,),
             ensemble_module=None,
-            max_evals=1,
+            max_evals=50,
             hpo_module='random',
             trainer_hp_space=fixed(**{
                 "max_epoch": args.epoch,
@@ -60,7 +61,7 @@ if __name__ == '__main__':
         )
 
         solver.fit(dataset, evaluation_method=['acc'], seed=seed)
-        output = solver.predict(dataset)
-        acc = (output == label).astype('float').mean()
+        output = torch.tensor(solver.predict(dataset))
+        acc = (output == label).float().mean()
         accs.append(acc)
     print('{:.4f} ~ {:.4f}'.format(np.mean(accs), np.std(accs)))

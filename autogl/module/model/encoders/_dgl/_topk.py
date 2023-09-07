@@ -92,7 +92,10 @@ class _TopK(torch.nn.Module):
     def forward(self, graph: dgl.DGLGraph, *__args, **__kwargs) -> _typing.Sequence[torch.Tensor]:
         graph = dgl.remove_self_loop(graph)
         graph = dgl.add_self_loop(graph)
-        h = graph.ndata['attr']
+        if 'feat' in graph.ndata:
+            h: torch.Tensor = graph.ndata['feat']
+        else:
+            h: torch.Tensor = graph.ndata['attr']
         hidden_rep = [h]
         for i in range(self.__num_layers):
             h = self.__gcn_layers[i](graph, h)

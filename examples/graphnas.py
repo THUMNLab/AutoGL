@@ -16,7 +16,6 @@ if __name__ == '__main__':
     if DependentBackend.is_pyg():
         label = dataset[0].y
     else:
-        print(type(dataset))
         label = dataset[0].ndata['label']
     solver = AutoNodeClassifier.from_config(args.config)
     solver.fit(dataset)

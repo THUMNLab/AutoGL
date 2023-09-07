@@ -32,7 +32,6 @@ if __name__ == '__main__':
 
     # seed = 100
     dataset = build_dataset_from_name(args.dataset.lower())
-    dataset = to_dgl_dataset(dataset)
     data = dataset[0].to(args.device)
     num_features = data.ndata['feat'].size(1)
     num_classes = data.ndata['label'].max().item() + 1

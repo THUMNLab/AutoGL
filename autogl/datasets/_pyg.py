@@ -8,7 +8,6 @@ from torch_geometric.datasets import (
     Planetoid, PPI, QM9, Reddit, TUDataset
 )
 
-
 @DatasetUniversalRegistry.register_dataset("cora")
 def get_cora_dataset(path, *args, **kwargs):
     return Planetoid(os.path.join(path, '_pyg'), "Cora", *args, **kwargs)

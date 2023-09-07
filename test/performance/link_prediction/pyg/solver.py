@@ -48,7 +48,6 @@ if __name__ == "__main__":
     parser.add_argument("--device", default=0, type=int, help="GPU device")
 
     args = parser.parse_args()
-    print("????")
 
     if args.device < 0:
         device = args.device = "cpu"

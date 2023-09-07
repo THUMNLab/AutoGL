@@ -7,7 +7,6 @@ import numpy as np
 import dgl
 import torch
 import numpy as np
-from autogl.datasets.utils.conversion import to_dgl_dataset
 from helper import get_encoder_decoder_hp
 from autogl.datasets.utils import split_edges
 
@@ -59,7 +58,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dataset = build_dataset_from_name(args.dataset.lower())
-    dataset = to_dgl_dataset(dataset)
 
     res = []
     for seed in tqdm(range(1234, 1234+args.repeat)):

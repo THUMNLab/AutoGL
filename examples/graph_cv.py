@@ -4,6 +4,7 @@ paper `A Fair Comparison of Graph Neural Networks for Graph Classification`
 """
 
 import sys
+import copy
 import random
 import torch
 import numpy as np
@@ -53,7 +54,6 @@ if __name__ == "__main__":
 
     print("begin processing dataset", args.dataset, "into", args.folds, "folds.")
     dataset = build_dataset_from_name(args.dataset)
-    _converted_dataset = convert_dataset(dataset)
     if args.dataset.startswith("imdb"):
         from autogl.module.feature import OneHotDegreeGenerator
 
@@ -81,7 +81,6 @@ if __name__ == "__main__":
         utils.set_fold(dataset, fold)
         train_dataset = utils.graph_get_split(dataset, "train", False)
         autoClassifier = AutoGraphClassifier.from_config(args.configs)
-
         autoClassifier.fit(
             train_dataset,
             train_split=0.9,

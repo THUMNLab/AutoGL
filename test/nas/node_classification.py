@@ -77,7 +77,6 @@ if __name__ == "__main__":
         from autogl.datasets.utils.conversion._to_pyg_dataset import to_pyg_dataset as convert_dataset
 
     dataset = build_dataset_from_name('cora')
-    dataset = convert_dataset(dataset)
     data = dataset[0]
 
     di = bk_feat(data).shape[1]
