@@ -12,9 +12,9 @@
 % [![Documentation Status](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)-->
 
 ## 最新消息
-- 2023.09.08 新版本！智图v0.4.1版本发布!
+- 2023.10.29 新版本！智图v0.4.1版本发布!
     - 我们将dataset类进行了简化，用户可以更加便捷地自定义自己的数据集
-    - 我们开发了一个智图的扩展库: [轻量版智图(AutoGL-light)](https://github.com/THUMNLab/AutoGL-light)。在这个新库中，用户可以更加便捷地自定义图上的自动机器学习流程！ 
+    - 我们开发了一个智图的扩展库: [轻量智图(AutoGL-light)](https://github.com/THUMNLab/AutoGL-light)。在这个新库中，用户可以更加便捷地自定义图上的自动机器学习流程！ 
     - 修正了一些小bug
 - 2022.12.30 新版本！智图v0.4.0-pre 版本发布!
     - 提出了**NAS-Bench-Graph** ([paper](https://openreview.net/pdf?id=bBff294gqLp),[code](https://github.com/THUMNLab/NAS-Bench-Graph), [tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas_bench_graph.html))，并发表于NeurIPS'22上！其是首个针对图数据的神经架构搜索Benchmark。将AutoGL与NAS-Bench-Graph一起使用可以极大加快图神经架构搜索算法的性能评估过程
@@ -174,11 +174,5 @@ make clean && make html
 
 ## 版权相关
 从v0.2版本开始，智图的所有代码采用[Apache license](LICENSE)。
-
-## 用户交流微信群
-![weixin](https://user-images.githubusercontent.com/17705534/163801846-2aa1bdf8-919e-4636-b7d9-e5346f352c15.jpg)
-
-
-
 
 

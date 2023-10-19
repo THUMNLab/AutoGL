@@ -13,9 +13,10 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
 % [![Documentation Status](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)-->
 
 ## News!
-- 2023.09.08 New version! v0.4.1 is here!
+- 2023.10.29 New version! v0.4.1 is here!
     - We have simplified the dataset module so that users can build their own datasets more easily! 
     - We have developed an extended library: [AutoGL-light](https://github.com/THUMNLab/AutoGL-light), which is a lightweight version of AutoGL. Users can customize their own AutoML pipeline for graphs more easily!
+    - Minor bugs fixed.
 - 2022.12.30 New version! v0.4.0-pre is here!
     - We have proposed __NAS-Bench-Graph__ ([paper](https://openreview.net/pdf?id=bBff294gqLp), [code](https://github.com/THUMNLab/NAS-Bench-Graph), [tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas_bench_graph.html)), the first NAS-benchmark for graphs published in NeurIPS'22. By using AutoGL together with NAS-Bench-Graph, the performance estimation process of GraphNAS algorithms can be greatly speeded up. 
     - We have supported the graph __robustness__ algorithms in AutoGL, including graph structure engineering, robust GNNs and robust GraphNAS. See [robustness tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_robust.html) for more details.
@@ -155,13 +156,12 @@ The documentation will be automatically generated under `docs/_build/html`
 
 Please cite [our paper](https://openreview.net/forum?id=0yHwpLeInDn) as follows if you find our code useful:
 ```
-@inproceedings{
-guan2021autogl,
-title={Auto{GL}: A Library for Automated Graph Learning},
-author={Chaoyu Guan and Ziwei Zhang and Haoyang Li and Heng Chang and Zeyang Zhang and Yijian Qin and Jiyan Jiang and Xin Wang and Wenwu Zhu},
-booktitle={ICLR 2021 Workshop on Geometrical and Topological Representation Learning},
-year={2021},
-url={https://openreview.net/forum?id=0yHwpLeInDn}
+@inproceedings{guan2021autogl,
+  title={Auto{GL}: A Library for Automated Graph Learning},
+  author={Chaoyu Guan and Ziwei Zhang and Haoyang Li and Heng Chang and Zeyang Zhang and Yijian Qin and Jiyan Jiang and Xin Wang and Wenwu Zhu},
+  booktitle={ICLR 2021 Workshop on Geometrical and Topological Representation Learning},
+  year={2021},
+  url={https://openreview.net/forum?id=0yHwpLeInDn}
 }
 ```
 
