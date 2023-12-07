@@ -68,10 +68,16 @@ class GraphSAGE(torch.nn.Module):
         )
 
     def lp_encode(self, data):
-        if 'feat' in data.ndata:
-            x = data.ndata['feat']
-        else:
-            x = data.ndata['attr']
+        try:
+            if 'feat' in data.ndata:
+                x = data.ndata['feat']
+            elif 'attr' in data.ndata:
+                x = data.ndata['attr']
+            else: # TUDataset
+                x = data.ndata['node_attr'].float()
+        except:
+            print("no x")
+            pass
         for i in range(len(self.convs) - 2):
             x = self.convs[i](data, x)
             x = activate_func(x, self.args["act"])
@@ -89,7 +95,12 @@ class GraphSAGE(torch.nn.Module):
     
     def forward(self, data):
         try:
-            x = data.ndata['feat']
+            if 'feat' in data.ndata:
+                x = data.ndata['feat']
+            elif 'attr' in data.ndata:
+                x = data.ndata['attr']
+            else: # TUDataset
+                x = data.ndata['node_attr']
         except:
             print("no x")
             pass

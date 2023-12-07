@@ -73,7 +73,7 @@ class GraphCLSemisupervisedTrainer(BaseContrastiveTrainer):
             `autogl.module.model.encoders.BaseEncoderMaintainer`, and decoder can be `str`
             or `autogl.module.model.decoders.BaseDecoderMaintainer`.
             If only encoder is specified, decoder will be default to "sumpoolmlp"
-        prediction_model: `BaseAutoModel`, `str` or None
+        prediction_head: `BaseAutoModel`, `str` or None
             A model used to finetuning
             Only required if `node_level` = True.
         num_features: `int` or None
@@ -496,7 +496,7 @@ class GraphCLUnsupervisedTrainer(BaseContrastiveTrainer):
             `autogl.module.model.encoders.BaseEncoderMaintainer`, and decoder can be `str`
             or `autogl.module.model.decoders.BaseDecoderMaintainer`.
             If only encoder is specified, decoder will be default to "sumpoolmlp"
-        prediction_model: `BaseAutoModel`, `str` or None
+        prediction_head: `BaseAutoModel`, `str` or None
             A model used to finetuning
             Only required if `node_level` = True.
         num_features: `int` or None

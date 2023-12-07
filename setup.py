@@ -43,7 +43,7 @@ setup(
         'deeprobust',
         'hyperopt',
         'lightgbm',
-        'networkx',
+        'networkx <= 3.1',
         'numpy',
         'numba',
         'netlsd',

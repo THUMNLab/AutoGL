@@ -24,7 +24,7 @@ from autogl.datasets import build_dataset_from_name
 import torch
 from torch import nn
 import torch.nn.functional as F
-#from autogl.module.nas.algorithm.agnn_rl import AGNNRL
+from autogl.module.nas.algorithm.agnn_rl import AGNNRL
 from autogl.module.nas.backend import bk_feat, bk_label
 from autogl.module.nas.algorithm import Darts, RL, GraphNasRL, Enas, RandomSearch,Spos
 from autogl.module.nas.estimator import BaseEstimator
@@ -105,16 +105,16 @@ class BenchSpace(BaseSpace):
 
 # Define a new estimator which directly get performance from NAS-bench-graph instead of training the model
 class BenchEstimator(BaseEstimator):
-    def __init__(self, data_name, loss_f="nll_loss", evaluation=[Acc()]):
+    def __init__(self, dataset_name, loss_f="nll_loss", evaluation=[Acc()]):
         super().__init__(loss_f, evaluation)
         self.evaluation = evaluation
-        self.bench=light_read(data_name)
+        self.bench=light_read(dataset_name)
     def infer(self, model: BaseSpace, dataset, mask="train"):
         perf=model(self.bench)
         return [perf],0
 
 # Run NAS with NAS-bench-graph
-def run(data_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20,log_dir='./logs/tmp'):
+def run(dataset_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20,log_dir='./logs/tmp'):
     print("Testing backend: {}".format("dgl" if DependentBackend.is_dgl() else "pyg"))
     if DependentBackend.is_dgl():
         from autogl.datasets.utils.conversion._to_dgl_dataset import to_dgl_dataset as convert_dataset
@@ -125,11 +125,11 @@ def run(data_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20,l
     do=2
     dataset=None
 
-    ops_type=data_name=='proteins'
+    ops_type=dataset_name=='proteins'
 
     space = BenchSpace().cuda()
     space.instantiate(input_dim=di, output_dim=do,ops_type=ops_type)
-    esti = BenchEstimator(data_name)
+    esti = BenchEstimator(dataset_name)
     if algo=='graphnas':
         algo = GraphNasRL(num_epochs=num_epochs,ctrl_steps_aggregate=ctrl_steps_aggregate)
     elif algo=='agnn':
@@ -158,35 +158,28 @@ def run(data_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20,l
 
 # Run NAS with NAS-bench-graph for all provided datasets
 def run_all():
-    data_names='arxiv citeseer computers cora cs photo physics proteins pubmed'.split()
+    dataset_names='arxiv citeseer computers cora cs photo physics proteins pubmed'.split()
     algos='graphnas agnn'.split()
     results=[]
-    for data_name in data_names:
+    for dataset_name in dataset_names:
         for algo in algos:
-            print(f'data {data_name} algo {algo}')
-            # metric=run(data_name,algo,2,2)
-            if data_name=='proteins':
-                metric=run(data_name,algo,8,5)
+            print(f'data {dataset_name} algo {algo}')
+            if dataset_name=='proteins':
+                metric=run(dataset_name,algo,8,5)
             else:
-                metric=run(data_name,algo,50,10)
-            results.append([data_name,algo,metric])
+                metric=run(dataset_name,algo,50,10)
+            results.append([dataset_name,algo,metric])
     return results
 
 if __name__ == "__main__":
-    # results=run_all()
-    # df=pd.DataFrame(results,columns='data algo v'.split()).pivot_table(values='v',index='algo',columns='data')
-    # print(df.to_string())
-
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default='cora', help='datasets')
+    parser.add_argument('--dataset', type=str, default='cora', help='datasets', choices=["cora","citeseer","pubmed","cs","physics","amazon","computers","arxiv","proteins"])
     parser.add_argument('--algo', type=str, default='graphnas')
     parser.add_argument('--log_dir', type=str, default='./logs/')
 
     args = parser.parse_args()
-    dname=args.data
-    algo=args.algo
-    log_dir= os.path.join(args.log_dir,f'{dname,algo}')
-    if dname=='proteins':
+    log_dir= os.path.join(args.log_dir,f'{args.dataset,args.algo}')
+    if args.dataset=='proteins':
         # 40 archs in total
         num_epochs=8
         ctrl_steps_aggregate=5
@@ -194,4 +187,4 @@ if __name__ == "__main__":
         # 500 archs in total
         num_epochs=50
         ctrl_steps_aggregate=10
-    result=run(dname,algo,num_epochs,ctrl_steps_aggregate,log_dir)
+    result=run(args.dataset,args.algo,num_epochs,ctrl_steps_aggregate,log_dir)

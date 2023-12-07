@@ -86,7 +86,7 @@ def get_reddit_binary_dataset(path, *args, **kwargs):
 @DatasetUniversalRegistry.register_dataset("reddit-multi-5k")
 @DatasetUniversalRegistry.register_dataset("RedditMulti5K".upper())
 def get_reddit_multi5k_dataset(path, *args, **kwargs):
-    return TUDataset(os.path.join(path, '_pyg'), "REDDIT-MULTI-5K")
+    return TUDataset(os.path.join(path, '_pyg'), "REDDIT-MULTI-5K", *args, **kwargs)
 
 @DatasetUniversalRegistry.register_dataset("reddit-multi-12k")
 @DatasetUniversalRegistry.register_dataset("RedditMulti12K".upper())

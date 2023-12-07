@@ -63,10 +63,16 @@ class GCN(torch.nn.Module):
         )
 
     def forward(self, data):
-        if 'feat' in data.ndata:
-            x = data.ndata['feat']
-        else:
-            x = data.ndata['attr']
+        try:
+            if 'feat' in data.ndata:
+                x = data.ndata['feat']
+            elif 'attr' in data.ndata:
+                x = data.ndata['attr']
+            else: # TUDataset
+                x = data.ndata['node_attr'].float()
+        except:
+            print("no x")
+            pass
         for i in range(len(self.convs)):
             if i!=0:
                 x = F.dropout(x, p=self.args["dropout"], training=self.training)
@@ -87,7 +93,16 @@ class GCN(torch.nn.Module):
     def lp_encode(self, data):
         # discard the last layer, only use the layer before
 
-        x = data.ndata['feat']
+        try:
+            if 'feat' in data.ndata:
+                x = data.ndata['feat']
+            elif 'attr' in data.ndata:
+                x = data.ndata['attr']
+            else: # TUDataset
+                x = data.ndata['node_attr'].float()
+        except:
+            print("no x")
+            pass
         for i in range(len(self.convs) - 1):
             if i != 0:
                 x = F.dropout(x, p=self.args["dropout"], training=self.training)

@@ -257,6 +257,9 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
                 elif self.pyg_dgl == 'dgl':
                     data = [data[i].to(self.device) for i in range(len(data))]
                     data, labels = data
+                    # for TU Dataset
+                    if len(labels.shape) == 2:
+                        labels = labels.reshape(-1).long()
                     optimizer.zero_grad()
                     output = model(data)
 

@@ -8,7 +8,7 @@ import argparse
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, choices=["han", "hgt"])
+    parser.add_argument("--model", type=str, default = "han", choices=["han", "hgt"])
     parser.add_argument("--max_evals", type=int, default=10)
 
     args = parser.parse_args()

@@ -30,7 +30,7 @@ if __name__ == "__main__":
         default="mutag",
         type=str,
         help="graph classification dataset",
-        choices=["mutag", "imdb-b", "imdb-m", "proteins", "collab"],
+        choices=["mutag", "enzymes", "imdb-b", "imdb-m", "reddit-b", "reddit-multi-5k", "reddit-multi-12k", "proteins", "collab", "ptc-mr", "nci1"],
     )
     parser.add_argument(
         "--configs", default="../configs/graphclf_full.yml", help="config files"
@@ -53,26 +53,27 @@ if __name__ == "__main__":
         torch.backends.cudnn.benchmark = False
 
     print("begin processing dataset", args.dataset, "into", args.folds, "folds.")
-    dataset = build_dataset_from_name(args.dataset)
-    if args.dataset.startswith("imdb"):
-        from autogl.module.feature import OneHotDegreeGenerator
-
+    if DependentBackend.is_dgl():
+        dataset = build_dataset_from_name(args.dataset, self_loop = True)
+    else:
+        dataset = build_dataset_from_name(args.dataset)
+    if args.dataset.startswith("reddit") or args.dataset == "collab" or  args.dataset.startswith("imdb"):
         if DependentBackend.is_pyg():
+            print("adding one-hot degree as node features")
             from torch_geometric.utils import degree
             max_degree = 0
-            for data in _converted_dataset:
+            for data in dataset:
                 deg_max = int(degree(data.edge_index[0], data.num_nodes).max().item())
                 max_degree = max(max_degree, deg_max)
+            from torch_geometric.transforms import OneHotDegree
+            dataset = build_dataset_from_name(args.dataset, transform=OneHotDegree(max_degree))
         else:
+            from autogl.module.feature import OneHotDegreeGenerator
             max_degree = 0
             for data, _ in _converted_dataset:
                 deg_max = data.in_degrees().max().item()
                 max_degree = max(max_degree, deg_max)
-        dataset = OneHotDegreeGenerator(max_degree).fit_transform(dataset, inplace=False)
-    elif args.dataset == "collab":
-        from autogl.module.feature._auto_feature import OnlyConstFeature
-
-        dataset = OnlyConstFeature().fit_transform(dataset, inplace=False)
+            dataset = OneHotDegreeGenerator(max_degree).fit_transform(dataset, inplace=False)
     utils.graph_cross_validation(dataset, args.folds, random_seed=args.seed)
 
     accs = []

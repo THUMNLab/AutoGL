@@ -172,10 +172,16 @@ class Topkpool(torch.nn.Module):
 
     #def forward(self, g, h):
     def forward(self, data):
-        if 'feat' in data.ndata:
-            h = data.ndata.pop('feat')
-        else:
-            h = data.ndata.pop('attr')
+        try:
+            if 'feat' in data.ndata:
+                h = data.ndata.pop('feat')
+            elif 'attr' in data.ndata:
+                h = data.ndata.pop('attr')
+            else: # TUDataset
+                h = data.ndata.pop('node_attr').float()
+        except:
+            print("no x")
+            pass
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 

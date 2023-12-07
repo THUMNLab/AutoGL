@@ -12,6 +12,7 @@ The following code snippet is an example for loading a heterogeneous graph.
 
 .. code-block:: python
 
+    import torch
     from autogl.datasets import build_dataset_from_name
     dataset = build_dataset_from_name("hetero-acm-han")
 
@@ -20,6 +21,8 @@ You can also access to data stored in the dataset object for more details:
 .. code-block:: python
 
     g = dataset[0]
+    if torch.cuda.is_available():
+        g = g.to("cuda")
 
     node_type = dataset.schema["target_node_type"]
     labels = g.nodes[node_type].data['label']
@@ -43,7 +46,6 @@ AutoGL integrates commonly used heterogeneous graph neural network models such a
         dataset=dataset,
         num_features=num_features,
         num_classes=num_classes,
-        device = args['device'],
         init=True
     ).model
 
@@ -67,13 +69,31 @@ Then you can train the model for 100 epochs.
         loss.backward()
         optimizer.step()
 
-        val_loss, val_acc, _, _ = evaluate(model, g, labels, val_mask, loss_fcn)
-
 Finally, evaluate the model.
 
 .. code-block:: python
 
+    from sklearn.metrics import f1_score
+    # Define the evaluation function
+    def score(logits, labels):
+        _, indices = torch.max(logits, dim=1)
+        prediction = indices.long().cpu().numpy()
+        labels = labels.cpu().numpy()
+        accuracy = (prediction == labels).sum() / len(prediction)
+        micro_f1 = f1_score(labels, prediction, average='micro')
+        macro_f1 = f1_score(labels, prediction, average='macro')
+        return accuracy, micro_f1, macro_f1
+
+    def evaluate(model, g, labels, mask, loss_func):
+        model.eval()
+        with torch.no_grad():
+            logits = model(g)
+        loss = loss_func(logits[mask], labels[mask])
+        accuracy, micro_f1, macro_f1 = score(logits[mask], labels[mask])
+        return loss, accuracy, micro_f1, macro_f1
+
     _, test_acc, _, _ = evaluate(model, g, labels, test_mask, loss_fcn)
+    print(test_acc)
 
 You can also define your own heterogeneous graph neural network models by adding files in the location AutoGL/autogl/module/model/dgl/hetero.
 
@@ -82,26 +102,7 @@ Automatic Search for Node Classification Tasks
 On top of the modules mentioned above, we provide a high-level API Solver to control the overall pipeline. We encapsulated the training process in the Building Heterogeneous GNN Modules part in the solver AutoHeteroNodeClassifier that supports automatic hyperparametric optimization as well as feature engineering and ensemble.
 In this part, we will show you how to use AutoHeteroNodeClassifier to automatically predict the publishing conference of a paper using the ACM academic graph dataset.
 
-Firstly, we get the pre-defined model hyperparameter. 
-
-.. code-block:: python
-
-    from helper import get_encoder_decoder_hp
-    model_hp, _ = get_encoder_decoder_hp(args.model)
-
-You can also define your own model hyperparameters in a dict:
-
-.. code-block:: python
-
-    model_hp = {
-                "num_layers": 2,
-                "hidden": [256],
-                "heads": 4,
-                "dropout": 0.2,
-                "act": "leaky_relu",
-            }
-
-Secondly, use AutoHeteroNodeClassifier directly to bulid automatic heterogeneous GNN models in the following example:
+Firstly, you can directly bulid automatic heterogeneous GNN models in the following example:
 
 .. code-block:: python
 
@@ -110,23 +111,17 @@ Secondly, use AutoHeteroNodeClassifier directly to bulid automatic heterogeneous
                 graph_models=["han"],
                 hpo_module="random",
                 ensemble_module=None,
-                max_evals=1,
-                device=args.device,
-                trainer_hp_space=fixed(
-                    max_epoch=100,
-                    early_stopping_round=101,
-                    lr=1e-3,
-                    weight_decay=1e-2
-                ),
-                model_hp_spaces=[fixed(**model_hp)]
+                max_evals=10
             )
 
-Finally, fit and evlauate the model.
+The search space is pre-defined. You can also pass your own search space through trainer_hp_space and model_hp_spaces.
+Then, you can directly fit and evlauate the model.
 
 .. code-block:: python
 
     solver.fit(dataset)
     acc = solver.evaluate()
+    print(acc)
 
 References:
 

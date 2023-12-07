@@ -86,10 +86,10 @@
 .. code-block:: python
 
     class BenchEstimator(BaseEstimator):
-        def __init__(self, data_name, loss_f="nll_loss", evaluation=[Acc()]):
+        def __init__(self, dataset_name, loss_f="nll_loss", evaluation=[Acc()]):
             super().__init__(loss_f, evaluation)
             self.evaluation = evaluation
-            self.bench=light_read(data_name)
+            self.bench=light_read(dataset_name)
 
         def infer(self, model: BaseSpace, dataset, mask="train"):
             perf=model(self.bench)
@@ -105,7 +105,7 @@
 
 .. code-block:: python
 
-    def run(data_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20,log_dir='./logs/tmp'):
+    def run(dataset_name='cora',algo='graphnas',num_epochs=50,ctrl_steps_aggregate=20,log_dir='./logs/tmp'):
         print("Testing backend: {}".format("dgl" if DependentBackend.is_dgl() else "pyg"))
         if DependentBackend.is_dgl():
             from autogl.datasets.utils.conversion._to_dgl_dataset import to_dgl_dataset as convert_dataset
@@ -117,12 +117,12 @@
         do=2
         dataset=None
 
-        ops_type=data_name=='proteins'
+        ops_type=dataset_name=='proteins'
 
         # Initialization of the benchmark space and estimator
         space = BenchSpace().cuda()
         space.instantiate(input_dim=di, output_dim=do,ops_type=ops_type)
-        esti = BenchEstimator(data_name)
+        esti = BenchEstimator(dataset_name)
 
         # Choosing a NAS search strategy in AutoGL
         if algo=='graphnas':

@@ -39,12 +39,12 @@
     from autogl.solver import AutoNodeClassifier
 
     solver = AutoNodeClassifier(
-        feature = 'PYGNormalizeFeatures',
+        feature_module  = 'NormalizeFeatures',
         graph_models = (),
-        hpo = 'tpe',
-        ensemble = None,
+        hpo_module= 'tpe',
+        ensemble_module = None,
         nas_algorithms=['rl'],
-        nas_spaces='graphnasmacro',
+        nas_spaces=['graphnasmacro'],
         nas_estimators=['scratch']
     )
 

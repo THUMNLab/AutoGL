@@ -77,8 +77,10 @@ class GAT(torch.nn.Module):
         try:
             if 'feat' in data.ndata:
                 x = data.ndata['feat']
-            else:
+            elif 'attr' in data.ndata:
                 x = data.ndata['attr']
+            else: # TUDataset
+                x = data.ndata['node_attr'].float()
         except:
             print("no x")
             pass
@@ -95,7 +97,16 @@ class GAT(torch.nn.Module):
         return F.log_softmax(x, dim=1)
 
     def lp_encode(self, data):
-        x = data.ndata['feat']
+        try:
+            if 'feat' in data.ndata:
+                x = data.ndata['feat']
+            elif 'attr' in data.ndata:
+                x = data.ndata['attr']
+            else: # TUDataset
+                x = data.ndata['node_attr'].float()
+        except:
+            print("no x")
+            pass
         for i in range(self.num_layer - 1):
             x = self.convs[i](data, x).flatten(1)
             if i != self.num_layer - 2:
