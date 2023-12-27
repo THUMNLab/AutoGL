@@ -247,7 +247,10 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
                     output = model(data)
                     
                     if hasattr(F, self.loss):
-                        loss = getattr(F, self.loss)(output, data.y)
+                        if data.y.shape[-1] == 1: # for OGBG
+                            loss = getattr(F, self.loss)(output, data.y.squeeze(-1))
+                        else:
+                            loss = getattr(F, self.loss)(output, data.y)
                     else:
                         raise TypeError(
                             "PyTorch does not support loss type {}".format(self.loss)
@@ -258,8 +261,8 @@ class GraphClassificationFullTrainer(BaseGraphClassificationTrainer):
                     data = [data[i].to(self.device) for i in range(len(data))]
                     data, labels = data
                     # for TU Dataset
-                    if len(labels.shape) == 2:
-                        labels = labels.reshape(-1).long()
+                    if labels.shape[-1] == 1:
+                        labels = labels.squeeze(-1).long()
                     optimizer.zero_grad()
                     output = model(data)
 
