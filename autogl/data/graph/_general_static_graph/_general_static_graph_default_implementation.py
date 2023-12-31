@@ -387,6 +387,10 @@ class HomogeneousEdgesContainer:
     def connections(self) -> torch.Tensor:
         raise NotImplementedError
 
+    @connections.setter
+    def connections(self, edges: torch.Tensor) -> None:
+        raise NotImplementedError
+
     @property
     def data_keys(self) -> _typing.Iterable[str]:
         raise NotImplementedError
@@ -437,6 +441,10 @@ class HomogeneousEdgesContainerImplementation(HomogeneousEdgesContainer):
     @property
     def connections(self) -> torch.Tensor:
         return self.__connections
+
+    @connections.setter
+    def connections(self, edges: torch.Tensor) -> None:
+        self.__connections = edges
 
     @property
     def data_keys(self) -> _typing.Iterable[str]:
@@ -711,7 +719,7 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
                     else HomogeneousEdgesContainerImplementation(edges)
                 )
             else:
-                raise RuntimeError  # todo: Unable to determine error
+                raise RuntimeError
         else:
             raise TypeError("Unsupported edge type")
 
@@ -807,6 +815,10 @@ class _SpecificTypedHomogeneousEdgesView(_abstract_views.HomogeneousEdgesView):
     def connections(self) -> torch.Tensor:
         return self._homogeneous_edges_container.connections
 
+    @connections.setter
+    def connections(self, edges: torch.LongTensor) -> None:
+        self._homogeneous_edges_container.connections = edges
+
     @property
     def data(self) -> _HomogeneousEdgesDataView:
         return _HomogeneousEdgesDataView(self._homogeneous_edges_container)
@@ -873,6 +885,10 @@ class _HeterogeneousEdgesView(_abstract_views.HeterogeneousEdgesView):
     @property
     def connections(self) -> torch.Tensor:
         return self[...].connections
+
+    @connections.setter
+    def connections(self, edges: torch.LongTensor) -> None:
+        self[...].connections = edges
 
     @property
     def data(self) -> _HomogeneousEdgesDataView:
