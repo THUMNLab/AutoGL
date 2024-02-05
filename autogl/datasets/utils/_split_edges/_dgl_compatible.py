@@ -29,7 +29,7 @@ class _SplitEdgesDGLImpl:
         train_pos_u, train_pos_v = u[eids[test_size + valid_size:]], v[eids[test_size + valid_size:]]
 
         # Find all negative edges and split them for training and testing
-        adj = sp.coo_matrix((np.ones(len(u)), (u.numpy(), v.numpy())))
+        adj = sp.coo_matrix((np.ones(len(u)), (u.numpy(), v.numpy())),shape=(g.number_of_nodes(),g.number_of_nodes()))
         adj_neg = 1 - adj.todense() - np.eye(g.number_of_nodes())
         neg_u, neg_v = np.where(adj_neg != 0)
 
@@ -71,7 +71,7 @@ class _SplitEdgesDGLImpl:
         train_pos_u, train_pos_v = u[eids[test_size:]], v[eids[test_size:]]
 
         # Find all negative edges and split them for training and testing
-        adj = sp.coo_matrix((np.ones(len(u)), (u.numpy(), v.numpy())))
+        adj = sp.coo_matrix((np.ones(len(u)), (u.numpy(), v.numpy())), shape=(g.number_of_nodes(),g.number_of_nodes()))
         adj_neg = 1 - adj.todense() - np.eye(g.number_of_nodes())
         neg_u, neg_v = np.where(adj_neg != 0)
 

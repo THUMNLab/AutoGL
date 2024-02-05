@@ -119,7 +119,7 @@ Lazy Initialization
       # before you call `duplicate_from_hyper_parameter`
       trainer = GraphCLSemisupervisedTrainer(
       	model=('gcn', 'sumpoolmlp'),
-      	prediction_model_head='sumpoolmlp',
+      	prediction_head='sumpoolmlp',
       	views_fn=['random2', 'random2'],
         num_features=dataset[0].x.size(1),
         num_classes=max([data.y.item() for data in dataset]) + 1,
@@ -241,7 +241,7 @@ Implement SSL Trainer
         def __init__(
           self, 
           model, 
-          prediction_model_head, 
+          prediction_head, 
           num_features, 
           num_classes, 
           num_graph_features,
@@ -284,9 +284,9 @@ Implement SSL Trainer
           # initialize something specific for your own method
           self.views_fn = views_fn
           self.aug_ratio = aug_ratio
-          self._prediction_model_head = None
+          self._prediction_head = None
           self.num_classes = num_classes
-          self.prediction_model_head = prediction_model_head
+          self.prediction_head = prediction_head
           self.batch_size = batch_size
           self.num_workers = num_workers
           if self.num_workers > 0:
@@ -335,9 +335,9 @@ Implement SSL Trainer
              val_loader = utils.graph_get_split(dataset, "val", batch_size=self.batch_size, num_workers=self.num_workers)
              # setup model
              self.encoder.encoder.eval()
-             self.prediction_model_head.initialize(self.encoder)
+             self.prediction_head.initialize(self.encoder)
              # just fine-tuning the prediction head
-             model = self.prediction_model_head.decoder
+             model = self.prediction_head.decoder
              # setup optimizer and scheduler
              optimizer = self.f_optimizer(model.parameters(), lr=self.f_lr, weight_decay=self.f_weight_decay)
              scheduler = self._get_scheduler('finetune', optimizer)
@@ -392,7 +392,7 @@ Implement SSL Trainer
                hp = hp_trainer
              encoder = encoder if encoder != "same" else self.encoder
              decoder = decoder if decoder != "same" else self.decoder
-             prediction_head = prediction_head if prediction_head != "same" else self.prediction_model_head
+             prediction_head = prediction_head if prediction_head != "same" else self.prediction_head
              encoder = encoder.from_hyper_parameter(hp_encoder)
              decoder.output_dimension = tuple(encoder.get_output_dimensions())[-1]
              if isinstance(encoder, BaseEncoderMaintainer) and isinstance(decoder, BaseDecoderMaintainer):
@@ -401,7 +401,7 @@ Implement SSL Trainer
                prediction_head = prediction_head.from_hyper_parameter_and_encoder(hp_phead, encoder)
              ret = self.__class__(
                model=(encoder, decoder),
-               prediction_model_head=prediction_head,
+               prediction_head=prediction_head,
                num_features=self.num_features,
                num_classes=self.num_classes,
                num_graph_features=self.num_graph_features,

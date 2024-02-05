@@ -42,6 +42,7 @@ if _backend.DependentBackend.is_dgl():
         get_imdb_multi_dataset,
         get_reddit_binary_dataset,
         get_reddit_multi5k_dataset,
+        get_reddit_multi12k_dataset,
         get_collab_dataset,
         get_proteins_dataset,
         get_ptcmr_dataset,

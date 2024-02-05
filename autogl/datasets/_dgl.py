@@ -80,6 +80,11 @@ def get_reddit_multi5k_dataset(path, *args, **kwargs):
     self_loop = kwargs.pop('self_loop', False)
     return dgl.data.GINDataset("REDDITMULTI5K", self_loop, raw_dir=os.path.join(path, "_dgl"), *args, **kwargs)
 
+@DatasetUniversalRegistry.register_dataset("reddit-multi-12k")
+@DatasetUniversalRegistry.register_dataset("RedditMulti12K".upper())
+def get_reddit_multi12k_dataset(path, *args, **kwargs):
+    return dgl.data.TUDataset("REDDIT-MULTI-12K", raw_dir=os.path.join(path, '_dgl'), *args, **kwargs)
+
 @DatasetUniversalRegistry.register_dataset("collab")
 def get_collab_dataset(path, *args, **kwargs):
     self_loop = kwargs.pop('self_loop', False)

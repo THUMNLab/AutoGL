@@ -222,8 +222,10 @@ def get_graph_node_features(graph):
     elif BACKEND == 'dgl':
         if 'feat' in graph.ndata:
             return graph.ndata['feat']
-        else:
+        elif 'attr' in graph.ndata:
             return graph.ndata['attr']
+        elif 'node_attr' in graph.ndata: # TU Dataset
+            return graph.ndata['node_attr'].float()
     return None
 
 def get_graph_masks(graph, mask='train'):

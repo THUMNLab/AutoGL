@@ -28,7 +28,7 @@ if __name__ == "__main__":
         default="mutag",
         type=str,
         help="graph classification dataset",
-        choices=["mutag", "imdb-b", "imdb-m", "proteins", "collab"],
+        choices=["mutag", "enzymes", "imdb-b", "imdb-m", "reddit-b", "reddit-multi-5k", "reddit-multi-12k", "proteins", "collab", "ptc-mr", "nci1"],
     )
     parser.add_argument(
         "--configs", default="../configs/graphclf_gin_benchmark.yml", help="config files"
@@ -53,17 +53,22 @@ if __name__ == "__main__":
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    if args.dataset.startswith("imdb-b") or args.dataset.startswith("collab") or args.dataset.startswith("reddit"):
+    if args.dataset.startswith("imdb") or args.dataset.startswith("collab") or args.dataset.startswith("reddit"):
         if DependentBackend.is_pyg():
-            from torch_geometric.utils import degree
-            dataset = build_dataset_from_name(args.dataset)
-            max_degree = 0
-            for data in dataset:
-                deg_max = int(degree(data.edge_index[0], data.num_nodes).max().item())
-                max_degree = max(max_degree, deg_max)
-            from torch_geometric.transforms import OneHotDegree
-            # dataset = build_dataset_from_name(args.dataset, transform=OneHotDegree(max_degree))
-            dataset = [OneHotDegree(data) for data in dataset]
+            if args.dataset.startswith("reddit"): # follow the setting of GIN
+                print("adding constant as node features")
+                from torch_geometric.transforms import Constant
+                dataset = build_dataset_from_name(args.dataset, transform=Constant())
+            else:
+                print("adding one-hot degree as node features")
+                from torch_geometric.utils import degree
+                dataset = build_dataset_from_name(args.dataset)
+                max_degree = 0
+                for data in dataset:
+                    deg_max = int(degree(data.edge_index[0], data.num_nodes).max().item())
+                    max_degree = max(max_degree, deg_max)
+                from torch_geometric.transforms import OneHotDegree
+                dataset = build_dataset_from_name(args.dataset, transform=OneHotDegree(max_degree))
         else:
             dataset = build_dataset_from_name(args.dataset)
     else:
