@@ -621,16 +621,20 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
         if edge_t in (Ellipsis, None):
             if len(self.__heterogeneous_edges_data_frame) == 0:
                 self.__heterogeneous_edges_data_frame: pd.DataFrame = (
-                    self.__heterogeneous_edges_data_frame.append(
-                        pd.DataFrame(
-                            {
-                                's': [''], 'r': [''], 't': [''],
-                                'edges': [
-                                    edges if isinstance(edges, HomogeneousEdgesContainer)
-                                    else HomogeneousEdgesContainerImplementation(edges)
-                                ]
-                            }
-                        )
+                    pd.concat(
+                        [
+                            self.__heterogeneous_edges_data_frame,
+                            pd.DataFrame(
+                                {
+                                    's': [''], 'r': [''], 't': [''],
+                                    'edges': [
+                                        edges if isinstance(edges, HomogeneousEdgesContainer)
+                                        else HomogeneousEdgesContainerImplementation(edges)
+                                    ]
+                                }
+                            )
+                        ]
+                    
                     )
                 )
             elif len(self.__heterogeneous_edges_data_frame) == 1:
@@ -680,20 +684,23 @@ class HeterogeneousEdgesAggregationImplementation(HeterogeneousEdgesAggregation)
                     ]
             ) == 0:
                 self.__heterogeneous_edges_data_frame: pd.DataFrame = (
-                    self.__heterogeneous_edges_data_frame.append(
-                        pd.DataFrame(
-                            {
-                                's': [__edge_t[0]],
-                                'r': [__edge_t[1]],
-                                't': [__edge_t[2]],
-                                'edges': [
-                                    edges if isinstance(edges, HomogeneousEdgesContainer)
-                                    else HomogeneousEdgesContainerImplementation(edges)
-                                ]
-                            }
+                        pd.concat(
+                            [
+                                self.__heterogeneous_edges_data_frame,
+                                pd.DataFrame(
+                                    {
+                                        's': [__edge_t[0]],
+                                        'r': [__edge_t[1]],
+                                        't': [__edge_t[2]],
+                                        'edges': [
+                                            edges if isinstance(edges, HomogeneousEdgesContainer)
+                                            else HomogeneousEdgesContainerImplementation(edges)
+                                        ]
+                                    }
+                                )
+                            ]
                         )
                     )
-                )
             elif len(
                     self.__heterogeneous_edges_data_frame.loc[
                         (self.__heterogeneous_edges_data_frame['s'] == __edge_t[0]) &
