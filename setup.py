@@ -55,6 +55,7 @@ setup(
         'scipy',
         'tabulate',
         'tqdm',
-        'nni==2.8'
+        'nni==2.8',
+        "pandas >= 1.4.0, <= 2.2.1",
     ]
 )
