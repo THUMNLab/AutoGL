@@ -2,11 +2,11 @@
 
 An autoML framework & toolkit for machine learning on graphs.
 
-Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a> or contact us at <a href="mailto:autogl@tsinghua.edu.cn">autogl@tsinghua.edu.cn</a> if you have any comments or suggestions!
+Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a> or contact us at <a href="mailto:autogl@tsinghua">autogl@tsinghua</a> if you have any comments or suggestions!
 
 <!--
  [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-% [![Documentation Status](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/?badge=latest)-->
+% [![Documentation Status](http://mn.cs.tsinghua/autogl/documentation/?badge=latest)](http://mn.cs.tsinghua/autogl/documentation/?badge=latest)-->
 
 ## News!
 - 2023.10.29 New version! v0.4.1 is here!
@@ -14,14 +14,14 @@ Feel free to open <a href="https://github.com/THUMNLab/AutoGL/issues">issues</a>
     - We have developed an extended library: [AutoGL-light](https://github.com/THUMNLab/AutoGL-light), which is a lightweight version of AutoGL. Users can customize their own AutoML pipeline for graphs more easily!
     - Minor bugs fixed.
 - 2022.12.30 New version! v0.4.0-pre is here!
-    - We have supported the graph __robustness__ algorithms in AutoGL, including graph structure engineering, robust GNNs and robust GraphNAS. See [robustness tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_robust.html) for more details.
-    - We have supported graph __self-supervised learning__! See [self-supervised learning tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_ssl_trainer.html) for more details.
+    - We have supported the graph __robustness__ algorithms in AutoGL, including graph structure engineering, robust GNNs and robust GraphNAS. See [robustness tutorial](http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_robust.html) for more details.
+    - We have supported graph __self-supervised learning__! See [self-supervised learning tutorial](http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_ssl_trainer.html) for more details.
 - 2021.12.31 Version v0.3.0-pre is released
     - Support [__Deep Graph Library (DGL)__](https://www.dgl.ai/) backend including homogeneous node classification, link prediction, and graph classification tasks. AutoGL is also compatible with PyG 2.0 now.
-    - Support __heterogeneous__ node classification! See [hetero tutorial](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html) .
+    - Support __heterogeneous__ node classification! See [hetero tutorial](http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_hetero_node_clf.html) .
     - The module `model` now supports __decoupled__ to two additional sub-modules named `encoder` and `decoder`. Under the __decoupled__ design, one `encoder` can be used to solve all kinds of tasks.
-    - Enrich [NAS algorithms](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) such as [AutoAttend](https://proceedings.mlr.press/v139/guan21a.html), [GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html), [hardware-aware algorithm](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware), etc. 
-- 2021.07.11 Version 0.2.0-pre is released, which supports [neural architecture search (NAS)](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_nas.html) to customize architectures, [sampling](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling) to perform tasks on large datasets, and link prediction. 
+    - Enrich [NAS algorithms](http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_nas.html) such as [AutoAttend](https://proceedings.mlr.press/v139/guan21a.html), [GASSO](https://proceedings.neurips.cc/paper/2021/hash/8c9f32e03aeb2e3000825c8c875c4edd-Abstract.html), [hardware-aware algorithm](http://mn.cs.tsinghua/autogl/documentation/docfile/documentation/nas.html#autogl.module.nas.estimator.OneShotEstimator_HardwareAware), etc. 
+- 2021.07.11 Version 0.2.0-pre is released, which supports [neural architecture search (NAS)](http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_nas.html) to customize architectures, [sampling](http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_trainer.html#node-classification-with-sampling) to perform tasks on large datasets, and link prediction. 
 
 ## Introduction
 
@@ -49,7 +49,7 @@ Currently, the following algorithms are supported in AutoGL:
     </tr>
     <tr valign="top">
         <!--<td><b>Generators</b><br>graphlet <br> eigen <br> pagerank <br> PYGLocalDegreeProfile <br> PYGNormalizeFeatures <br> PYGOneHotDegree <br> onehot <br> <br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Subgraph</b><br> NxLargeCliqueSize<br> NxAverageClusteringApproximate<br> NxDegreeAssortativityCoefficient<br> NxDegreePearsonCorrelationCoefficient<br> NxHasBridge <br>NxGraphCliqueNumber<br> NxGraphNumberOfCliques<br> NxTransitivity<br> NxAverageClustering<br> NxIsConnected<br> NxNumberConnectedComponents<br> NxIsDistanceRegular<br> NxLocalEfficiency<br> NxGlobalEfficiency<br> NxIsEulerian </td>-->
-        <td><b>Generators</b><br>Graphlets <br> EigenGNN <br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Graph</b><br> netlsd<br> NxAverageClustering<br> <a href="http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_fe.html">more ...</a></td>
+        <td><b>Generators</b><br>Graphlets <br> EigenGNN <br> <a href="http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_fe.html">more ...</a><br><br><b>Selectors</b><br> SeFilterConstant<br> gbdt <br> <br><b>Graph</b><br> netlsd<br> NxAverageClustering<br> <a href="http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_fe.html">more ...</a></td>
         <td><b>Homo Encoders</b><br> GCNEncoder <br> GATEncoder <br> SAGEEncoder <br> GINEncoder <br> <br><b>Decoders</b><br>LogSoftmaxDecoder <br> DotProductDecoder <br> SumPoolMLPDecoder <br> JKSumPoolDecoder </td>
         <td>
         <b>Algorithms</b><br>
@@ -57,12 +57,12 @@ Currently, the following algorithms are supported in AutoGL:
         RL<br>
         Evolution<br>
         GASSO<br>
-        <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
+        <a href='http://mn.cs.tsinghua/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
         <b>Spaces</b><br>
         SinglePath<br>
         GraphNas<br>
         AutoAttend<br>
-        <a href='http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
+        <a href='http://mn.cs.tsinghua/autogl/documentation/docfile/documentation/nas.html'>more ...</a><br><br>
         <b>Estimators</b><br>
         Oneshot<br>
         Scratch<br>
@@ -89,7 +89,7 @@ Please make sure you meet the following requirements before installing AutoGL.
 
 3. Graph Library Backend
 
-    You will need either PyTorch Geometric (PyG) or Deep Graph Library (DGL) as the backend. You can select a backend following [here](http://mn.cs.tsinghua.edu.cn/autogl/documentation/docfile/tutorial/t_backend.html) if you install both.
+    You will need either PyTorch Geometric (PyG) or Deep Graph Library (DGL) as the backend. You can select a backend following [here](http://mn.cs.tsinghua/autogl/documentation/docfile/tutorial/t_backend.html) if you install both.
 
     3.1 PyTorch Geometric (>=1.7.0)
 
